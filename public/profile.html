@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Account – Deals to Meals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-dark: #2D5016; --green-mid: #4CAF50; --green-light: #F0FAF0;
+      --orange: #E65100; --orange-light: #FFF3E0;
+      --cream: #FFFBF0; --sand: #E8D5B0; --text: #1a1a1a; --muted: #6B6B6B;
+      --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, var(--cream) 0%, #F0FAF0 50%, #FFF8F0 100%); color: var(--text); min-height: 100vh; }
+
+    header { background: rgba(255,255,255,0.88); backdrop-filter: blur(12px); border-bottom: 2px solid var(--sand); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo span { font-size: 26px; }
+    .logo h1 { font-family: 'Lora', serif; font-size: 18px; color: var(--green-dark); }
+    .header-right { margin-left: auto; }
+    .back-home { padding: 8px 16px; background: var(--green-light); color: var(--green-dark); border: 2px solid var(--green-mid); border-radius: 20px; font-size: 13px; font-weight: 700; text-decoration: none; transition: all 0.2s; }
+    .back-home:hover { background: var(--green-mid); color: white; }
+
+    main { max-width: 680px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    .auth-card { background: white; border: 2px solid var(--sand); border-radius: 24px; padding: 40px; max-width: 440px; margin: 40px auto; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
+    .auth-logo  { text-align: center; font-size: 52px; margin-bottom: 12px; }
+    .auth-title { font-family: 'Lora', serif; font-size: 26px; text-align: center; color: var(--green-dark); margin-bottom: 6px; }
+    .auth-sub   { font-family: 'Lora', serif; font-style: italic; text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .auth-tabs  { display: flex; background: #F5F0E8; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+    .auth-tab   { flex: 1; padding: 9px; text-align: center; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--muted); }
+    .auth-tab.active { background: white; color: var(--green-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+    .google-btn { width: 100%; padding: 13px; background: white; border: 2px solid var(--sand); border-radius: 12px; font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; margin-bottom: 16px; }
+    .google-btn:hover { border-color: #aaa; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+
+    .divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+    .divider hr { flex: 1; border: none; border-top: 1px solid var(--sand); }
+    .divider span { font-size: 12px; color: #BBB; font-weight: 600; }
+
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .field input { width: 100%; padding: 12px 14px; border: 2px solid #D0C5A0; border-radius: 12px; font-size: 15px; font-family: 'DM Sans', sans-serif; outline: none; background: var(--cream); transition: border-color 0.2s; }
+    .field input:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px rgba(76,175,80,0.15); }
+
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s; }
+    .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+    .btn-primary { background: var(--green-dark); color: white; }
+
+    .auth-error   { background: #FFEBEE; border: 1px solid #FFCDD2; border-radius: 10px; padding: 12px; font-size: 13px; color: var(--red); margin-bottom: 16px; display: none; }
+    .auth-success { background: var(--green-light); border: 1px solid #A5D6A7; border-radius: 10px; padding: 12px; font-size: 13px; color: var(--green-dark); margin-bottom: 16px; display: none; }
+
+    .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+    .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--green-dark); display: flex; align-items: center; justify-content: center; font-size: 26px; color: white; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-name  { font-family: 'Lora', serif; font-size: 22px; color: var(--green-dark); }
+    .profile-email { font-size: 14px; color: var(--muted); margin-top: 2px; }
+    .sign-out-btn  { margin-left: auto; padding: 8px 16px; background: transparent; border: 2px solid #EEE; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; color: #888; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+    .sign-out-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .section { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 22px; margin-bottom: 16px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .section-title { font-family: 'Lora', serif; font-size: 17px; color: var(--green-dark); }
+    .section-save  { padding: 7px 16px; background: var(--green-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .section-save:hover { filter: brightness(1.1); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; padding: 11px 13px; border: 2px solid #D0C5A0; border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; background: var(--cream); transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--green-mid); }
+
+    .chips-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { padding: 7px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .chip:hover { border-color: var(--green-mid); }
+    .chip.selected { background: var(--green-dark); border-color: var(--green-dark); color: white; }
+
+    .store-connection { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #F5EFE0; }
+    .store-connection:last-child { border-bottom: none; padding-bottom: 0; }
+    .store-logo { width: 44px; height: 44px; border-radius: 10px; background: #F5F5F5; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .store-info h3 { font-size: 15px; font-weight: 700; }
+    .store-info p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .store-status  { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .connected-badge   { font-size: 12px; font-weight: 700; color: var(--green-dark); background: var(--green-light); border: 1px solid #A5D6A7; padding: 4px 10px; border-radius: 6px; }
+    .coming-soon-badge { font-size: 12px; font-weight: 700; color: #999; background: #F5F5F5; border: 1px solid #E0E0E0; padding: 4px 10px; border-radius: 6px; }
+    .connect-store-btn { padding: 7px 14px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .connect-store-btn.connect { background: var(--blue); color: white; }
+    .connect-store-btn.connect:hover { background: #1976D2; }
+    .connect-store-btn.disconnect { background: transparent; border: 2px solid #EEE; color: #999; font-size: 12px; }
+    .connect-store-btn.disconnect:hover { border-color: var(--red); color: var(--red); }
+
+    .recipe-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F5EFE0; }
+    .recipe-item:last-child { border-bottom: none; }
+    .recipe-emoji-sm { font-size: 28px; }
+    .recipe-item-info h3 { font-size: 14px; font-weight: 700; }
+    .recipe-item-info p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .recipe-item-actions { margin-left: auto; }
+    .icon-btn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.2s; }
+    .icon-btn.delete { background: #FFEBEE; color: var(--red); }
+    .icon-btn.delete:hover { background: var(--red); color: white; }
+    .empty-state { text-align: center; padding: 24px; color: var(--muted); font-style: italic; font-size: 14px; }
+
+    .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 300; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
+    .toast.show { display: block; animation: fadeUp 0.3s ease; }
+    .toast.error   { background: var(--red); color: white; }
+    .toast.success { background: var(--green-dark); color: white; }
+    @keyframes fadeUp { from { opacity:0; transform: translate(-50%,10px); } to { opacity:1; transform: translate(-50%,0); } }
+
+    .spinner-wrap { display: flex; justify-content: center; padding: 40px; }
+    .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/"><span>🥦</span><h1>Deals to Meals</h1></a>
+  <div class="header-right"><a class="back-home" href="/">← Back to App</a></div>
+</header>
+
+<div class="toast" id="toast"></div>
+<main id="main"><div class="spinner-wrap"><div class="spinner"></div></div></main>
+
+<script>
+// ── Config — replace these with your actual Supabase values ──────────────────
+const SUPABASE_URL      = "REPLACE_WITH_YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: "implicit",
+  }
+});
+
+const DIETARY_OPTIONS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Paleo","Nut-Free","Halal","Kosher"];
+const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];
+const STORES = [
+  { id:"kroger",  name:"Kroger",  emoji:"🏪", desc:"Kroger, Ralphs, Fred Meyer, King Soopers & more", available:true },
+  { id:"publix",  name:"Publix",  emoji:"🛒", desc:"Coming soon", available:false },
+  { id:"walmart", name:"Walmart", emoji:"🔵", desc:"Coming soon", available:false },
+  { id:"aldi",    name:"Aldi",    emoji:"🏬", desc:"Coming soon", available:false },
+];
+
+let currentUser  = null;
+let userProfile  = null;
+let savedRecipes = [];
+let activeTab    = "signin";
+
+function showToast(msg, type="success") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove("show"), 4000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
+  if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
+  window.history.replaceState({}, "", "/profile.html");
+
+  // Listen for auth state changes — this fires reliably after OAuth redirect
+  sb.auth.onAuthStateChange(async (event, session) => {
+    console.log("Auth event:", event);
+    if (event === "SIGNED_IN" && session?.user) {
+      currentUser = session.user;
+      await loadProfileData();
+      renderProfile();
+    } else if (event === "SIGNED_OUT") {
+      currentUser = null; userProfile = null; savedRecipes = [];
+      renderAuth();
+    } else if (event === "INITIAL_SESSION") {
+      if (session?.user) {
+        currentUser = session.user;
+        await loadProfileData();
+        renderProfile();
+      } else {
+        renderAuth();
+      }
+    }
+  });
+});
+
+async function loadProfileData() {
+  try {
+    const token = (await sb.auth.getSession()).data.session?.access_token;
+    const [profileRes, recipesRes] = await Promise.all([
+      fetch("/api/profile",        { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/recipes/saved",  { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    if (profileRes.ok)  userProfile  = await profileRes.json();
+    if (recipesRes.ok)  { const d = await recipesRes.json(); savedRecipes = d.recipes || []; }
+  } catch (err) { console.error("loadProfileData error:", err); }
+}
+
+// ── Auth UI ───────────────────────────────────────────────────────────────────
+function renderAuth() {
+  document.getElementById("main").innerHTML = `
+    <div class="auth-card">
+      <div class="auth-logo">🥦</div>
+      <h2 class="auth-title">Welcome to Deals to Meals</h2>
+      <p class="auth-sub">Sign in to unlock personalized recipes, digital coupons & more</p>
+      <div class="auth-tabs">
+        <div class="auth-tab ${activeTab==="signin"?"active":""}"  onclick="switchTab('signin')">Sign In</div>
+        <div class="auth-tab ${activeTab==="signup"?"active":""}" onclick="switchTab('signup')">Create Account</div>
+      </div>
+      <div class="auth-error"   id="authError"></div>
+      <div class="auth-success" id="authSuccess"></div>
+      <button class="google-btn" onclick="signInWithGoogle()">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <div class="divider"><hr/><span>or</span><hr/></div>
+      ${activeTab === "signin" ? `
+        <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com" /></div>
+        <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" /></div>
+        <button class="btn btn-primary" onclick="signInWithEmail()">Sign In</button>
+      ` : `
+        <div class="field"><label>Full Name</label><input type="text" id="authName" placeholder="Your name" /></div>
+        <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com" /></div>
+        <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="At least 6 characters" /></div>
+        <button class="btn btn-primary" onclick="signUpWithEmail()">Create Account</button>
+      `}
+    </div>
+  `;
+}
+
+function switchTab(tab) { activeTab = tab; renderAuth(); }
+
+async function signInWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: "https://deals-to-meals.onrender.com/profile.html",
+    },
+  });
+  if (error) showAuthError(error.message);
+}
+
+async function signInWithEmail() {
+  const email    = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  if (!email || !password) return showAuthError("Please fill in all fields");
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) showAuthError(error.message);
+}
+
+async function signUpWithEmail() {
+  const name     = document.getElementById("authName")?.value || "";
+  const email    = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  if (!email || !password) return showAuthError("Please fill in all fields");
+  if (password.length < 6) return showAuthError("Password must be at least 6 characters");
+  const { error } = await sb.auth.signUp({
+    email, password,
+    options: {
+      data: { full_name: name },
+      emailRedirectTo: "https://deals-to-meals.onrender.com/profile.html",
+    },
+  });
+  if (error) showAuthError(error.message);
+  else showAuthSuccessMsg("✅ Check your email to confirm your account!");
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById("authError");
+  el.textContent = msg; el.style.display = "block";
+  setTimeout(() => el.style.display = "none", 5000);
+}
+function showAuthSuccessMsg(msg) {
+  const el = document.getElementById("authSuccess");
+  el.textContent = msg; el.style.display = "block";
+}
+
+// ── Profile UI ────────────────────────────────────────────────────────────────
+function renderProfile() {
+  const p        = userProfile || {};
+  const initials = ((p.full_name || currentUser.email || "?")[0]).toUpperCase();
+  const dietaryPrefs = p.dietary_preferences   || [];
+  const favTypes     = p.favorite_recipe_types || [];
+
+  document.getElementById("main").innerHTML = `
+    <div class="profile-header">
+      <div class="profile-avatar">
+        ${p.avatar_url ? `<img src="${p.avatar_url}" alt="avatar" />` : initials}
+      </div>
+      <div>
+        <div class="profile-name">${p.full_name || "My Account"}</div>
+        <div class="profile-email">${currentUser.email}</div>
+      </div>
+      <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
+    </div>
+
+    <!-- Grocery Store Accounts -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🏪 Grocery Store Accounts</div>
+      </div>
+      ${STORES.map(store => `
+        <div class="store-connection">
+          <div class="store-logo">${store.emoji}</div>
+          <div class="store-info">
+            <h3>${store.name}</h3>
+            <p>${store.available
+              ? (p.kroger_connected && store.id==="kroger"
+                  ? "Connected — digital coupons & cart active"
+                  : store.desc)
+              : store.desc}</p>
+          </div>
+          <div class="store-status">
+            ${store.available
+              ? (p.kroger_connected && store.id==="kroger"
+                  ? `<span class="connected-badge">✓ Connected</span>
+                     <button class="connect-store-btn disconnect" onclick="disconnectKroger()">Disconnect</button>`
+                  : `<button class="connect-store-btn connect" onclick="connectKroger()">Connect</button>`)
+              : `<span class="coming-soon-badge">Coming Soon</span>`}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- Personal Info -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">👤 Personal Info</div>
+        <button class="section-save" onclick="savePersonalInfo()">Save</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="fullName" value="${p.full_name||""}" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label>Household Size</label>
+          <select id="householdSize">
+            ${[1,2,3,4,5,6,7,8].map(n =>
+              `<option value="${n}" ${(p.household_size||2)==n?"selected":""}>${n} ${n===1?"person":"people"}</option>`
+            ).join("")}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Preferred Grocery Store</label>
+        <select id="preferredStore">
+          <option value="">No preference</option>
+          ${STORES.filter(s=>s.available).map(s =>
+            `<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`
+          ).join("")}
+        </select>
+      </div>
+    </div>
+
+    <!-- Dietary Preferences -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🥗 Dietary Preferences</div>
+        <button class="section-save" onclick="saveDietary()">Save</button>
+      </div>
+      <div class="chips-group" id="dietaryChips">
+        ${DIETARY_OPTIONS.map(d =>
+          `<div class="chip ${dietaryPrefs.includes(d)?"selected":""}" onclick="toggleChip(this)">${d}</div>`
+        ).join("")}
+      </div>
+    </div>
+
+    <!-- Favorite Recipe Types -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🍽️ Favorite Recipe Types</div>
+        <button class="section-save" onclick="saveFavoriteTypes()">Save</button>
+      </div>
+      <div class="chips-group" id="recipeTypeChips">
+        ${RECIPE_TYPES.map(t =>
+          `<div class="chip ${favTypes.includes(t)?"selected":""}" onclick="toggleChip(this)">${t}</div>`
+        ).join("")}
+      </div>
+    </div>
+
+    <!-- Saved Recipes -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">❤️ Saved Recipes</div>
+      </div>
+      ${savedRecipes.length === 0
+        ? `<div class="empty-state">No saved recipes yet — generate some and save your favorites!</div>`
+        : savedRecipes.map(r => `
+          <div class="recipe-item" id="recipe-${r.id}">
+            <span class="recipe-emoji-sm">${r.emoji||"🍽️"}</span>
+            <div class="recipe-item-info">
+              <h3>${r.title}</h3>
+              <p>${r.time||""} · ${r.servings||"?"} servings · ${r.store_name||""}</p>
+            </div>
+            <div class="recipe-item-actions">
+              <button class="icon-btn delete" onclick="deleteRecipe('${r.id}')">🗑️</button>
+            </div>
+          </div>
+        `).join("")}
+    </div>
+  `;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function toggleChip(el) { el.classList.toggle("selected"); }
+
+async function getToken() {
+  return (await sb.auth.getSession()).data.session?.access_token;
+}
+
+async function savePersonalInfo() {
+  const token = await getToken();
+  const res = await fetch("/api/profile", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      full_name:       document.getElementById("fullName").value,
+      household_size:  parseInt(document.getElementById("householdSize").value),
+      preferred_store: document.getElementById("preferredStore").value,
+    }),
+  });
+  if (res.ok) { userProfile = await res.json(); showToast("✅ Personal info saved!"); }
+  else showToast("Could not save", "error");
+}
+
+async function saveDietary() {
+  const token    = await getToken();
+  const selected = [...document.querySelectorAll("#dietaryChips .chip.selected")].map(c => c.textContent);
+  const res = await fetch("/api/profile", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ dietary_preferences: selected }),
+  });
+  if (res.ok) { userProfile = await res.json(); showToast("✅ Dietary preferences saved!"); }
+  else showToast("Could not save", "error");
+}
+
+async function saveFavoriteTypes() {
+  const token    = await getToken();
+  const selected = [...document.querySelectorAll("#recipeTypeChips .chip.selected")].map(c => c.textContent);
+  const res = await fetch("/api/profile", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ favorite_recipe_types: selected }),
+  });
+  if (res.ok) { userProfile = await res.json(); showToast("✅ Recipe preferences saved!"); }
+  else showToast("Could not save", "error");
+}
+
+async function deleteRecipe(id) {
+  const token = await getToken();
+  const res = await fetch(`/api/recipes/saved/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.ok) {
+    savedRecipes = savedRecipes.filter(r => r.id !== id);
+    document.getElementById(`recipe-${id}`)?.remove();
+    showToast("Recipe removed");
+  } else showToast("Could not delete", "error");
+}
+
+function connectKroger() {
+  window.location.href = `/auth/kroger?userId=${currentUser.id}`;
+}
+
+async function disconnectKroger() {
+  const token = await getToken();
+  await fetch("/auth/kroger/disconnect", { headers: { Authorization: `Bearer ${token}` } });
+  await loadProfileData();
+  renderProfile();
+  showToast("Kroger account disconnected");
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  renderAuth();
+}
+</script>
+</body>
+</html>

@@ -187,7 +187,11 @@ window.addEventListener("load", async () => {
 
   window.history.replaceState({}, "", "/profile.html");
 
-  const { data: { session } } = await sb.auth.getSession();
+   const { data: { session }, error } = await sb.auth.getSession();
+  console.log("Session:", session);
+  console.log("Error:", error);
+  console.log("Hash:", window.location.hash);
+  console.log("Search:", window.location.search);
   if (session?.user) {
     currentUser = session.user;
     await loadProfileData();

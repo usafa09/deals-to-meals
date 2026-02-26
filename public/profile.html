@@ -150,6 +150,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
+    flowType: "implicit",
   }
 });
 
@@ -285,7 +286,10 @@ function switchTab(tab) { activeTab = tab; renderAuth(); }
 async function signInWithGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${window.location.origin}/profile.html` },
+    options: {
+      redirectTo: `${window.location.origin}/profile.html`,
+      queryParams: { access_type: "offline", prompt: "consent" },
+    },
   });
   if (error) showAuthError(error.message);
 }

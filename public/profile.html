@@ -145,7 +145,13 @@
 const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "Rsb_publishable_6eH_QSwVUKVwaQUeyNIMUg_9jNzHfSa";
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
 
 const DIETARY_OPTIONS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Paleo","Nut-Free","Halal","Kosher"];
 const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];
@@ -187,11 +193,11 @@ window.addEventListener("load", async () => {
 
   window.history.replaceState({}, "", "/profile.html");
 
-   const { data: { session }, error } = await sb.auth.getSession();
+  // Wait for Supabase to finish detecting session from URL
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  const { data: { session }, error } = await sb.auth.getSession();
   console.log("Session:", session);
   console.log("Error:", error);
-  console.log("Hash:", window.location.hash);
-  console.log("Search:", window.location.search);
   if (session?.user) {
     currentUser = session.user;
     await loadProfileData();

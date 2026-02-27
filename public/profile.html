@@ -161,23 +161,30 @@ function showToast(msg, type="success") {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
   window.history.replaceState({}, "", "/profile.html");
 
-  // Listen for auth state changes — this fires reliably after OAuth redirect
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log("Auth event:", event);
-    if (event === "SIGNED_IN" && session?.user) {
+    if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
       currentUser = session.user;
       await loadProfileData();
       renderProfile();
+    } else if (event === "INITIAL_SESSION" && !session) {
+      renderAuth();
     } else if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
-    } else if (event === "INITIAL_SESSION") {
+    }
+  });
+
+  // Fallback: if spinner still showing after 3 seconds, check session manually
+  setTimeout(async () => {
+    if (document.querySelector(".spinner-wrap")) {
+      const { data: { session } } = await sb.auth.getSession();
       if (session?.user) {
         currentUser = session.user;
         await loadProfileData();
@@ -186,7 +193,7 @@ window.addEventListener("load", () => {
         renderAuth();
       }
     }
-  });
+  }, 3000);
 });
 
 async function loadProfileData() {

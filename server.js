@@ -71,7 +71,7 @@ async function refreshKrogerToken(refreshToken) {
 
 app.get("/auth/kroger", (req, res) => {
   const { userId } = req.query;
-  const scope = encodeURIComponent("openid profile email cart.basic:write product.compact");
+const scope = encodeURIComponent("cart.basic:write product.compact");
   const state = userId || "anonymous";
   const url = `${KROGER_AUTH_URL}?client_id=${process.env.KROGER_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scope}&state=${state}`;
   res.redirect(url);

@@ -137,6 +137,8 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     flowType: "implicit",
+    storage: window.localStorage,
+    storageKey: "dtm-auth-token",
   }
 });
 

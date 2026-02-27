@@ -167,33 +167,33 @@ window.addEventListener("load", async () => {
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
   window.history.replaceState({}, "", "/profile.html");
 
+  // Try up to 5 times to get the session, waiting 500ms between each try
+  let session = null;
+  for (let i = 0; i < 5; i++) {
+    const { data } = await sb.auth.getSession();
+    if (data.session?.user) { session = data.session; break; }
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  if (session?.user) {
+    currentUser = session.user;
+    await loadProfileData();
+    renderProfile();
+  } else {
+    renderAuth();
+  }
+
+  // Still listen for sign in/out events
   sb.auth.onAuthStateChange(async (event, session) => {
-    console.log("Auth event:", event);
-    if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+    if (event === "SIGNED_IN" && session?.user) {
       currentUser = session.user;
       await loadProfileData();
       renderProfile();
-    } else if (event === "INITIAL_SESSION" && !session) {
-      renderAuth();
     } else if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
     }
   });
-
-  // Fallback: if spinner still showing after 3 seconds, check session manually
-  setTimeout(async () => {
-    if (document.querySelector(".spinner-wrap")) {
-      const { data: { session } } = await sb.auth.getSession();
-      if (session?.user) {
-        currentUser = session.user;
-        await loadProfileData();
-        renderProfile();
-      } else {
-        renderAuth();
-      }
-    }
-  }, 3000);
 });
 
 async function loadProfileData() {

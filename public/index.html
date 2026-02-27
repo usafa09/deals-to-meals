@@ -247,7 +247,13 @@ const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_ANON_KEY";
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { detectSessionInUrl: false, persistSession: true }
+  auth: {
+    detectSessionInUrl: false,
+    persistSession: true,
+    autoRefreshToken: true,
+    storage: window.localStorage,
+    storageKey: "dtm-auth-token",
+  }
 });
 
 // Check if user is logged in and update header button

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deals to Meals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-dark: #2D5016; --green-mid: #4CAF50; --green-light: #F0FAF0;
+      --orange: #E65100; --orange-light: #FFF3E0;
+      --cream: #FFFBF0; --sand: #E8D5B0; --text: #1a1a1a; --muted: #6B6B6B;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, var(--cream) 0%, #F0FAF0 50%, #FFF8F0 100%); color: var(--text); min-height: 100vh; }
+
+    header { background: rgba(255,255,255,0.88); backdrop-filter: blur(12px); border-bottom: 2px solid var(--sand); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo-mark { font-size: 28px; }
+    .logo-text h1 { font-family: 'Lora', serif; font-size: 19px; color: var(--green-dark); line-height: 1; }
+    .logo-text p  { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 1px; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .progress-bar { display: flex; gap: 5px; align-items: center; }
+    .pip { height: 8px; border-radius: 4px; background: #D5D5D5; transition: all 0.35s ease; }
+
+    /* Profile button */
+    .profile-btn {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 14px; border-radius: 20px;
+      font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all 0.2s; text-decoration: none;
+      border: 2px solid var(--green-mid); background: var(--green-light); color: var(--green-dark);
+    }
+    .profile-btn:hover { background: var(--green-mid); color: white; }
+    .profile-btn.logged-in { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+    .profile-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--green-mid); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; }
+
+    main { max-width: 680px; margin: 0 auto; padding: 32px 20px 100px; }
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeUp 0.4s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
+    .back:hover { color: var(--green-dark); }
+    .screen-title { font-family: 'Lora', serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
+    .screen-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 15px; color: var(--muted); margin-bottom: 22px; }
+
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
+    .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn:disabled { background: #C5C5C5 !important; cursor: not-allowed; transform: none !important; filter: none !important; }
+    .btn-primary  { background: var(--green-dark); color: white; }
+    .btn-gradient { background: linear-gradient(135deg, var(--green-dark), var(--green-mid)); color: white; }
+    .btn-outline  { background: transparent; color: var(--green-dark); border: 2px solid var(--green-dark); }
+
+    .card { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
+    .card.clickable { cursor: pointer; }
+    .card.clickable:hover { border-color: var(--green-mid); transform: translateY(-1px); }
+    .card.selected  { border-color: var(--green-mid); background: var(--green-light); }
+
+    /* Screen 1 */
+    .hero-emoji { font-size: 72px; display: block; text-align: center; margin-bottom: 14px; }
+    .hero-title { font-family: 'Lora', serif; font-size: 32px; text-align: center; color: var(--green-dark); margin-bottom: 8px; line-height: 1.2; }
+    .hero-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 16px; color: var(--muted); text-align: center; margin-bottom: 36px; }
+    .zip-box { background: white; border: 2px solid var(--sand); border-radius: 20px; padding: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+    .zip-label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .zip-row { display: flex; gap: 10px; }
+    #zipInput { flex: 1; padding: 13px 16px; font-size: 22px; border: 2px solid #D0C5A0; border-radius: 12px; outline: none; font-family: 'Lora', serif; letter-spacing: 5px; text-align: center; background: var(--cream); transition: border-color 0.2s; }
+    #zipInput:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px rgba(76,175,80,0.15); }
+    .zip-hint { margin-top: 10px; font-size: 12px; color: #AAA; text-align: center; font-style: italic; }
+    .feature-row { display: flex; gap: 12px; margin-top: 28px; }
+    .feature-chip { flex: 1; background: rgba(255,255,255,0.75); border: 1px solid var(--sand); border-radius: 12px; padding: 14px 6px; text-align: center; }
+    .feature-chip .f-icon  { font-size: 22px; margin-bottom: 5px; }
+    .feature-chip .f-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+    /* Screen 2 */
+    .store-row { display: flex; align-items: center; gap: 14px; }
+    .store-icon { font-size: 30px; flex-shrink: 0; }
+    .store-name { font-weight: 700; font-size: 17px; }
+    .store-addr { font-size: 13px; color: #888; margin-top: 2px; }
+    .store-check { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; background: #E0D8C8; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
+    .card.selected .store-check { background: var(--green-mid); }
+
+    /* Screen 3 */
+    .deals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 320px; overflow-y: auto; padding: 2px; margin-bottom: 28px; }
+    .deal-tile { background: white; border: 1px solid var(--sand); border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; }
+    .deal-thumb { width: 46px; height: 46px; border-radius: 8px; object-fit: cover; background: #F5F5F5; flex-shrink: 0; }
+    .deal-thumb-placeholder { width: 46px; height: 46px; border-radius: 8px; background: #F5F5F5; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .deal-name   { font-size: 12px; font-weight: 700; line-height: 1.3; margin-bottom: 3px; }
+    .deal-brand  { font-size: 11px; color: #BBB; margin-bottom: 4px; }
+    .deal-prices { display: flex; align-items: baseline; gap: 5px; }
+    .deal-sale   { color: var(--orange); font-weight: 800; font-size: 14px; }
+    .deal-reg    { color: #CCC; font-size: 11px; text-decoration: line-through; }
+    .deal-pct    { font-size: 10px; background: var(--green-light); color: #2E7D32; padding: 1px 5px; border-radius: 4px; font-weight: 700; display: inline-block; margin-top: 3px; }
+    .section-title { font-family: 'Lora', serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; }
+    .type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 22px; }
+    .type-card { background: white; border: 2px solid var(--sand); border-radius: 14px; padding: 14px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .type-card:hover { border-color: var(--green-mid); }
+    .type-card.selected { background: var(--green-dark); border-color: var(--green-dark); color: white; }
+    .type-icon  { font-size: 24px; margin-bottom: 5px; }
+    .type-label { font-size: 13px; font-weight: 700; }
+    .type-desc  { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
+    /* Screen 4 */
+    .recipes-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+    .savings-pill { background: var(--orange-light); border: 1px solid #FFB74D; border-radius: 12px; padding: 7px 14px; text-align: right; }
+    .savings-label  { font-size: 11px; color: var(--orange); font-weight: 700; text-transform: uppercase; }
+    .savings-amount { font-size: 20px; font-weight: 800; color: var(--orange); }
+    .recipe-card { overflow: hidden; margin-bottom: 14px; }
+    .recipe-header-row { padding: 18px 20px; cursor: pointer; display: flex; gap: 14px; align-items: center; }
+    .recipe-emoji { font-size: 44px; flex-shrink: 0; }
+    .recipe-title { font-family: 'Lora', serif; font-size: 19px; margin-bottom: 4px; }
+    .recipe-meta  { display: flex; gap: 10px; font-size: 13px; color: #666; flex-wrap: wrap; }
+    .recipe-chevron { margin-left: auto; font-size: 18px; color: #AAA; flex-shrink: 0; }
+    .recipe-ings { padding: 0 20px 14px; }
+    .ings-label  { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .ings-chips  { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ing-chip { background: var(--green-light); border: 1px solid #A5D6A7; border-radius: 8px; padding: 4px 10px; font-size: 12px; color: #2E7D32; font-weight: 600; }
+    .recipe-steps { padding: 14px 20px; border-top: 1px solid #F0E8D0; display: none; }
+    .recipe-steps.open { display: block; }
+    .step-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+    .step-num { min-width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; margin-top: 1px; }
+    .step-text { font-size: 14px; color: #444; line-height: 1.6; }
+    .recipe-actions { padding: 12px 20px 16px; display: flex; gap: 10px; border-top: 1px solid #F5EFE0; }
+    .btn-sm { flex: 1; padding: 10px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; border-radius: 10px; cursor: pointer; transition: all 0.15s; border: none; }
+    .btn-sm:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-sm-primary { background: var(--green-dark); color: white; }
+    .btn-sm-outline { background: transparent; border: 2px solid currentColor; }
+
+    /* Screen 5 */
+    .list-section { border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+    .list-section-title { font-weight: 700; font-size: 15px; margin-bottom: 14px; }
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-left  { display: flex; align-items: center; gap: 10px; }
+    .list-item-right { text-align: right; }
+    .list-sale { color: var(--orange); font-weight: 800; font-size: 15px; }
+    .list-reg  { font-size: 11px; color: #CCC; text-decoration: line-through; }
+    .list-total { background: var(--orange-light); border: 2px solid #FFB74D; border-radius: 16px; padding: 18px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+    /* Loading & Toast */
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.88); backdrop-filter: blur(6px); z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: 'Lora', serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
+    .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #D32F2F; color: white; padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 300; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .toast.show { display: block; animation: fadeUp 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo-mark">🥦</span>
+  <div class="logo-text">
+    <h1>Deals to Meals</h1>
+    <p>weekly sales → tonight's dinner</p>
+  </div>
+  <div class="header-right">
+    <div class="progress-bar" id="progressBar"></div>
+    <a href="/profile.html" class="profile-btn" id="profileBtn">
+      <span id="profileBtnIcon">👤</span>
+      <span id="profileBtnText">Sign In</span>
+    </a>
+  </div>
+</header>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Finding stores near you…</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<main>
+
+  <!-- SCREEN 1 -->
+  <div class="screen active" id="screen1">
+    <span class="hero-emoji">🛒</span>
+    <h2 class="hero-title">Turn this week's deals<br/>into tonight's dinner.</h2>
+    <p class="hero-sub">Enter your zip code to find real sale prices at your local Kroger-family stores.</p>
+    <div class="zip-box">
+      <label class="zip-label" for="zipInput">Your Zip Code</label>
+      <div class="zip-row">
+        <input id="zipInput" type="text" maxlength="5" placeholder="e.g. 30301" inputmode="numeric" />
+        <button class="btn btn-primary" id="zipBtn" style="width:auto;padding:13px 22px" disabled>Find Stores →</button>
+      </div>
+      <p class="zip-hint">Searches Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter & more</p>
+    </div>
+    <div class="feature-row">
+      <div class="feature-chip"><div class="f-icon">🏪</div><div class="f-label">Real stores</div></div>
+      <div class="feature-chip"><div class="f-icon">🏷️</div><div class="f-label">Live deals</div></div>
+      <div class="feature-chip"><div class="f-icon">🍽️</div><div class="f-label">AI recipes</div></div>
+      <div class="feature-chip"><div class="f-icon">📋</div><div class="f-label">Shopping list</div></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2 -->
+  <div class="screen" id="screen2">
+    <span class="back" onclick="goTo(1)">← Back</span>
+    <h2 class="screen-title" id="storesTitle">Stores near you</h2>
+    <p class="screen-sub">Select the stores you want deals from</p>
+    <div id="storesList"></div>
+    <button class="btn btn-primary" id="storesBtn" disabled onclick="loadDeals()">View Deals →</button>
+  </div>
+
+  <!-- SCREEN 3 -->
+  <div class="screen" id="screen3">
+    <span class="back" onclick="goTo(2)">← Back</span>
+    <h2 class="screen-title">This Week's Best Deals</h2>
+    <p class="screen-sub">Sale items that will become your recipes</p>
+    <div class="deals-grid" id="dealsGrid"></div>
+    <h3 class="section-title">What kind of recipes?</h3>
+    <div class="type-grid" id="typeGrid"></div>
+    <button class="btn btn-gradient" id="generateBtn" disabled onclick="generateRecipes()">✨ Generate My Recipes →</button>
+  </div>
+
+  <!-- SCREEN 4 -->
+  <div class="screen" id="screen4">
+    <span class="back" onclick="goTo(3)">← Back</span>
+    <div class="recipes-header">
+      <div>
+        <h2 class="screen-title">Your Recipes</h2>
+        <p class="screen-sub" id="recipesSubtitle"></p>
+      </div>
+      <div class="savings-pill">
+        <div class="savings-label">Total Savings</div>
+        <div class="savings-amount" id="totalSavings"></div>
+      </div>
+    </div>
+    <div id="recipesList"></div>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="goTo(1); resetApp()">🔄 Start Over</button>
+  </div>
+
+  <!-- SCREEN 5 -->
+  <div class="screen" id="screen5">
+    <span class="back" onclick="goTo(4)">← Back to Recipes</span>
+    <h2 class="screen-title">Shopping List</h2>
+    <p class="screen-sub" id="shoppingListSubtitle"></p>
+    <div id="shoppingListContent"></div>
+    <button class="btn btn-primary" onclick="goTo(4)">← Back to All Recipes</button>
+  </div>
+
+</main>
+
+<script>
+// ── Supabase config ───────────────────────────────────────────────────────────
+const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
+const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_ANON_KEY";
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { detectSessionInUrl: false, persistSession: true }
+});
+
+// Check if user is logged in and update header button
+async function checkAuth() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const btn  = document.getElementById("profileBtn");
+    const icon = document.getElementById("profileBtnIcon");
+    const text = document.getElementById("profileBtnText");
+    if (session?.user) {
+      const name = session.user.user_metadata?.full_name || session.user.email || "";
+      const initial = name[0].toUpperCase();
+      btn.classList.add("logged-in");
+      icon.innerHTML = `<div class="profile-avatar">${initial}</div>`;
+      text.textContent = session.user.user_metadata?.full_name?.split(" ")[0] || "My Account";
+    }
+  } catch (e) { /* not logged in, show default */ }
+}
+checkAuth();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = {
+  zip: "", stores: [], selectedStoreIds: [],
+  deals: [], coupons: [], boostDeals: [], selectedType: null, recipes: [], currentStep: 1,
+};
+
+const RECIPE_TYPES = [
+  { id: "quick",   label: "Quick & Easy",  icon: "⚡", desc: "Under 30 min" },
+  { id: "healthy", label: "Healthy",        icon: "🥗", desc: "Nutritious meals" },
+  { id: "comfort", label: "Comfort Food",   icon: "🍲", desc: "Hearty & satisfying" },
+  { id: "family",  label: "Family Style",   icon: "👨‍👩‍👧", desc: "Feeds a crowd" },
+  { id: "budget",  label: "Budget Max",     icon: "💰", desc: "Lowest cost" },
+  { id: "gourmet", label: "Gourmet",        icon: "👨‍🍳", desc: "Impress guests" },
+];
+
+const CATEGORY_EMOJI = { chicken:"🍗", beef:"🥩", pork:"🥓", seafood:"🐟", vegetables:"🥦", fruit:"🍎", pasta:"🍝", dairy:"🧀" };
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goTo(step) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(`screen${step}`).classList.add("active");
+  state.currentStep = step;
+  renderProgress(step);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderProgress(step) {
+  const bar = document.getElementById("progressBar");
+  bar.innerHTML = Array.from({ length: 4 }, (_, i) => {
+    const active = i < step;
+    return `<div class="pip" style="width:${active?24:8}px;background:${active?"#4CAF50":"#D5D5D5"}"></div>`;
+  }).join("");
+}
+
+function resetApp() {
+  state = { zip:"", stores:[], selectedStoreIds:[], deals:[], coupons:[], boostDeals:[], selectedType:null, recipes:[], currentStep:1 };
+  document.getElementById("zipInput").value = "";
+  document.getElementById("zipBtn").disabled = true;
+}
+
+// ── Loading & Toast ───────────────────────────────────────────────────────────
+function showLoading(text="Loading…") { document.getElementById("loadingText").textContent = text; document.getElementById("loadingOverlay").classList.add("show"); }
+function hideLoading() { document.getElementById("loadingOverlay").classList.remove("show"); }
+function showError(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 4000);
+}
+
+// ── Screen 1 ──────────────────────────────────────────────────────────────────
+document.getElementById("zipInput").addEventListener("input", function() {
+  this.value = this.value.replace(/\D/g,"").slice(0,5);
+  document.getElementById("zipBtn").disabled = this.value.length < 5;
+});
+document.getElementById("zipInput").addEventListener("keydown", e => { if (e.key==="Enter") document.getElementById("zipBtn").click(); });
+document.getElementById("zipBtn").addEventListener("click", findStores);
+
+async function findStores() {
+  const zip = document.getElementById("zipInput").value;
+  if (zip.length < 5) return;
+  state.zip = zip;
+  showLoading("Finding Kroger-family stores near you…");
+  try {
+    const res = await fetch(`/api/stores?zip=${zip}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load stores");
+    if (!data.stores.length) throw new Error("No Kroger-family stores found. Try a nearby zip.");
+    state.stores = data.stores;
+    renderStores();
+    goTo(2);
+  } catch (err) { showError(err.message); }
+  finally { hideLoading(); }
+}
+
+function renderStores() {
+  document.getElementById("storesTitle").textContent = `Kroger stores near ${state.zip}`;
+  document.getElementById("storesList").innerHTML = state.stores.map(store => `
+    <div class="card clickable" id="store-${store.id}" onclick="toggleStore('${store.id}')">
+      <div class="store-row">
+        <span class="store-icon">🏪</span>
+        <div>
+          <div class="store-name">${store.name}</div>
+          <div class="store-addr">${store.address}${store.hours?" · "+store.hours:""}</div>
+        </div>
+        <div class="store-check">✓</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleStore(id) {
+  const idx = state.selectedStoreIds.indexOf(id);
+  if (idx > -1) state.selectedStoreIds.splice(idx, 1);
+  else state.selectedStoreIds.push(id);
+  document.getElementById(`store-${id}`).classList.toggle("selected", state.selectedStoreIds.includes(id));
+  const n = state.selectedStoreIds.length;
+  const btn = document.getElementById("storesBtn");
+  btn.disabled = n === 0;
+  btn.textContent = n > 0 ? `View Deals from ${n} Store${n>1?"s":""} →` : "View Deals →";
+}
+
+// ── Screen 2 → 3 ─────────────────────────────────────────────────────────────
+async function loadDeals() {
+  showLoading("Pulling this week's sale prices…");
+  try {
+    // Fetch deals from all selected stores
+    const allDeals = [];
+    for (const storeId of state.selectedStoreIds) {
+      const res = await fetch(`/api/deals?locationId=${storeId}`);
+      const data = await res.json();
+      if (res.ok && data.deals) allDeals.push(...data.deals);
+    }
+    const map = new Map();
+    for (const d of allDeals) {
+      if (!map.has(d.id) || parseFloat(d.salePrice) < parseFloat(map.get(d.id).salePrice)) map.set(d.id, d);
+    }
+    state.deals = [...map.values()].sort((a,b) => b.pctOff - a.pctOff).slice(0, 200);
+    if (!state.deals.length) throw new Error("No sale items found right now. Try a different store.");
+
+    // Fetch all available coupons + Boost deals if logged in with Kroger connected
+    state.coupons = [];
+    state.boostDeals = [];
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) {
+        const couponRes = await fetch("/api/coupons", {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+        if (couponRes.ok) {
+          const couponData = await couponRes.json();
+          state.coupons = couponData.coupons || [];
+          state.boostDeals = couponData.boostDeals || [];
+        }
+      }
+    } catch (e) { /* coupons optional */ }
+
+    renderDeals();
+    renderTypeGrid();
+    goTo(3);
+  } catch (err) { showError(err.message); }
+  finally { hideLoading(); }
+}
+
+function renderDeals() {
+  document.getElementById("dealsGrid").innerHTML = state.deals.map(deal => `
+    <div class="deal-tile">
+      ${deal.image
+        ? `<img class="deal-thumb" src="${deal.image}" alt="${deal.name}" onerror="this.style.display='none'" />`
+        : `<div class="deal-thumb-placeholder">${CATEGORY_EMOJI[deal.category]||"🛒"}</div>`}
+      <div style="min-width:0">
+        <div class="deal-name">${deal.name}</div>
+        ${deal.brand?`<div class="deal-brand">${deal.brand}</div>`:""}
+        <div class="deal-prices">
+          <span class="deal-sale">$${deal.salePrice}</span>
+          <span class="deal-reg">$${deal.regularPrice}</span>
+        </div>
+        <span class="deal-pct">${deal.pctOff}% off</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderTypeGrid() {
+  document.getElementById("typeGrid").innerHTML = RECIPE_TYPES.map(t => `
+    <div class="type-card" id="type-${t.id}" onclick="selectType('${t.id}')">
+      <div class="type-icon">${t.icon}</div>
+      <div class="type-label">${t.label}</div>
+      <div class="type-desc">${t.desc}</div>
+    </div>
+  `).join("");
+}
+
+function selectType(id) {
+  state.selectedType = id;
+  document.querySelectorAll(".type-card").forEach(c => c.classList.remove("selected"));
+  document.getElementById(`type-${id}`).classList.add("selected");
+  document.getElementById("generateBtn").disabled = false;
+}
+
+// ── Generate Recipes ──────────────────────────────────────────────────────────
+async function generateRecipes() {
+  const typeLabel = RECIPE_TYPES.find(t => t.id === state.selectedType)?.label || "balanced";
+
+  // Pass all 200 deals to Claude
+  const dealSummary = state.deals.map(d =>
+    `${d.name}${d.brand?" ("+d.brand+")":""} — $${d.salePrice} (reg $${d.regularPrice}, ${d.pctOff}% off)`
+  ).join("\n");
+
+  // All available digital coupons to recommend
+  const couponSummary = state.coupons.length
+    ? `\n\nAVAILABLE DIGITAL COUPONS (not yet clipped — recommend which ones to clip):\n` +
+      state.coupons.map(c =>
+        `- ${c.description}${c.brand?" ("+c.brand+")":""}: save $${c.savings}${c.clipped?" [already clipped]":""}`
+      ).join("\n")
+    : "";
+
+  // Boost member weekly digital deals
+  const boostSummary = state.boostDeals.length
+    ? `\n\nBOOST MEMBER WEEKLY DIGITAL DEALS:\n` +
+      state.boostDeals.map(c =>
+        `- ${c.description}${c.brand?" ("+c.brand+")":""}: save $${c.savings}${c.clipped?" [already clipped]":""}`
+      ).join("\n")
+    : "";
+
+  const prompt = `You are a creative chef and meal planner helping someone maximize their grocery savings. Here are ALL items currently on sale at their local Kroger this week:\n\n${dealSummary}${couponSummary}${boostSummary}\n\nGenerate exactly 3 recipes that:\n- Use primarily the sale items above (use exact product names)\n- Match the style: "${typeLabel}"\n- Are realistic, delicious, and practical\n${state.coupons.length || state.boostDeals.length ? `- At the end of each recipe's saleIngredients list, include a "couponsToClip" field listing any digital coupons or Boost deals the shopper should clip before shopping for that recipe` : ""}\n\nRespond ONLY with a JSON array (no markdown, no extra text):\n[\n  {\n    "title": "Recipe Name",\n    "emoji": "🍽️",\n    "time": "25 min",\n    "servings": 4,\n    "difficulty": "Easy",\n    "color": "#E8F5E9",\n    "accent": "#2E7D32",\n    "saleIngredients": ["Exact Sale Item Name"],\n    "couponsToClip": ["Coupon description if applicable"],\n    "allIngredients": ["Sale Item", "pantry item"],\n    "steps": ["Step 1.", "Step 2.", "Step 3.", "Step 4."]\n  }\n]`;
+
+  showLoading("✨ Generating your personalized recipes…");
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "Recipe generation failed");
+    const raw = data.content?.map(b => b.text||"").join("").trim();
+    state.recipes = JSON.parse(raw.replace(/```json|```/g,"").trim());
+
+    let totalSaved = 0;
+    for (const recipe of state.recipes) {
+      for (const ing of recipe.saleIngredients) {
+        const deal = state.deals.find(d => d.name.toLowerCase().includes(ing.toLowerCase().split(" ")[0]));
+        if (deal) totalSaved += parseFloat(deal.savings) || 0;
+      }
+    }
+    renderRecipes(totalSaved);
+    goTo(4);
+  } catch (err) { showError("Could not generate recipes: " + err.message); console.error(err); }
+  finally { hideLoading(); }
+}
+
+// ── Screen 4 ──────────────────────────────────────────────────────────────────
+function renderRecipes(totalSaved) {
+  const storeName = state.stores.find(s => state.selectedStoreIds.includes(s.id))?.name || "your store";
+  const typeLabel = RECIPE_TYPES.find(t => t.id === state.selectedType)?.label || "";
+  document.getElementById("recipesSubtitle").textContent = `${typeLabel} style · ${storeName}`;
+  document.getElementById("totalSavings").textContent = `$${totalSaved.toFixed(2)}`;
+
+  document.getElementById("recipesList").innerHTML = state.recipes.map((recipe, i) => `
+    <div class="card recipe-card" style="padding:0">
+      <div class="recipe-header-row" style="background:${recipe.color}" onclick="toggleSteps(${i})">
+        <span class="recipe-emoji">${recipe.emoji}</span>
+        <div style="flex:1">
+          <div class="recipe-title" style="color:${recipe.accent}">${recipe.title}</div>
+          <div class="recipe-meta">
+            <span>⏱ ${recipe.time}</span>
+            <span>👥 ${recipe.servings} servings</span>
+            <span>📊 ${recipe.difficulty}</span>
+          </div>
+        </div>
+        <span class="recipe-chevron" id="chevron-${i}">▼</span>
+      </div>
+      <div class="recipe-ings">
+        <div class="ings-label">Sale ingredients used</div>
+        <div class="ings-chips">
+          ${recipe.saleIngredients.map(ing => `<span class="ing-chip">🏷️ ${ing}</span>`).join("")}
+        </div>
+        ${recipe.couponsToClip?.length ? `
+        <div class="ings-label" style="margin-top:10px;color:#1565C0">✂️ Clip these coupons first</div>
+        <div class="ings-chips">
+          ${recipe.couponsToClip.map(c => `<span class="ing-chip" style="background:#E3F2FD;border-color:#90CAF9;color:#1565C0">✂️ ${c}</span>`).join("")}
+        </div>` : ""}
+      </div>
+      <div class="recipe-steps" id="steps-${i}">
+        <div class="ings-label" style="margin-bottom:10px">Instructions</div>
+        ${recipe.steps.map((step, si) => `
+          <div class="step-row">
+            <div class="step-num" style="background:${recipe.accent}">${si+1}</div>
+            <div class="step-text">${step}</div>
+          </div>
+        `).join("")}
+      </div>
+      <div class="recipe-actions">
+        <button class="btn-sm btn-sm-primary" onclick="showShoppingList(${i})">📋 Shopping List</button>
+        <button class="btn-sm btn-sm-outline" style="color:${recipe.accent};border-color:${recipe.accent}" onclick="toggleSteps(${i})">View Steps</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleSteps(i) {
+  const el = document.getElementById(`steps-${i}`);
+  const ch = document.getElementById(`chevron-${i}`);
+  const open = el.classList.toggle("open");
+  ch.textContent = open ? "▲" : "▼";
+}
+
+// ── Screen 5 ──────────────────────────────────────────────────────────────────
+function showShoppingList(recipeIndex) {
+  const recipe = state.recipes[recipeIndex];
+  document.getElementById("shoppingListSubtitle").textContent = `For: ${recipe.emoji} ${recipe.title}`;
+
+  const saleItems = recipe.saleIngredients.map(ing => {
+    const deal = state.deals.find(d => d.name.toLowerCase().includes(ing.toLowerCase().split(" ")[0]));
+    return { name: ing, deal };
+  });
+  const pantryItems = recipe.allIngredients.filter(
+    ing => !recipe.saleIngredients.some(s => s.toLowerCase().includes(ing.toLowerCase().split(" ")[0]))
+  );
+  const estimatedTotal = saleItems.reduce((acc, item) => acc + (item.deal ? parseFloat(item.deal.salePrice) : 1.5), 0);
+
+  document.getElementById("shoppingListContent").innerHTML = `
+    <div class="list-section" style="background:#F0FAF0;border:2px solid #A5D6A7">
+      <div class="list-section-title" style="color:#2E7D32">🏷️ On Sale This Week</div>
+      ${saleItems.map(item => `
+        <div class="list-item">
+          <div class="list-item-left">
+            <input type="checkbox" style="width:18px;height:18px;accent-color:#4CAF50;flex-shrink:0" />
+            <span style="font-weight:600">${item.name}</span>
+            ${item.deal?.size?`<span style="font-size:12px;color:#AAA">${item.deal.size}</span>`:""}
+          </div>
+          <div class="list-item-right">
+            ${item.deal
+              ? `<div class="list-sale">$${item.deal.salePrice}</div><div class="list-reg">$${item.deal.regularPrice}</div>`
+              : `<div style="font-size:13px;color:#AAA">Check store</div>`}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+    ${pantryItems.length ? `
+    <div class="list-section" style="background:white;border:2px solid var(--sand)">
+      <div class="list-section-title" style="color:#5A4A30">🫙 Pantry Items</div>
+      ${pantryItems.map(item => `
+        <div class="list-item">
+          <div class="list-item-left">
+            <input type="checkbox" style="width:18px;height:18px;accent-color:#FFB74D;flex-shrink:0" />
+            <span style="color:#666">${item}</span>
+          </div>
+        </div>
+      `).join("")}
+    </div>` : ""}
+    <div class="list-total">
+      <div>
+        <div style="font-weight:700;font-size:16px;color:#5A4A30">Estimated Total</div>
+        <div style="font-size:13px;color:#AAA;margin-top:2px">for ${recipe.servings} servings</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:28px;font-weight:800;color:var(--orange)">~$${estimatedTotal.toFixed(2)}</div>
+        <div style="font-size:12px;color:#4CAF50;font-weight:700">using this week's deals</div>
+      </div>
+    </div>
+  `;
+  goTo(5);
+}
+
+renderProgress(1);
+</script>
+</body>
+</html>

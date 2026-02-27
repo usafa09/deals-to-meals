@@ -167,6 +167,9 @@ window.addEventListener("load", async () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
+
+  // Wait for Supabase to read the token from the URL hash BEFORE clearing it
+  await new Promise(r => setTimeout(r, 100));
   window.history.replaceState({}, "", "/profile.html");
 
   // Try up to 5 times to get the session, waiting 500ms between each try

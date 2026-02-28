@@ -11,6 +11,29 @@ const __dirname = dirname(__filename);
 const app = express();
 app.use(cors());
 app.use(express.json());
+// ── Site password protection ───────────────────────────────────────────────
+app.use((req, res, next) => {
+  // Allow API routes and the password page itself through
+  if (req.path.startsWith("/api") || req.path.startsWith("/auth") || req.path === "/login.html") {
+    return next();
+  }
+  // Check for password cookie
+  const cookies = req.headers.cookie || "";
+  const authed = cookies.split(";").some(c => c.trim() === `site_auth=${process.env.SITE_PASSWORD}`);
+  if (authed) return next();
+  // Not authenticated — redirect to login
+  res.redirect("/login.html");
+});
+
+app.post("/api/site-login", (req, res) => {
+  const { password } = req.body;
+  if (password === process.env.SITE_PASSWORD) {
+    res.setHeader("Set-Cookie", `site_auth=${process.env.SITE_PASSWORD}; Path=/; HttpOnly; Max-Age=86400`);
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: "Incorrect password" });
+  }
+});
 app.use(express.static(join(__dirname, "public")));
 
 const KROGER_TOKEN_URL = "https://api.kroger.com/v1/connect/oauth2/token";

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deals to Meals — Coming Soon</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, #FFFBF0 0%, #F0FAF0 50%, #FFF8F0 100%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      background: white; border: 2px solid #E8D5B0; border-radius: 24px;
+      padding: 48px 40px; max-width: 400px; width: 90%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.08); text-align: center;
+    }
+    .emoji { font-size: 56px; margin-bottom: 16px; display: block; }
+    h1 { font-family: 'Lora', serif; font-size: 28px; color: #2D5016; margin-bottom: 8px; }
+    p  { font-family: 'Lora', serif; font-style: italic; color: #6B6B6B; font-size: 15px; margin-bottom: 32px; }
+    input {
+      width: 100%; padding: 13px 16px; font-size: 16px; border: 2px solid #D0C5A0;
+      border-radius: 12px; outline: none; background: #FFFBF0;
+      font-family: 'DM Sans', sans-serif; text-align: center;
+      letter-spacing: 3px; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    input:focus { border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.15); }
+    button {
+      width: 100%; padding: 14px; background: #2D5016; color: white;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
+      font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
+    }
+    button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .error { color: #D32F2F; font-size: 13px; margin-top: 10px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="emoji">🥦</span>
+    <h1>Deals to Meals</h1>
+    <p>We're cooking something up — enter the password to get early access.</p>
+    <input type="password" id="pwd" placeholder="Password" />
+    <button onclick="login()">Enter →</button>
+    <div class="error" id="error">Incorrect password. Try again.</div>
+  </div>
+  <script>
+    document.getElementById("pwd").addEventListener("keydown", e => {
+      if (e.key === "Enter") login();
+    });
+    async function login() {
+      const password = document.getElementById("pwd").value;
+      const res = await fetch("/api/site-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) window.location.href = "/";
+      else {
+        document.getElementById("error").style.display = "block";
+        document.getElementById("pwd").value = "";
+      }
+    }
+  </script>
+</body>
+</html>

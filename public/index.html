@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deals to Meals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-dark: #2D5016; --green-mid: #4CAF50; --green-light: #F0FAF0;
+      --orange: #E65100; --orange-light: #FFF3E0;
+      --cream: #FFFBF0; --sand: #E8D5B0; --text: #1a1a1a; --muted: #6B6B6B;
+      --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, var(--cream) 0%, #F0FAF0 50%, #FFF8F0 100%); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 2px solid var(--sand); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo-mark { font-size: 28px; }
+    .logo-text h1 { font-family: 'Lora', serif; font-size: 19px; color: var(--green-dark); }
+    .logo-text p  { font-size: 11px; color: var(--muted); font-style: italic; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .progress-bar { display: flex; gap: 5px; align-items: center; }
+    .pip { height: 8px; border-radius: 4px; background: #D5D5D5; transition: all 0.35s ease; }
+    .profile-btn { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: var(--green-light); color: var(--green-dark); }
+    .profile-btn:hover { background: var(--green-mid); color: white; }
+    .profile-btn.logged-in { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+    .profile-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--green-mid); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; }
+
+    /* ── Layout ── */
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeUp 0.4s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
+    .back:hover { color: var(--green-dark); }
+    .screen-title { font-family: 'Lora', serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
+    .screen-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 15px; color: var(--muted); margin-bottom: 22px; }
+
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
+    .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn:disabled { background: #C5C5C5 !important; cursor: not-allowed; transform: none !important; }
+    .btn-primary  { background: var(--green-dark); color: white; }
+    .btn-gradient { background: linear-gradient(135deg, var(--green-dark), var(--green-mid)); color: white; }
+    .btn-outline  { background: transparent; color: var(--green-dark); border: 2px solid var(--green-dark); }
+    .btn-blue     { background: var(--blue); color: white; }
+
+    .card { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
+    .card.clickable { cursor: pointer; }
+    .card.clickable:hover { border-color: var(--green-mid); transform: translateY(-1px); }
+    .card.selected  { border-color: var(--green-mid); background: var(--green-light); }
+
+    /* ── Screen 1 ── */
+    .hero-emoji { font-size: 72px; display: block; text-align: center; margin-bottom: 14px; }
+    .hero-title { font-family: 'Lora', serif; font-size: 32px; text-align: center; color: var(--green-dark); margin-bottom: 8px; line-height: 1.2; }
+    .hero-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 16px; color: var(--muted); text-align: center; margin-bottom: 36px; }
+    .zip-box { background: white; border: 2px solid var(--sand); border-radius: 20px; padding: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+    .zip-label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .zip-row { display: flex; gap: 10px; }
+    #zipInput { flex: 1; padding: 13px 16px; font-size: 22px; border: 2px solid #D0C5A0; border-radius: 12px; outline: none; font-family: 'Lora', serif; letter-spacing: 5px; text-align: center; background: var(--cream); transition: border-color 0.2s; }
+    #zipInput:focus { border-color: var(--green-mid); }
+    .zip-hint { margin-top: 10px; font-size: 12px; color: #AAA; text-align: center; font-style: italic; }
+    .feature-row { display: flex; gap: 12px; margin-top: 28px; }
+    .feature-chip { flex: 1; background: rgba(255,255,255,0.75); border: 1px solid var(--sand); border-radius: 12px; padding: 14px 6px; text-align: center; }
+    .feature-chip .f-icon  { font-size: 22px; margin-bottom: 5px; }
+    .feature-chip .f-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+    /* ── Screen 2 ── */
+    .store-row { display: flex; align-items: center; gap: 14px; }
+    .store-name { font-weight: 700; font-size: 17px; }
+    .store-addr { font-size: 13px; color: #888; margin-top: 2px; }
+    .store-check { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; background: #E0D8C8; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
+    .card.selected .store-check { background: var(--green-mid); }
+
+    /* ── Screen 3: Meal + Filters ── */
+    .section-title { font-family: 'Lora', serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
+    .meal-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 8px; }
+    .meal-card { background: white; border: 2px solid var(--sand); border-radius: 14px; padding: 16px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .meal-card:hover { border-color: var(--green-mid); }
+    .meal-card.selected { background: var(--green-dark); border-color: var(--green-dark); color: white; }
+    .meal-icon  { font-size: 28px; margin-bottom: 6px; }
+    .meal-label { font-size: 14px; font-weight: 700; }
+
+    .filter-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .filter-chip { padding: 7px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .filter-chip:hover { border-color: var(--green-mid); }
+    .filter-chip.selected { background: var(--green-mid); border-color: var(--green-mid); color: white; }
+
+    /* ── Screen 4: Recipe Grid ── */
+    .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .results-count { font-size: 14px; color: var(--muted); font-style: italic; }
+    .sort-row { display: flex; gap: 8px; }
+    .sort-btn { padding: 6px 12px; border: 2px solid var(--sand); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: white; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .sort-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+
+    .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .recipe-card-tile {
+      background: white; border: 2px solid var(--sand); border-radius: 16px;
+      overflow: hidden; cursor: pointer; transition: all 0.2s;
+    }
+    .recipe-card-tile:hover { border-color: var(--green-mid); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    .recipe-card-img { width: 100%; height: 140px; object-fit: cover; background: #F5F0E8; display: block; }
+    .recipe-card-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, #F0FAF0, #FFF8F0); display: flex; align-items: center; justify-content: center; font-size: 40px; }
+    .recipe-card-body { padding: 12px; }
+    .recipe-card-title { font-family: 'Lora', serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
+    .recipe-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .meta-chip { font-size: 11px; padding: 3px 7px; border-radius: 6px; font-weight: 600; }
+    .meta-time     { background: #F5F0E8; color: #5A4A30; }
+    .meta-savings  { background: var(--orange-light); color: var(--orange); }
+    .meta-cost     { background: var(--green-light); color: var(--green-dark); }
+    .meta-coupon   { background: var(--blue-light); color: var(--blue); }
+
+    /* ── Recipe Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .modal { background: white; border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .modal-img { width: 100%; height: 220px; object-fit: cover; border-radius: 22px 22px 0 0; }
+    .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, #F0FAF0, #FFF8F0); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
+    .modal-body { padding: 24px; }
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .modal-title { font-family: 'Lora', serif; font-size: 22px; color: var(--green-dark); line-height: 1.3; }
+    .modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--sand); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+    .modal-close:hover { background: #F5F0E8; }
+    .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-pill { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .stat-time    { background: #F5F0E8; color: #5A4A30; }
+    .stat-savings { background: var(--orange-light); color: var(--orange); }
+    .stat-cost    { background: var(--green-light); color: var(--green-dark); }
+    .stat-servings { background: #F3E5F5; color: #6A1B9A; }
+
+    .modal-section { margin-bottom: 20px; }
+    .modal-section-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .ing-list { display: flex; flex-direction: column; gap: 6px; }
+    .ing-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; font-size: 13px; }
+    .ing-row.on-sale { background: var(--green-light); border: 1px solid #A5D6A7; }
+    .ing-row.pantry  { background: #FAFAFA; border: 1px solid #F0E8D0; color: #666; }
+    .ing-sale-price { font-weight: 800; color: var(--orange); }
+    .ing-reg-price  { font-size: 11px; color: #CCC; text-decoration: line-through; margin-left: 4px; }
+
+    .coupon-list { display: flex; flex-direction: column; gap: 6px; }
+    .coupon-row { background: var(--blue-light); border: 1px solid #90CAF9; border-radius: 10px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .coupon-row.clipped { background: var(--green-light); border-color: #A5D6A7; }
+    .coupon-save { font-weight: 800; color: var(--blue); white-space: nowrap; }
+    .coupon-row.clipped .coupon-save { color: var(--green-dark); }
+
+    .steps-list { display: flex; flex-direction: column; gap: 10px; }
+    .step-row { display: flex; gap: 12px; align-items: flex-start; }
+    .step-num { min-width: 26px; height: 26px; border-radius: 50%; background: var(--green-dark); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+    .step-text { font-size: 14px; color: #444; line-height: 1.6; padding-top: 3px; }
+
+    .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 16px; border-top: 2px solid #F5EFE0; }
+    .modal-btn { flex: 1; min-width: 140px; padding: 12px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
+    .modal-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .modal-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .modal-btn-save  { background: var(--orange-light); color: var(--orange); border: 2px solid #FFB74D; }
+    .modal-btn-save.saved { background: var(--orange); color: white; }
+    .modal-btn-list  { background: var(--green-light); color: var(--green-dark); border: 2px solid #A5D6A7; }
+    .modal-btn-cart  { background: var(--blue); color: white; }
+    .cart-success-msg { background: var(--green-light); border: 2px solid #A5D6A7; border-radius: 10px; padding: 10px; text-align: center; font-weight: 700; color: var(--green-dark); font-size: 13px; margin-top: 8px; display: none; }
+
+    /* ── Loading & Toast ── */
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(6px); z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: 'Lora', serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
+    .loading-sub { font-size: 13px; color: var(--muted); }
+    .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
+    .toast.show { display: block; animation: fadeUp 0.3s ease; }
+    .toast.error   { background: var(--red); color: white; }
+    .toast.success { background: var(--green-dark); color: white; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo-mark">🥦</span>
+  <div class="logo-text">
+    <h1>Deals to Meals</h1>
+    <p>weekly sales → tonight's dinner</p>
+  </div>
+  <div class="header-right">
+    <div class="progress-bar" id="progressBar"></div>
+    <a href="/profile.html" class="profile-btn" id="profileBtn">
+      <span id="profileBtnIcon">👤</span>
+      <span id="profileBtnText">Sign In</span>
+    </a>
+  </div>
+</header>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading…</div>
+  <div class="loading-sub" id="loadingSub"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Recipe Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal">
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<main>
+
+  <!-- SCREEN 1: ZIP -->
+  <div class="screen active" id="screen1">
+    <span class="hero-emoji">🛒</span>
+    <h2 class="hero-title">Turn this week's deals<br/>into tonight's dinner.</h2>
+    <p class="hero-sub">Find real sale prices at your local Kroger — turned into recipes by AI.</p>
+    <div class="zip-box">
+      <label class="zip-label" for="zipInput">Your Zip Code</label>
+      <div class="zip-row">
+        <input id="zipInput" type="text" maxlength="5" placeholder="e.g. 30301" inputmode="numeric" />
+        <button class="btn btn-primary" id="zipBtn" style="width:auto;padding:13px 22px" disabled>Find Stores →</button>
+      </div>
+      <p class="zip-hint">Searches Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter & more</p>
+    </div>
+    <div class="feature-row">
+      <div class="feature-chip"><div class="f-icon">🏪</div><div class="f-label">Real stores</div></div>
+      <div class="feature-chip"><div class="f-icon">🏷️</div><div class="f-label">Live deals</div></div>
+      <div class="feature-chip"><div class="f-icon">🍽️</div><div class="f-label">20-50 recipes</div></div>
+      <div class="feature-chip"><div class="f-icon">💰</div><div class="f-label">Max savings</div></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: STORES -->
+  <div class="screen" id="screen2">
+    <span class="back" onclick="goTo(1)">← Back</span>
+    <h2 class="screen-title" id="storesTitle">Stores near you</h2>
+    <p class="screen-sub">Select the stores you want deals from</p>
+    <div id="storesList"></div>
+    <button class="btn btn-primary" id="storesBtn" disabled onclick="startLoadingDeals()">View Deals →</button>
+  </div>
+
+  <!-- SCREEN 3: MEAL TYPE + FILTERS -->
+  <div class="screen" id="screen3">
+    <span class="back" onclick="goTo(2)">← Back</span>
+    <h2 class="screen-title">What are you making?</h2>
+    <p class="screen-sub" id="dealsLoadedMsg">Choose a meal type and any dietary filters</p>
+
+    <div class="section-title" style="margin-top:0">Meal Type</div>
+    <div class="meal-grid" id="mealGrid"></div>
+
+    <div class="section-title">Dietary & Style Filters <span style="font-size:12px;color:#AAA;font-weight:400">(optional — pick any)</span></div>
+    <div class="filter-grid" id="filterGrid"></div>
+
+    <button class="btn btn-gradient" id="findRecipesBtn" disabled onclick="searchRecipes()">🍽️ Find Recipes →</button>
+  </div>
+
+  <!-- SCREEN 4: RECIPE GRID -->
+  <div class="screen" id="screen4">
+    <span class="back" onclick="goTo(3)">← Change Filters</span>
+    <div class="results-header">
+      <div>
+        <h2 class="screen-title" id="recipesTitle">Your Recipes</h2>
+        <div class="results-count" id="resultsCount"></div>
+      </div>
+      <div class="sort-row">
+        <button class="sort-btn active" id="sort-savings" onclick="sortRecipes('savings')">💰 Best Savings</button>
+        <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">⏱ Quickest</button>
+        <button class="sort-btn" id="sort-ingredients" onclick="sortRecipes('ingredients')">🏷️ Most Deals</button>
+      </div>
+    </div>
+    <div class="recipe-grid" id="recipeGrid"></div>
+    <div style="margin-top:20px">
+      <button class="btn btn-outline" onclick="goTo(1); resetApp()">🔄 Start Over</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
+const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_ANON_KEY";
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { detectSessionInUrl: false, persistSession: true, autoRefreshToken: true, storage: window.localStorage, storageKey: "dtm-auth-token" }
+});
+
+async function checkAuth() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const btn = document.getElementById("profileBtn");
+    if (session?.user) {
+      const name = session.user.user_metadata?.full_name || session.user.email || "";
+      btn.classList.add("logged-in");
+      document.getElementById("profileBtnIcon").innerHTML = `<div class="profile-avatar">${name[0].toUpperCase()}</div>`;
+      document.getElementById("profileBtnText").textContent = session.user.user_metadata?.full_name?.split(" ")[0] || "My Account";
+    }
+  } catch (e) {}
+}
+checkAuth();
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const MEAL_TYPES = [
+  { id:"Breakfast", icon:"🍳", label:"Breakfast" },
+  { id:"Lunch",     icon:"🥗", label:"Lunch"     },
+  { id:"Dinner",    icon:"🍽️", label:"Dinner"    },
+  { id:"Snack",     icon:"🍎", label:"Snack"     },
+  { id:"Dessert",   icon:"🍰", label:"Dessert"   },
+  { id:"Appetizer", icon:"🥨", label:"Appetizer" },
+];
+
+const DIET_FILTERS = [
+  "Vegan","Vegetarian","Pescetarian","Mediterranean","Halal","Kosher",
+  "Keto","Paleo","Gluten-Free","Dairy-Free","Low Calorie","High Fiber",
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = {
+  zip:"", stores:[], selectedStoreIds:[],
+  deals:[], coupons:[], boostDeals:[],
+  selectedMeal: null, selectedDiets:[],
+  recipes:[], currentRecipe: null,
+  savedRecipeIds: new Set(),
+};
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goTo(step) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(`screen${step}`).classList.add("active");
+  renderProgress(step);
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function renderProgress(step) {
+  document.getElementById("progressBar").innerHTML = Array.from({length:4},(_,i) => {
+    const a = i < step;
+    return `<div class="pip" style="width:${a?24:8}px;background:${a?"#4CAF50":"#D5D5D5"}"></div>`;
+  }).join("");
+}
+
+function resetApp() {
+  state = { zip:"", stores:[], selectedStoreIds:[], deals:[], coupons:[], boostDeals:[], selectedMeal:null, selectedDiets:[], recipes:[], currentRecipe:null, savedRecipeIds: new Set() };
+  document.getElementById("zipInput").value = "";
+  document.getElementById("zipBtn").disabled = true;
+}
+
+// ── Loading & Toast ───────────────────────────────────────────────────────────
+function showLoading(text, sub="") {
+  document.getElementById("loadingText").textContent = text;
+  document.getElementById("loadingSub").textContent = sub;
+  document.getElementById("loadingOverlay").classList.add("show");
+}
+function hideLoading() { document.getElementById("loadingOverlay").classList.remove("show"); }
+function showToast(msg, type="error") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove("show"), 4000);
+}
+
+// ── Screen 1: Zip ─────────────────────────────────────────────────────────────
+document.getElementById("zipInput").addEventListener("input", function() {
+  this.value = this.value.replace(/\D/g,"").slice(0,5);
+  document.getElementById("zipBtn").disabled = this.value.length < 5;
+});
+document.getElementById("zipInput").addEventListener("keydown", e => { if (e.key==="Enter") document.getElementById("zipBtn").click(); });
+document.getElementById("zipBtn").addEventListener("click", findStores);
+
+async function findStores() {
+  const zip = document.getElementById("zipInput").value;
+  if (zip.length < 5) return;
+  state.zip = zip;
+  showLoading("Finding Kroger-family stores near you…");
+  try {
+    const res = await fetch(`/api/stores?zip=${zip}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load stores");
+    if (!data.stores.length) throw new Error("No Kroger-family stores found. Try a nearby zip.");
+    state.stores = data.stores;
+    renderStores();
+    goTo(2);
+  } catch (err) { showToast(err.message); }
+  finally { hideLoading(); }
+}
+
+function renderStores() {
+  document.getElementById("storesTitle").textContent = `Kroger stores near ${state.zip}`;
+  document.getElementById("storesList").innerHTML = state.stores.map(store => `
+    <div class="card clickable" id="store-${store.id}" onclick="toggleStore('${store.id}')">
+      <div class="store-row">
+        <span style="font-size:28px">🏪</span>
+        <div><div class="store-name">${store.name}</div><div class="store-addr">${store.address}${store.hours?" · "+store.hours:""}</div></div>
+        <div class="store-check">✓</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleStore(id) {
+  const idx = state.selectedStoreIds.indexOf(id);
+  if (idx > -1) state.selectedStoreIds.splice(idx, 1);
+  else state.selectedStoreIds.push(id);
+  document.getElementById(`store-${id}`).classList.toggle("selected", state.selectedStoreIds.includes(id));
+  const n = state.selectedStoreIds.length;
+  const btn = document.getElementById("storesBtn");
+  btn.disabled = n === 0;
+  btn.textContent = n > 0 ? `View Deals from ${n} Store${n>1?"s":""} →` : "View Deals →";
+}
+
+// ── Screen 2 → 3: Load Deals in background ───────────────────────────────────
+async function startLoadingDeals() {
+  renderMealGrid();
+  renderFilterGrid();
+  goTo(3);
+
+  // Load deals in background while user picks meal type
+  document.getElementById("dealsLoadedMsg").textContent = "Loading this week's deals in the background…";
+  try {
+    const allDeals = [];
+    for (const storeId of state.selectedStoreIds) {
+      const res = await fetch(`/api/deals?locationId=${storeId}`);
+      const data = await res.json();
+      if (res.ok && data.deals) allDeals.push(...data.deals);
+    }
+    const map = new Map();
+    for (const d of allDeals) {
+      if (!map.has(d.id) || parseFloat(d.salePrice) < parseFloat(map.get(d.id).salePrice)) map.set(d.id, d);
+    }
+    state.deals = [...map.values()].sort((a,b) => b.pctOff - a.pctOff).slice(0, 200);
+
+    // Fetch coupons if logged in
+    state.coupons = []; state.boostDeals = [];
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) {
+        const r = await fetch("/api/coupons", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (r.ok) { const d = await r.json(); state.coupons = d.coupons||[]; state.boostDeals = d.boostDeals||[]; }
+      }
+    } catch (e) {}
+
+    const storeName = state.stores.find(s => state.selectedStoreIds.includes(s.id))?.name || "your store";
+    document.getElementById("dealsLoadedMsg").textContent = `✅ ${state.deals.length} deals loaded from ${storeName}`;
+  } catch (err) {
+    document.getElementById("dealsLoadedMsg").textContent = "⚠️ Could not load deals — check your connection";
+  }
+}
+
+function renderMealGrid() {
+  document.getElementById("mealGrid").innerHTML = MEAL_TYPES.map(m => `
+    <div class="meal-card" id="meal-${m.id}" onclick="selectMeal('${m.id}')">
+      <div class="meal-icon">${m.icon}</div>
+      <div class="meal-label">${m.label}</div>
+    </div>
+  `).join("");
+}
+
+function selectMeal(id) {
+  state.selectedMeal = id;
+  document.querySelectorAll(".meal-card").forEach(c => c.classList.remove("selected"));
+  document.getElementById(`meal-${id}`).classList.add("selected");
+  document.getElementById("findRecipesBtn").disabled = false;
+}
+
+function renderFilterGrid() {
+  document.getElementById("filterGrid").innerHTML = DIET_FILTERS.map(f => `
+    <div class="filter-chip" onclick="toggleFilter(this, '${f}')">${f}</div>
+  `).join("");
+}
+
+function toggleFilter(el, filter) {
+  el.classList.toggle("selected");
+  const idx = state.selectedDiets.indexOf(filter);
+  if (idx > -1) state.selectedDiets.splice(idx, 1);
+  else state.selectedDiets.push(filter);
+}
+
+// ── Screen 3 → 4: Search Recipes ─────────────────────────────────────────────
+async function searchRecipes() {
+  if (!state.deals.length) {
+    showToast("Deals are still loading — wait a moment and try again");
+    return;
+  }
+  showLoading("🍽️ Finding recipes that match your deals…", `Searching from ${state.deals.length} sale items`);
+  try {
+    const res = await fetch("/api/recipes/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ingredients: state.deals.map(d => ({ name: d.name, salePrice: d.salePrice, regularPrice: d.regularPrice, savings: d.savings, upc: d.upc })),
+        mealType: state.selectedMeal,
+        diets: state.selectedDiets,
+        coupons: state.coupons,
+        boostDeals: state.boostDeals,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not find recipes");
+    if (!data.recipes?.length) throw new Error("No recipes found for those filters. Try removing some dietary restrictions.");
+    state.recipes = data.recipes;
+
+    // Load saved recipe IDs if logged in
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) {
+        const r = await fetch("/api/recipes/saved", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (r.ok) { const d = await r.json(); state.savedRecipeIds = new Set(d.recipes.map(r => String(r.title))); }
+      }
+    } catch (e) {}
+
+    renderRecipeGrid();
+    goTo(4);
+  } catch (err) { showToast(err.message); }
+  finally { hideLoading(); }
+}
+
+function sortRecipes(by) {
+  document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`sort-${by}`).classList.add("active");
+  if (by === "savings") state.recipes.sort((a,b) => b.totalSavings - a.totalSavings);
+  if (by === "time") state.recipes.sort((a,b) => a.readyInMinutes - b.readyInMinutes);
+  if (by === "ingredients") state.recipes.sort((a,b) => b.usedIngredientCount - a.usedIngredientCount);
+  renderRecipeGrid();
+}
+
+function renderRecipeGrid() {
+  const meal = state.selectedMeal;
+  const diets = state.selectedDiets.length ? ` · ${state.selectedDiets.join(", ")}` : "";
+  document.getElementById("recipesTitle").textContent = `${meal} Recipes`;
+  document.getElementById("resultsCount").textContent = `${state.recipes.length} recipes found${diets} · sorted by savings`;
+
+  document.getElementById("recipeGrid").innerHTML = state.recipes.map((r, i) => `
+    <div class="recipe-card-tile" onclick="openModal(${i})">
+      ${r.image
+        ? `<img class="recipe-card-img" src="${r.image}" alt="${r.title}" onerror="this.style.display='none'" />`
+        : `<div class="recipe-card-img-placeholder">🍽️</div>`}
+      <div class="recipe-card-body">
+        <div class="recipe-card-title">${r.title}</div>
+        <div class="recipe-card-meta">
+          ${r.time !== "N/A" ? `<span class="meta-chip meta-time">⏱ ${r.time}</span>` : ""}
+          ${r.totalSavings > 0 ? `<span class="meta-chip meta-savings">💚 Save $${r.totalSavings.toFixed(2)}</span>` : ""}
+          ${r.estimatedCost > 0 ? `<span class="meta-chip meta-cost">~$${r.estimatedCost.toFixed(2)}</span>` : ""}
+          ${r.couponsToClip?.length ? `<span class="meta-chip meta-coupon">✂️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""}</span>` : ""}
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ── Recipe Modal ──────────────────────────────────────────────────────────────
+function openModal(i) {
+  state.currentRecipe = { ...state.recipes[i], index: i };
+  renderModal(state.currentRecipe);
+  document.getElementById("modalOverlay").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
+function closeModalOnOverlay(e) {
+  if (e.target === document.getElementById("modalOverlay")) closeModal();
+}
+
+function renderModal(r) {
+  const isSaved = state.savedRecipeIds.has(r.title);
+  document.getElementById("modalContent").innerHTML = `
+    ${r.image
+      ? `<img class="modal-img" src="${r.image}" alt="${r.title}" />`
+      : `<div class="modal-img-placeholder">🍽️</div>`}
+    <div class="modal-body">
+      <div class="modal-header">
+        <div class="modal-title">${r.title}</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+
+      <div class="modal-stats">
+        ${r.time !== "N/A" ? `<span class="stat-pill stat-time">⏱ ${r.time}</span>` : ""}
+        <span class="stat-pill stat-servings">👥 ${r.servings} servings</span>
+        ${r.totalSavings > 0 ? `<span class="stat-pill stat-savings">💚 Save $${r.totalSavings.toFixed(2)}</span>` : ""}
+        ${r.estimatedCost > 0 ? `<span class="stat-pill stat-cost">~$${r.estimatedCost.toFixed(2)} est.</span>` : ""}
+      </div>
+
+      ${r.usedSaleItems?.length ? `
+      <div class="modal-section">
+        <div class="modal-section-title">🏷️ On Sale This Week — Used in This Recipe</div>
+        <div class="ing-list">
+          ${r.usedSaleItems.map(ing => `
+            <div class="ing-row on-sale">
+              <span>✅ ${ing.name}</span>
+              <span><span class="ing-sale-price">$${ing.salePrice}</span><span class="ing-reg-price">$${ing.regularPrice}</span></span>
+            </div>
+          `).join("")}
+        </div>
+      </div>` : ""}
+
+      ${r.couponsToClip?.length ? `
+      <div class="modal-section">
+        <div class="modal-section-title">✂️ Clip These Coupons Before Shopping</div>
+        <div class="coupon-list">
+          ${r.couponsToClip.map(c => `
+            <div class="coupon-row ${c.clipped?"clipped":""}">
+              <span>${c.clipped?"✅":"✂️"} ${c.description}${c.type==="boost_deal"?" ⭐ Boost":""}</span>
+              <span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>` : ""}
+
+      ${r.allIngredients?.filter(i => !i.onSale).length ? `
+      <div class="modal-section">
+        <div class="modal-section-title">🫙 Also Needed From Pantry</div>
+        <div class="ing-list">
+          ${r.allIngredients.filter(i => !i.onSale).map(ing => `
+            <div class="ing-row pantry"><span>${ing.name}</span></div>
+          `).join("")}
+        </div>
+      </div>` : ""}
+
+      ${r.instructions?.length ? `
+      <div class="modal-section">
+        <div class="modal-section-title">📋 Instructions</div>
+        <div class="steps-list">
+          ${r.instructions.map((step, i) => `
+            <div class="step-row">
+              <div class="step-num">${i+1}</div>
+              <div class="step-text">${step}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>` : ""}
+
+      <div class="cart-success-msg" id="cartSuccessMsg">✅ Items added to your Kroger cart!</div>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">
+          ${isSaved ? "❤️ Saved!" : "🤍 Save Recipe"}
+        </button>
+        <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>
+        <button class="modal-btn modal-btn-cart" id="cartBtn" onclick="addToCart()">🛒 Add to Cart</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveRecipe() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showToast("Sign in to save recipes"); window.location.href="/profile.html"; return; }
+  const r = state.currentRecipe;
+  const btn = document.getElementById("saveBtn");
+  if (state.savedRecipeIds.has(r.title)) { showToast("Already saved!","success"); return; }
+  try {
+    const res = await fetch("/api/recipes/saved", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:`Bearer ${session.access_token}` },
+      body: JSON.stringify({ title:r.title, emoji:"🍽️", time:r.time, servings:r.servings, difficulty:"", ingredients:r.allIngredients?.map(i=>i.name)||[], steps:r.instructions||[], store_name:state.stores.find(s=>state.selectedStoreIds.includes(s.id))?.name||"", image:r.image||"" }),
+    });
+    if (res.ok) {
+      state.savedRecipeIds.add(r.title);
+      btn.textContent = "❤️ Saved!"; btn.classList.add("saved");
+      showToast("Recipe saved to your profile!","success");
+    }
+  } catch (e) { showToast("Could not save recipe"); }
+}
+
+function showShoppingList() {
+  const r = state.currentRecipe;
+  const saleRows = (r.usedSaleItems||[]).map(i => `
+    <div class="ing-row on-sale" style="margin-bottom:6px">
+      <div class="list-item-left" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" style="width:16px;height:16px;accent-color:#4CAF50" />
+        <span style="font-weight:600">${i.name}</span>
+      </div>
+      <span><span class="ing-sale-price">$${i.salePrice}</span><span class="ing-reg-price">$${i.regularPrice}</span></span>
+    </div>
+  `).join("");
+  const pantryRows = (r.allIngredients||[]).filter(i=>!i.onSale).map(i => `
+    <div class="ing-row pantry" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">
+      <input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" />
+      <span>${i.name}</span>
+    </div>
+  `).join("");
+
+  document.getElementById("modalContent").innerHTML = `
+    <div class="modal-body">
+      <div class="modal-header">
+        <div class="modal-title">📋 Shopping List</div>
+        <button class="modal-close" onclick="renderModal(state.currentRecipe)">✕</button>
+      </div>
+      <p style="font-style:italic;color:var(--muted);font-size:14px;margin-bottom:16px">For: ${r.title}</p>
+
+      ${saleRows ? `<div class="modal-section"><div class="modal-section-title">🏷️ On Sale This Week</div>${saleRows}</div>` : ""}
+      ${r.couponsToClip?.length ? `
+        <div class="modal-section">
+          <div class="modal-section-title">✂️ Clip These First</div>
+          ${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}" style="margin-bottom:6px"><span>${c.description}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}
+        </div>` : ""}
+      ${pantryRows ? `<div class="modal-section"><div class="modal-section-title">🫙 Pantry Items</div>${pantryRows}</div>` : ""}
+
+      <div style="background:var(--orange-light);border:2px solid #FFB74D;border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div><div style="font-weight:700;color:#5A4A30">Estimated Total</div><div style="font-size:12px;color:#AAA">${r.servings} servings</div></div>
+        <div style="text-align:right"><div style="font-size:24px;font-weight:800;color:var(--orange)">~$${r.estimatedCost?.toFixed(2)||"?"}</div><div style="font-size:12px;color:#4CAF50;font-weight:700">using this week's deals</div></div>
+      </div>
+
+      <div class="cart-success-msg" id="cartSuccessMsg2">✅ Items added to your Kroger cart!</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">← Back to Recipe</button>
+        <button class="modal-btn modal-btn-cart" onclick="addToCart()">🛒 Add to Kroger Cart</button>
+      </div>
+    </div>
+  `;
+}
+
+async function addToCart() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showToast("Sign in to add to cart"); window.location.href="/profile.html"; return; }
+
+  const r = state.currentRecipe;
+  const cartItems = (r.usedSaleItems||[]).filter(i=>i.upc).map(i=>({upc:i.upc,quantity:1}));
+  if (!cartItems.length) { showToast("No cart-ready items found for this recipe"); return; }
+
+  const btn = document.getElementById("cartBtn") || document.querySelector(".modal-btn-cart");
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/cart", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", Authorization:`Bearer ${session.access_token}`},
+      body: JSON.stringify({ items: cartItems }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      if (d.error === "Kroger not connected") {
+        showToast("Connect your Kroger account in your profile first");
+        window.location.href = "/profile.html";
+        return;
+      }
+      throw new Error(d.error);
+    }
+    const successEl = document.getElementById("cartSuccessMsg") || document.getElementById("cartSuccessMsg2");
+    if (successEl) successEl.style.display = "block";
+    showToast("🛒 Items added to your Kroger cart!","success");
+  } catch (err) { showToast("Could not add to cart: " + err.message); if (btn) btn.disabled = false; }
+}
+
+renderProgress(1);
+renderMealGrid();
+renderFilterGrid();
+</script>
+</body>
+</html>

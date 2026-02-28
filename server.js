@@ -328,10 +328,14 @@ const offset = req.body.offset || 0;
     if (dietStr) searchParams.set("diet", dietStr);
 
     // Handle special filters not directly supported by Spoonacular
-    if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
+ if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
     if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
     if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
     if (diets?.includes("High Fiber")) searchParams.set("minFiber", "5");
+    if (diets?.includes("Kid Friendly")) {
+      searchParams.set("tags", "kid-friendly");
+      searchParams.set("maxSpiciness", "0");
+    }
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
     if (!searchRes.ok) throw new Error(await searchRes.text());

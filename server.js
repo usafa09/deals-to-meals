@@ -312,11 +312,13 @@ app.post("/api/recipes/search", async (req, res) => {
       : "";
 
     // Search for recipes using sale ingredients
+const offset = req.body.offset || 0;
     const searchParams = new URLSearchParams({
       apiKey,
       includeIngredients: ingredientStr,
       type: typeStr,
       number: "50",
+      offset: String(offset),
       sort: "max-used-ingredients",
       sortDirection: "desc",
       addRecipeInformation: "true",

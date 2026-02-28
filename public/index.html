@@ -268,8 +268,9 @@
       </div>
     </div>
     <div class="recipe-grid" id="recipeGrid"></div>
-    <div style="margin-top:20px">
-      <button class="btn btn-outline" onclick="goTo(1); resetApp()">🔄 Start Over</button>
+   <div style="margin-top:20px;display:flex;gap:12px">
+      <button class="btn btn-gradient" onclick="searchRecipes(true)" id="loadMoreBtn">+ Load More Recipes</button>
+      <button class="btn btn-outline" style="width:auto;padding:15px 24px;white-space:nowrap" onclick="goTo(1); resetApp()">🔄 Start Over</button>
     </div>
   </div>
 

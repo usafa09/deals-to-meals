@@ -17,7 +17,7 @@ const KROGER_TOKEN_URL = "https://api.kroger.com/v1/connect/oauth2/token";
 const KROGER_AUTH_URL  = "https://api.kroger.com/v1/connect/oauth2/authorize";
 const KROGER_API_BASE  = "https://api.kroger.com/v1";
 const REDIRECT_URI     = "https://deals-to-meals.onrender.com/auth/kroger/callback";
-const APP_URL          = "https://deals-to-meals.onrender.com";
+const APP_URL = "https://dealstomeals.co";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

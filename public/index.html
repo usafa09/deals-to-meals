@@ -473,12 +473,12 @@ function toggleFilter(el, filter) {
 }
 
 // ── Screen 3 → 4: Search Recipes ─────────────────────────────────────────────
-async function searchRecipes() {
-  if (!state.deals.length) {
-    showToast("Deals are still loading — wait a moment and try again");
-    return;
-  }
-  showLoading("🍽️ Finding recipes that match your deals…", `Searching from ${state.deals.length} sale items`);
+async function searchRecipes(loadMore = false) {
+  if (!state.deals.length) { showToast("Deals are still loading — wait a moment and try again"); return; }
+  if (!loadMore) state.recipes = [];
+  const offset = loadMore ? state.recipes.length : 0;
+
+  showLoading(loadMore ? "🍽️ Loading more recipes…" : "🍽️ Finding recipes that match your deals…", `Searching from ${state.deals.length} sale items`);
   try {
     const res = await fetch("/api/recipes/search", {
       method: "POST",
@@ -489,12 +489,17 @@ async function searchRecipes() {
         diets: state.selectedDiets,
         coupons: state.coupons,
         boostDeals: state.boostDeals,
+        offset,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not find recipes");
-    if (!data.recipes?.length) throw new Error("No recipes found for those filters. Try removing some dietary restrictions.");
-    state.recipes = data.recipes;
+    if (!data.recipes?.length) throw new Error("No more recipes found. Try removing some dietary restrictions.");
+
+    // Deduplicate against already loaded recipes
+    const existingIds = new Set(state.recipes.map(r => r.id));
+    const newRecipes = data.recipes.filter(r => !existingIds.has(r.id));
+    state.recipes = [...state.recipes, ...newRecipes];
 
     // Load saved recipe IDs if logged in
     try {
@@ -506,7 +511,7 @@ async function searchRecipes() {
     } catch (e) {}
 
     renderRecipeGrid();
-    goTo(4);
+    if (!loadMore) goTo(4);
   } catch (err) { showToast(err.message); }
   finally { hideLoading(); }
 }

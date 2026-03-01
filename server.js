@@ -311,34 +311,32 @@ app.post("/api/recipes/search", async (req, res) => {
       ? diets.map(d => DIET_MAP[d] || d.toLowerCase()).filter(Boolean).join(",")
       : "";
 
-    // Search for recipes using sale ingredients
+    const isKidFriendly = diets?.includes("Kid Friendly");
+
     const searchParams = new URLSearchParams({
       apiKey,
-      includeIngredients: ingredientStr,
       type: typeStr,
       number: "50",
-      sort: "max-used-ingredients",
-      sortDirection: "desc",
       addRecipeInformation: "true",
       fillIngredients: "true",
       instructionsRequired: "true",
     });
-    if (dietStr) searchParams.set("diet", dietStr);
 
-    // Handle special filters not directly supported by Spoonacular
-    if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
-    if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
-    if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
-    if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
-    if (diets?.includes("Kid Friendly")) {
-      const existingExcludes = searchParams.get("excludeIngredients") || "";
-      const kidExcludes = "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,blue cheese,brie,liver,curry,habanero,spicy,hot sauce";
-      searchParams.set("excludeIngredients", existingExcludes ? `${existingExcludes},${kidExcludes}` : kidExcludes);
+    if (isKidFriendly) {
+      searchParams.set("query", "easy family");
       searchParams.set("maxReadyTime", "45");
-      searchParams.set("minPopularity", "60");
-      searchParams.delete("sort");
       searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
+      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
+    } else {
+      searchParams.set("includeIngredients", ingredientStr);
+      searchParams.set("sort", "max-used-ingredients");
+      searchParams.set("sortDirection", "desc");
+      if (dietStr) searchParams.set("diet", dietStr);
+      if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
+      if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
+      if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
+      if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     }
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);

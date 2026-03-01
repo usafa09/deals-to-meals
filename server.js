@@ -332,9 +332,16 @@ const offset = req.body.offset || 0;
     if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
     if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
     if (diets?.includes("High Fiber")) searchParams.set("minFiber", "5");
-    if (diets?.includes("Kid Friendly")) {
-      searchParams.set("tags", "kid-friendly");
-      searchParams.set("maxSpiciness", "0");
+   if (diets?.includes("Kid Friendly")) {
+      const existingExcludes = searchParams.get("excludeIngredients") || "";
+      const kidExcludes = "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,blue cheese,brie,liver,curry,habanero,spicy,hot sauce";
+      searchParams.set("excludeIngredients", existingExcludes ? `${existingExcludes},${kidExcludes}` : kidExcludes);
+      searchParams.set("maxReadyTime", "45");
+      searchParams.set("minPopularity", "60");
+      searchParams.delete("sort");
+      searchParams.set("sort", "popularity");
+      searchParams.set("sortDirection", "desc");
+    }
     }
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);

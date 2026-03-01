@@ -312,13 +312,11 @@ app.post("/api/recipes/search", async (req, res) => {
       : "";
 
     // Search for recipes using sale ingredients
-const offset = req.body.offset || 0;
     const searchParams = new URLSearchParams({
       apiKey,
       includeIngredients: ingredientStr,
       type: typeStr,
       number: "50",
-      offset: String(offset),
       sort: "max-used-ingredients",
       sortDirection: "desc",
       addRecipeInformation: "true",
@@ -328,11 +326,11 @@ const offset = req.body.offset || 0;
     if (dietStr) searchParams.set("diet", dietStr);
 
     // Handle special filters not directly supported by Spoonacular
- if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
+    if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
     if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
     if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
     if (diets?.includes("High Fiber")) searchParams.set("minFiber", "5");
-   if (diets?.includes("Kid Friendly")) {
+    if (diets?.includes("Kid Friendly")) {
       const existingExcludes = searchParams.get("excludeIngredients") || "";
       const kidExcludes = "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,blue cheese,brie,liver,curry,habanero,spicy,hot sauce";
       searchParams.set("excludeIngredients", existingExcludes ? `${existingExcludes},${kidExcludes}` : kidExcludes);
@@ -341,7 +339,6 @@ const offset = req.body.offset || 0;
       searchParams.delete("sort");
       searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
-    }
     }
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);

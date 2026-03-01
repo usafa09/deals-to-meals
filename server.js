@@ -39,6 +39,29 @@ const supabase = createClient(
 
 const krogerTokens = new Map();
 
+// ── Spoonacular cache & point tracker ────────────────────────────────────────
+const recipeCache = new Map();    // key -> { recipes, timestamp }
+const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
+let dailyPoints = 0;
+let pointsResetDate = new Date().toDateString();
+const DAILY_POINT_LIMIT = 180; // stay under 200 with buffer
+const POINTS_PER_SEARCH = 3;   // Spoonacular complexSearch costs ~3 points
+
+function checkAndResetPoints() {
+  const today = new Date().toDateString();
+  if (today !== pointsResetDate) {
+    dailyPoints = 0;
+    pointsResetDate = today;
+    console.log("Spoonacular daily points reset");
+  }
+}
+
+function getCacheKey(ingredients, mealType, diets, offset) {
+  const ingKey = ingredients.slice(0, 10).map(i => i.name).sort().join(",");
+  return `${ingKey}|${mealType}|${(diets||[]).sort().join(",")}|${offset||0}`;
+}
+
 const DEAL_CATEGORIES = [
   "chicken", "beef", "pork", "seafood", "turkey", "lamb", "sausage", "bacon",
   "vegetables", "fruit", "salad", "herbs", "mushrooms", "potatoes",
@@ -298,11 +321,26 @@ app.get("/api/deals", async (req, res) => {
 // ══ SPOONACULAR RECIPE SEARCH ═════════════════════════════════════════════════
 
 app.post("/api/recipes/search", async (req, res) => {
-  const { ingredients, mealType, diets, coupons, boostDeals } = req.body;
+  const { ingredients, mealType, diets, coupons, boostDeals, offset: reqOffset } = req.body;
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
 
   try {
     const apiKey = process.env.SPOONACULAR_API_KEY;
+    const offset = reqOffset || 0;
+
+    // Check cache first
+    const cacheKey = getCacheKey(ingredients, mealType, diets, offset);
+    const cached = recipeCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log("Serving cached recipes for:", cacheKey.slice(0, 60));
+      return res.json({ recipes: cached.recipes, cached: true });
+    }
+
+    // Check daily point limit
+    checkAndResetPoints();
+    if (dailyPoints + POINTS_PER_SEARCH > DAILY_POINT_LIMIT) {
+      return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow or the cache will refresh in 2 hours." });
+    }
 
     // Build query params
     const ingredientStr = ingredients.slice(0, 20).map(i => i.name).join(",");
@@ -339,6 +377,10 @@ app.post("/api/recipes/search", async (req, res) => {
       if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
       if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     }
+
+    // Increment point counter before API call
+    dailyPoints += POINTS_PER_SEARCH;
+    console.log(`Spoonacular points used today: ${dailyPoints}/${DAILY_POINT_LIMIT}`);
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
     if (!searchRes.ok) throw new Error(await searchRes.text());
@@ -410,7 +452,15 @@ app.post("/api/recipes/search", async (req, res) => {
     // Sort by largest savings first
     enriched.sort((a, b) => b.totalSavings - a.totalSavings);
 
-    res.json({ recipes: enriched });
+    // Cache the results
+    recipeCache.set(cacheKey, { recipes: enriched, timestamp: Date.now() });
+
+    // Clean up old cache entries
+    for (const [key, val] of recipeCache.entries()) {
+      if (Date.now() - val.timestamp > CACHE_TTL) recipeCache.delete(key);
+    }
+
+    res.json({ recipes: enriched, cached: false, pointsUsedToday: dailyPoints, pointsRemaining: DAILY_POINT_LIMIT - dailyPoints });
   } catch (err) {
     console.error("Recipe search error:", err.message);
     res.status(500).json({ error: err.message });
@@ -482,6 +532,17 @@ app.post("/api/cart", async (req, res) => {
     if (!r.ok) throw new Error(await r.text());
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Points status endpoint ───────────────────────────────────────────────────
+app.get("/api/points", (req, res) => {
+  checkAndResetPoints();
+  res.json({
+    used: dailyPoints,
+    limit: DAILY_POINT_LIMIT,
+    remaining: DAILY_POINT_LIMIT - dailyPoints,
+    resetsAt: "midnight"
+  });
 });
 
 const PORT = process.env.PORT || 5000;

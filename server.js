@@ -323,11 +323,12 @@ app.post("/api/recipes/search", async (req, res) => {
     });
 
     if (isKidFriendly) {
-      searchParams.set("query", "easy family");
+      searchParams.set("query", "mac and cheese,chicken nuggets,pizza,grilled cheese,pasta,tacos,quesadilla,pancakes,hot dogs,french toast,spaghetti,burgers,meatballs,fish sticks,fried rice");
       searchParams.set("maxReadyTime", "45");
       searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
-      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
+      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero,blue cheese,brie,gorgonzola");
+      searchParams.set("minPopularity", "50");
     } else {
       searchParams.set("includeIngredients", ingredientStr);
       searchParams.set("sort", "max-used-ingredients");

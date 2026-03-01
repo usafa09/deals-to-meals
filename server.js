@@ -59,12 +59,13 @@ const DIET_MAP = {
   "Vegan": "vegan",
   "Vegetarian": "vegetarian",
   "Pescetarian": "pescetarian",
+  "Ketogenic": "ketogenic",
   "Keto": "ketogenic",
   "Paleo": "paleo",
   "Gluten-Free": "gluten free",
   "Dairy-Free": "dairy free",
   "Mediterranean": "mediterranean",
-};
+  "Low Calorie": "whole30",
 };
 
 // Spoonacular meal type mapping
@@ -325,16 +326,19 @@ app.post("/api/recipes/search", async (req, res) => {
     if (dietStr) searchParams.set("diet", dietStr);
 
     // Handle special filters not directly supported by Spoonacular
-if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
+    if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
     if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
-    if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "400");
+    if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
     if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     if (diets?.includes("Kid Friendly")) {
-      searchParams.set("tags", "kid-friendly");
-      searchParams.delete("includeIngredients");
+      const existingExcludes = searchParams.get("excludeIngredients") || "";
+      const kidExcludes = "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,blue cheese,brie,liver,curry,habanero,spicy,hot sauce";
+      searchParams.set("excludeIngredients", existingExcludes ? `${existingExcludes},${kidExcludes}` : kidExcludes);
+      searchParams.set("maxReadyTime", "45");
+      searchParams.set("minPopularity", "60");
+      searchParams.delete("sort");
       searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
-    }
     }
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);

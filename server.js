@@ -372,10 +372,11 @@ app.post("/api/recipes/search", async (req, res) => {
       searchParams.set("sortDirection", "desc");
       searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
     } else {
-      // Normal: search by sale ingredients
-      const ingredientStr = ingredients.slice(0, 20).map(i => i.name).join(",");
-      searchParams.set("includeIngredients", ingredientStr);
-      searchParams.set("sort", "max-used-ingredients");
+      // Normal: use deal categories as query (simpler terms Spoonacular understands)
+      const categories = [...new Set(ingredients.slice(0, 30).map(i => i.category).filter(Boolean))].slice(0, 8).join(" ");
+      const queryStr = categories || "chicken beef pasta vegetables";
+      searchParams.set("query", queryStr);
+      searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");

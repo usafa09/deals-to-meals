@@ -373,9 +373,12 @@ app.post("/api/recipes/search", async (req, res) => {
       searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero,blue cheese,brie,gorgonzola");
       searchParams.set("minPopularity", "50");
     } else {
-      searchParams.set("includeIngredients", ingredientStr);
-      searchParams.set("sort", "max-used-ingredients");
+      // Use query with top ingredients — more flexible than includeIngredients
+      const topIngredients = ingredientStr.split(",").slice(0, 8).join(" ");
+      searchParams.set("query", topIngredients);
+      searchParams.set("sort", "popularity");
       searchParams.set("sortDirection", "desc");
+      searchParams.set("offset", String(offset));
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
       if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");

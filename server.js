@@ -403,10 +403,43 @@ app.post("/api/recipes/search", async (req, res) => {
     const recipes = searchData.results || [];
 
     // Build ingredient lookup for savings calculation
+    // Use category as the key for better matching (e.g. "seafood" -> seafood deals)
     const ingredientLookup = {};
     for (const ing of ingredients) {
-      const key = ing.name.toLowerCase().split(" ")[0];
-      ingredientLookup[key] = ing;
+      // Extract meaningful food words — skip brand/marketing words
+      const skipWords = new Set(["the","original","kroger","simple","truth","organic","natural","premium","classic","homestyle","traditional","crunchy","crispy","frozen","fresh","grade","boneless","skinless","extra","large","small","medium","value","family","pack","brand","style","seasoned","baked","grilled","roasted","sliced","diced","chopped","shredded","whole","fat","reduced","low","lite","light"]);
+      const foodWords = ing.name.toLowerCase()
+        .replace(/[^a-z\s]/g, "")
+        .split(" ")
+        .filter(w => w.length > 2 && !skipWords.has(w));
+      for (const word of foodWords) {
+        if (!ingredientLookup[word]) ingredientLookup[word] = ing;
+      }
+    }
+
+    // Match recipe ingredient to sale item — require meaningful word overlap
+    function findDeal(recipeIngName) {
+      const recipeWords = recipeIngName.toLowerCase()
+        .replace(/[^a-z\s]/g, "")
+        .split(" ")
+        .filter(w => w.length > 2);
+      // Score each sale item by how many recipe words it contains
+      let bestDeal = null;
+      let bestScore = 0;
+      for (const ing of ingredients) {
+        const dealName = ing.name.toLowerCase();
+        let score = 0;
+        for (const word of recipeWords) {
+          if (dealName.includes(word)) score++;
+        }
+        // Require at least 2 matching words OR the ingredient name is a single meaningful word
+        const minScore = recipeWords.length === 1 ? 1 : 2;
+        if (score >= minScore && score > bestScore) {
+          bestScore = score;
+          bestDeal = ing;
+        }
+      }
+      return bestDeal;
     }
 
     // Enrich each recipe with savings and coupon data
@@ -416,10 +449,7 @@ app.post("/api/recipes/search", async (req, res) => {
       let estimatedCost = 0;
 
       for (const ing of (recipe.usedIngredients || [])) {
-        const key = ing.name.toLowerCase().split(" ")[0];
-        const deal = ingredientLookup[key] || ingredients.find(i =>
-          i.name.toLowerCase().includes(ing.name.toLowerCase().split(" ")[0])
-        );
+        const deal = findDeal(ing.name);
         if (deal) {
           usedSaleItems.push({ name: deal.name, salePrice: deal.salePrice, regularPrice: deal.regularPrice, savings: deal.savings, upc: deal.upc });
           totalSavings += parseFloat(deal.savings) || 0;

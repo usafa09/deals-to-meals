@@ -354,11 +354,13 @@ app.post("/api/recipes/search", async (req, res) => {
       ? diets.filter(d => d !== "Kid Friendly" && DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
       : "";
 
-    // Build query from categories
-    const categories = [...new Set(ingredients.slice(0, 30).map(i => i.category).filter(Boolean))].slice(0, 6);
+    // Pick best single category for query — Spoonacular works best with 1-2 words
+    const PRIORITY_CATEGORIES = ["chicken","beef","pork","seafood","pasta","turkey","lamb","salmon","shrimp","vegetables"];
+    const allCategories = [...new Set(ingredients.map(i => i.category).filter(Boolean))];
+    const bestCategory = PRIORITY_CATEGORIES.find(p => allCategories.includes(p)) || allCategories[0] || "chicken";
     const queryStr = isKidFriendly
       ? (KID_QUERIES[mealType] || "pasta chicken rice")
-      : (categories.length > 0 ? categories.join(" ") : "chicken beef pasta");
+      : bestCategory;
 
     console.log("Recipe search — mealType:", mealType, "query:", queryStr, "diets:", diets, "offset:", offset);
 

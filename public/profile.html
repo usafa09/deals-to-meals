@@ -93,12 +93,19 @@
     .connect-store-btn.disconnect { background: transparent; border: 2px solid #EEE; color: #999; font-size: 12px; }
     .connect-store-btn.disconnect:hover { border-color: var(--red); color: var(--red); }
 
-    .recipe-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F5EFE0; }
-    .recipe-item:last-child { border-bottom: none; }
-    .recipe-emoji-sm { font-size: 28px; }
-    .recipe-item-info h3 { font-size: 14px; font-weight: 700; }
-    .recipe-item-info p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .recipe-item-actions { margin-left: auto; }
+    .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    .recipe-item { background: white; border: 2px solid var(--sand); border-radius: 16px; overflow: hidden; transition: all 0.2s; }
+    .recipe-item:hover { border-color: var(--green-mid); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .recipe-item-img { width: 100%; height: 130px; object-fit: cover; background: #F5F0E8; display: block; }
+    .recipe-item-img-placeholder { width: 100%; height: 130px; background: linear-gradient(135deg, #F0FAF0, #FFF8F0); display: flex; align-items: center; justify-content: center; font-size: 36px; }
+    .recipe-item-body { padding: 12px; }
+    .recipe-item-info h3 { font-family: "Lora", serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 4px; line-height: 1.3; }
+    .recipe-item-info p  { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .recipe-item-actions { display: flex; gap: 6px; }
+    .recipe-action-btn { flex: 1; padding: 7px; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; font-family: "DM Sans", sans-serif; cursor: pointer; transition: all 0.2s; }
+    .recipe-action-btn:hover { filter: brightness(1.08); }
+    .recipe-action-btn.view { background: var(--green-light); color: var(--green-dark); border: 1.5px solid #A5D6A7; }
+    .recipe-action-btn.delete { background: #FFF0F0; color: #D32F2F; border: 1.5px solid #FFCDD2; }
     .icon-btn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.2s; }
     .icon-btn.delete { background: #FFEBEE; color: var(--red); }
     .icon-btn.delete:hover { background: var(--red); color: white; }
@@ -127,8 +134,8 @@
 
 <script>
 // ── Config — replace these with your actual Supabase values ──────────────────
-const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_6eH_QSwVUKVwaQUeyNIMUg_9jNzHfSa";
+const SUPABASE_URL      = "REPLACE_WITH_YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -137,8 +144,6 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     flowType: "implicit",
-    storage: window.localStorage,
-    storageKey: "dtm-auth-token",
   }
 });
 
@@ -163,33 +168,15 @@ function showToast(msg, type="success") {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-window.addEventListener("load", async () => {
+window.addEventListener("load", () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
-
-  // Wait for Supabase to read the token from the URL hash BEFORE clearing it
-  await new Promise(r => setTimeout(r, 100));
   window.history.replaceState({}, "", "/profile.html");
 
-  // Try up to 5 times to get the session, waiting 500ms between each try
-  let session = null;
-  for (let i = 0; i < 5; i++) {
-    const { data } = await sb.auth.getSession();
-    if (data.session?.user) { session = data.session; break; }
-    await new Promise(r => setTimeout(r, 500));
-  }
-
-  if (session?.user) {
-    currentUser = session.user;
-    await loadProfileData();
-    renderProfile();
-  } else {
-    renderAuth();
-  }
-
-  // Still listen for sign in/out events
+  // Listen for auth state changes — this fires reliably after OAuth redirect
   sb.auth.onAuthStateChange(async (event, session) => {
+    console.log("Auth event:", event);
     if (event === "SIGNED_IN" && session?.user) {
       currentUser = session.user;
       await loadProfileData();
@@ -197,6 +184,14 @@ window.addEventListener("load", async () => {
     } else if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
+    } else if (event === "INITIAL_SESSION") {
+      if (session?.user) {
+        currentUser = session.user;
+        await loadProfileData();
+        renderProfile();
+      } else {
+        renderAuth();
+      }
     }
   });
 });
@@ -253,7 +248,13 @@ function renderAuth() {
 function switchTab(tab) { activeTab = tab; renderAuth(); }
 
 async function signInWithGoogle() {
-window.location.href = `https://bvwwtrwxnuncalgtuqvx.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://dealstomeals.co/profile.html`;
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: "https://deals-to-meals.onrender.com/profile.html",
+    },
+  });
+  if (error) showAuthError(error.message);
 }
 
 async function signInWithEmail() {
@@ -274,7 +275,7 @@ async function signUpWithEmail() {
     email, password,
     options: {
       data: { full_name: name },
-      emailRedirectTo: "https://dealstomeals.co/profile.html",
+      emailRedirectTo: "https://deals-to-meals.onrender.com/profile.html",
     },
   });
   if (error) showAuthError(error.message);
@@ -401,19 +402,24 @@ function renderProfile() {
         <div class="section-title">❤️ Saved Recipes</div>
       </div>
       ${savedRecipes.length === 0
-        ? `<div class="empty-state">No saved recipes yet — generate some and save your favorites!</div>`
-        : savedRecipes.map(r => `
+        ? `<div class="empty-state">No saved recipes yet — generate some meals from this week's deals and tap ❤️ to save your favorites!</div>`
+        : `<div class="recipe-grid">${savedRecipes.map(r => `
           <div class="recipe-item" id="recipe-${r.id}">
-            <span class="recipe-emoji-sm">${r.emoji||"🍽️"}</span>
-            <div class="recipe-item-info">
-              <h3>${r.title}</h3>
-              <p>${r.time||""} · ${r.servings||"?"} servings · ${r.store_name||""}</p>
-            </div>
-            <div class="recipe-item-actions">
-              <button class="icon-btn delete" onclick="deleteRecipe('${r.id}')">🗑️</button>
+            ${r.image
+              ? `<img class="recipe-item-img" src="${r.image}" alt="${r.title}" onerror="this.style.display='none'" />`
+              : `<div class="recipe-item-img-placeholder">🍽️</div>`}
+            <div class="recipe-item-body">
+              <div class="recipe-item-info">
+                <h3>${r.title}</h3>
+                <p>${[r.time, r.servings ? r.servings+" servings" : "", r.store_name].filter(Boolean).join(" · ")}</p>
+              </div>
+              <div class="recipe-item-actions">
+                <button class="recipe-action-btn view" onclick="viewRecipe('${r.id}')">📋 View</button>
+                <button class="recipe-action-btn delete" onclick="deleteRecipe('${r.id}')">🗑️ Remove</button>
+              </div>
             </div>
           </div>
-        `).join("")}
+        `).join("")}</div>`}
     </div>
   `;
 }
@@ -462,6 +468,56 @@ async function saveFavoriteTypes() {
   });
   if (res.ok) { userProfile = await res.json(); showToast("✅ Recipe preferences saved!"); }
   else showToast("Could not save", "error");
+}
+
+function viewRecipe(id) {
+  const r = savedRecipes.find(r => r.id === id);
+  if (!r) return;
+
+  // Build modal
+  const modal = document.createElement("div");
+  modal.id = "recipeModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px";
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      ${r.image ? `<img src="${r.image}" style="width:100%;height:200px;object-fit:cover;border-radius:22px 22px 0 0" />` : `<div style="width:100%;height:160px;background:linear-gradient(135deg,#F0FAF0,#FFF8F0);display:flex;align-items:center;justify-content:center;font-size:56px;border-radius:22px 22px 0 0">🍽️</div>`}
+      <div style="padding:24px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div style="font-family:'Lora',serif;font-size:20px;font-weight:700;color:#2D5016;line-height:1.3">${r.title}</div>
+          <button onclick="document.getElementById('recipeModal').remove()" style="width:34px;height:34px;border-radius:50%;border:2px solid #E8D5B0;background:white;font-size:16px;cursor:pointer;flex-shrink:0;margin-left:10px">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          ${r.time ? `<span style="background:#F5F0E8;color:#5A4A30;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">⏱ ${r.time}</span>` : ""}
+          ${r.servings ? `<span style="background:#F3E5F5;color:#6A1B9A;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">👥 ${r.servings} servings</span>` : ""}
+          ${r.store_name ? `<span style="background:#F0FAF0;color:#2D5016;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🏪 ${r.store_name}</span>` : ""}
+        </div>
+        ${r.ingredients?.length ? `
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Ingredients</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${r.ingredients.map(i => `<span style="background:#F5F5F5;padding:4px 10px;border-radius:6px;font-size:12px">${i}</span>`).join("")}
+            </div>
+          </div>` : ""}
+        ${r.steps?.length ? `
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Instructions</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${r.steps.map((step, i) => `
+                <div style="display:flex;gap:10px;align-items:flex-start">
+                  <div style="min-width:24px;height:24px;border-radius:50%;background:#2D5016;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0">${i+1}</div>
+                  <div style="font-size:13px;color:#444;line-height:1.6;padding-top:2px">${step}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>` : ""}
+        <div style="margin-top:20px;padding-top:16px;border-top:2px solid #F5EFE0">
+          <button onclick="document.getElementById('recipeModal').remove()" style="width:100%;padding:12px;background:#2D5016;color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 
 async function deleteRecipe(id) {

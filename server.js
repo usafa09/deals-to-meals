@@ -342,8 +342,13 @@ app.post("/api/recipes/search", async (req, res) => {
       return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow or the cache will refresh in 2 hours." });
     }
 
-    // Build query params
-    const ingredientStr = ingredients.slice(0, 20).map(i => i.name).join(",");
+    // Build query params — simplify Kroger brand names to generic ingredient terms
+    const stopWords = new Set(["simple","truth","organic","natural","fresh","kroger","brand","premium","select","free","range","grade","a","boneless","skinless","sliced","diced","chopped","frozen","canned","whole","extra","large","small","medium","lean","fat","reduced","low","lite","light","classic","original","traditional","homestyle","value","pack","family","size"]);
+    const simplifyIngredient = (name) => {
+      const words = name.toLowerCase().replace(/[^a-z\s]/g,"").split(" ").filter(w => w.length > 2 && !stopWords.has(w));
+      return words.slice(0, 2).join(" ") || name.split(" ")[0];
+    };
+    const ingredientStr = [...new Set(ingredients.slice(0, 20).map(i => simplifyIngredient(i.name)))].join(",");
     const typeStr = MEAL_TYPE_MAP[mealType] || "main course";
     const dietStr = diets?.length
       ? diets.map(d => DIET_MAP[d] || d.toLowerCase()).filter(Boolean).join(",")

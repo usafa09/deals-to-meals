@@ -535,6 +535,30 @@ app.post("/api/cart", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ DEBUG ENDPOINT ═══════════════════════════════════════════════════════════
+// Test Spoonacular directly — visit /api/debug-recipes to check
+app.get("/api/debug-recipes", async (req, res) => {
+  try {
+    const apiKey = process.env.SPOONACULAR_API_KEY;
+    const query = req.query.q || "chicken";
+    const type = req.query.type || "main course";
+    const url = `${SPOONACULAR_BASE}/recipes/complexSearch?apiKey=${apiKey}&query=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}&number=5&addRecipeInformation=true&fillIngredients=true&instructionsRequired=true`;
+    console.log("Debug URL:", url.replace(apiKey, "HIDDEN"));
+    const r = await fetch(url);
+    const data = await r.json();
+    res.json({
+      status: r.status,
+      totalResults: data.totalResults,
+      returned: data.results?.length || 0,
+      firstTitle: data.results?.[0]?.title || "none",
+      error: data.message || null,
+      rawStatus: data.status || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ══ POINTS STATUS ═════════════════════════════════════════════════════════════
 
 app.get("/api/points", (req, res) => {

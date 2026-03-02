@@ -41,6 +41,7 @@ const krogerTokens = new Map();
 
 // ── Spoonacular cache & point tracker ────────────────────────────────────────
 const recipeCache = new Map();    // key -> { recipes, timestamp }
+recipeCache.clear(); // clear on startup
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 let dailyPoints = 0;
@@ -365,20 +366,28 @@ app.post("/api/recipes/search", async (req, res) => {
       instructionsRequired: "true",
     });
 
+    // Set offset for load more
+    searchParams.set("offset", String(offset));
+    searchParams.set("sort", "popularity");
+    searchParams.set("sortDirection", "desc");
+
     if (isKidFriendly) {
-      searchParams.set("query", "mac and cheese,chicken nuggets,pizza,grilled cheese,pasta,tacos,quesadilla,pancakes,hot dogs,french toast,spaghetti,burgers,meatballs,fish sticks,fried rice");
+      // Kid friendly: search for classic kid dishes by meal type
+      const kidQueries = {
+        "Breakfast": "pancakes waffles eggs toast",
+        "Lunch": "grilled cheese quesadilla mac cheese sandwich",
+        "Dinner": "pasta chicken nuggets meatballs spaghetti tacos",
+        "Snack": "fruit snack crackers cheese",
+        "Dessert": "cookies brownies cupcakes ice cream",
+        "Appetizer": "mini pizza sliders finger food",
+      };
+      searchParams.set("query", kidQueries[mealType] || "pasta chicken rice");
       searchParams.set("maxReadyTime", "45");
-      searchParams.set("sort", "popularity");
-      searchParams.set("sortDirection", "desc");
-      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero,blue cheese,brie,gorgonzola");
-      searchParams.set("minPopularity", "50");
+      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
     } else {
-      // Use query with top ingredients — more flexible than includeIngredients
-      const topIngredients = ingredientStr.split(",").slice(0, 8).join(" ");
-      searchParams.set("query", topIngredients);
-      searchParams.set("sort", "popularity");
-      searchParams.set("sortDirection", "desc");
-      searchParams.set("offset", String(offset));
+      // Normal search: use simplified ingredient names as query
+      const topIngredients = ingredientStr.split(",").filter(Boolean).slice(0, 5).join(" ");
+      searchParams.set("query", topIngredients || mealType);
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
       if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");

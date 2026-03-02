@@ -354,30 +354,31 @@ app.post("/api/recipes/search", async (req, res) => {
       ? diets.filter(d => d !== "Kid Friendly" && DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
       : "";
 
+    // Build query from categories
+    const categories = [...new Set(ingredients.slice(0, 30).map(i => i.category).filter(Boolean))].slice(0, 6);
+    const queryStr = isKidFriendly
+      ? (KID_QUERIES[mealType] || "pasta chicken rice")
+      : (categories.length > 0 ? categories.join(" ") : "chicken beef pasta");
+
+    console.log("Recipe search — mealType:", mealType, "query:", queryStr, "diets:", diets, "offset:", offset);
+
     const searchParams = new URLSearchParams({
       apiKey,
+      query: queryStr,
       type: typeStr,
       number: "50",
       offset: String(offset),
+      sort: "popularity",
+      sortDirection: "desc",
       addRecipeInformation: "true",
       fillIngredients: "true",
       instructionsRequired: "true",
     });
 
     if (isKidFriendly) {
-      // Kid friendly: query by classic kid dishes for the meal type
-      searchParams.set("query", KID_QUERIES[mealType] || "pasta chicken rice");
       searchParams.set("maxReadyTime", "45");
-      searchParams.set("sort", "popularity");
-      searchParams.set("sortDirection", "desc");
       searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
     } else {
-      // Normal: use deal categories as query (simpler terms Spoonacular understands)
-      const categories = [...new Set(ingredients.slice(0, 30).map(i => i.category).filter(Boolean))].slice(0, 8).join(" ");
-      const queryStr = categories || "chicken beef pasta vegetables";
-      searchParams.set("query", queryStr);
-      searchParams.set("sort", "popularity");
-      searchParams.set("sortDirection", "desc");
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
       if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
@@ -389,10 +390,16 @@ app.post("/api/recipes/search", async (req, res) => {
     dailyPoints += POINTS_PER_SEARCH;
     console.log(`Spoonacular points used today: ${dailyPoints}/${DAILY_POINT_LIMIT}`);
 
-    const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
-    if (!searchRes.ok) throw new Error(await searchRes.text());
-    const searchData = await searchRes.json();
+    const searchUrl = `${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`;
+    console.log("Spoonacular URL:", searchUrl.replace(apiKey, "HIDDEN"));
+
+    const searchRes = await fetch(searchUrl);
+    const rawText = await searchRes.text();
+    console.log("Spoonacular response status:", searchRes.status, "body:", rawText.slice(0, 200));
+    if (!searchRes.ok) throw new Error(rawText);
+    const searchData = JSON.parse(rawText);
     const recipes = searchData.results || [];
+    console.log("Recipes returned:", recipes.length);
 
     // Build ingredient lookup for savings calculation
     const ingredientLookup = {};

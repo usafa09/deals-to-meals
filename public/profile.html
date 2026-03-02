@@ -134,8 +134,8 @@
 
 <script>
 // ── Config — replace these with your actual Supabase values ──────────────────
-const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_6eH_QSwVUKVwaQUeyNIMUg_9jNzHfSa";
+const SUPABASE_URL      = "REPLACE_WITH_YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "REPLACE_WITH_YOUR_SUPABASE_ANON_KEY";
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -270,7 +270,7 @@ async function signInWithGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://deals-to-meals.onrender.com/profile.html",
+      redirectTo: "https://dealstomeals.co/profile.html",
     },
   });
   if (error) showAuthError(error.message);

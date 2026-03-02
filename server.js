@@ -45,7 +45,7 @@ const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 let dailyPoints = 0;
 let pointsResetDate = new Date().toDateString();
-const DAILY_POINT_LIMIT = 180;
+const DAILY_POINT_LIMIT = 180; // buffer under 200
 const POINTS_PER_SEARCH = 3;
 
 function checkAndResetPoints() {
@@ -97,14 +97,13 @@ const MEAL_TYPE_MAP = {
   "Appetizer": "appetizer,fingerfood",
 };
 
-// Kid friendly queries by meal type
 const KID_QUERIES = {
   "Breakfast": "pancakes waffles french toast eggs",
   "Lunch": "grilled cheese quesadilla mac cheese sandwich",
   "Dinner": "pasta spaghetti meatballs chicken tacos",
   "Snack": "fruit apple cheese crackers",
   "Dessert": "cookies brownies cupcakes pudding",
-  "Appetizer": "mini pizza sliders pigs blanket",
+  "Appetizer": "mini pizza sliders",
 };
 
 async function getAppToken() {
@@ -338,7 +337,7 @@ app.post("/api/recipes/search", async (req, res) => {
     const cacheKey = getCacheKey(ingredients, mealType, diets, offset);
     const cached = recipeCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log("Serving cached recipes for:", cacheKey.slice(0, 60));
+      console.log("Serving cached recipes");
       return res.json({ recipes: cached.recipes, cached: true });
     }
 
@@ -354,33 +353,39 @@ app.post("/api/recipes/search", async (req, res) => {
       ? diets.filter(d => d !== "Kid Friendly" && DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
       : "";
 
-    // Pick best single category for query — Spoonacular works best with 1-2 words
-    const PRIORITY_CATEGORIES = ["chicken","beef","pork","seafood","pasta","turkey","lamb","salmon","shrimp","vegetables"];
-    const allCategories = [...new Set(ingredients.map(i => i.category).filter(Boolean))];
-    const bestCategory = PRIORITY_CATEGORIES.find(p => allCategories.includes(p)) || allCategories[0] || "chicken";
-    const queryStr = isKidFriendly
-      ? (KID_QUERIES[mealType] || "pasta chicken rice")
-      : bestCategory;
-
-    console.log("Recipe search — mealType:", mealType, "query:", queryStr, "diets:", diets, "offset:", offset);
-
-    const searchParams = new URLSearchParams({
-      apiKey,
-      query: queryStr,
-      type: typeStr,
-      number: "50",
-      offset: String(offset),
-      sort: "popularity",
-      sortDirection: "desc",
-      addRecipeInformation: "true",
-      fillIngredients: "true",
-      instructionsRequired: "true",
-    });
+    let searchParams;
 
     if (isKidFriendly) {
-      searchParams.set("maxReadyTime", "45");
-      searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
+      // Kid Friendly: use meal-type-specific query
+      searchParams = new URLSearchParams({
+        apiKey,
+        query: KID_QUERIES[mealType] || "pasta chicken rice",
+        type: typeStr,
+        number: "50",
+        offset: String(offset),
+        maxReadyTime: "45",
+        sort: "popularity",
+        sortDirection: "desc",
+        addRecipeInformation: "true",
+        fillIngredients: "true",
+        instructionsRequired: "true",
+        excludeIngredients: "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero",
+      });
     } else {
+      // Normal: use sale ingredients directly
+      const ingredientStr = ingredients.slice(0, 20).map(i => i.name).join(",");
+      searchParams = new URLSearchParams({
+        apiKey,
+        includeIngredients: ingredientStr,
+        type: typeStr,
+        number: "50",
+        offset: String(offset),
+        sort: "max-used-ingredients",
+        sortDirection: "desc",
+        addRecipeInformation: "true",
+        fillIngredients: "true",
+        instructionsRequired: "true",
+      });
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
       if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
@@ -392,16 +397,10 @@ app.post("/api/recipes/search", async (req, res) => {
     dailyPoints += POINTS_PER_SEARCH;
     console.log(`Spoonacular points used today: ${dailyPoints}/${DAILY_POINT_LIMIT}`);
 
-    const searchUrl = `${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`;
-    console.log("Spoonacular URL:", searchUrl.replace(apiKey, "HIDDEN"));
-
-    const searchRes = await fetch(searchUrl);
-    const rawText = await searchRes.text();
-    console.log("Spoonacular response status:", searchRes.status, "body:", rawText.slice(0, 200));
-    if (!searchRes.ok) throw new Error(rawText);
-    const searchData = JSON.parse(rawText);
+    const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
+    if (!searchRes.ok) throw new Error(await searchRes.text());
+    const searchData = await searchRes.json();
     const recipes = searchData.results || [];
-    console.log("Recipes returned:", recipes.length);
 
     // Build ingredient lookup for savings calculation
     const ingredientLookup = {};
@@ -410,7 +409,7 @@ app.post("/api/recipes/search", async (req, res) => {
       ingredientLookup[key] = ing;
     }
 
-    // Enrich each recipe with savings data and coupon recommendations
+    // Enrich each recipe with savings and coupon data
     const enriched = recipes.map(recipe => {
       const usedSaleItems = [];
       let totalSavings = 0;
@@ -427,7 +426,6 @@ app.post("/api/recipes/search", async (req, res) => {
           estimatedCost += parseFloat(deal.salePrice) || 0;
         }
       }
-
       estimatedCost += (recipe.missedIngredientCount || 0) * 0.5;
 
       const allCoupons = [...(coupons || []), ...(boostDeals || [])];
@@ -451,7 +449,6 @@ app.post("/api/recipes/search", async (req, res) => {
         totalSavings: parseFloat(totalSavings.toFixed(2)),
         estimatedCost: parseFloat(estimatedCost.toFixed(2)),
         couponsToClip,
-        summary: recipe.summary?.replace(/<[^>]*>/g, "").slice(0, 200) + "..." || "",
         diets: recipe.diets || [],
         cuisines: recipe.cuisines || [],
         instructions: recipe.analyzedInstructions?.[0]?.steps?.map(s => s.step) || [],
@@ -464,7 +461,7 @@ app.post("/api/recipes/search", async (req, res) => {
 
     enriched.sort((a, b) => b.totalSavings - a.totalSavings);
 
-    // Save to cache
+    // Save to cache and clean up old entries
     recipeCache.set(cacheKey, { recipes: enriched, timestamp: Date.now() });
     for (const [key, val] of recipeCache.entries()) {
       if (Date.now() - val.timestamp > CACHE_TTL) recipeCache.delete(key);
@@ -544,40 +541,25 @@ app.post("/api/cart", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ══ DEBUG ENDPOINT ═══════════════════════════════════════════════════════════
-// Test Spoonacular directly — visit /api/debug-recipes to check
+// ══ POINTS STATUS ═════════════════════════════════════════════════════════════
+
+app.get("/api/points", (req, res) => {
+  checkAndResetPoints();
+  res.json({ used: dailyPoints, limit: DAILY_POINT_LIMIT, remaining: DAILY_POINT_LIMIT - dailyPoints, resetsAt: "midnight" });
+});
+
+// ══ DEBUG ══════════════════════════════════════════════════════════════════════
+
 app.get("/api/debug-recipes", async (req, res) => {
   try {
     const apiKey = process.env.SPOONACULAR_API_KEY;
     const query = req.query.q || "chicken";
     const type = req.query.type || "main course";
     const url = `${SPOONACULAR_BASE}/recipes/complexSearch?apiKey=${apiKey}&query=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}&number=5&addRecipeInformation=true&fillIngredients=true&instructionsRequired=true`;
-    console.log("Debug URL:", url.replace(apiKey, "HIDDEN"));
     const r = await fetch(url);
     const data = await r.json();
-    res.json({
-      status: r.status,
-      totalResults: data.totalResults,
-      returned: data.results?.length || 0,
-      firstTitle: data.results?.[0]?.title || "none",
-      error: data.message || null,
-      rawStatus: data.status || null,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ══ POINTS STATUS ═════════════════════════════════════════════════════════════
-
-app.get("/api/points", (req, res) => {
-  checkAndResetPoints();
-  res.json({
-    used: dailyPoints,
-    limit: DAILY_POINT_LIMIT,
-    remaining: DAILY_POINT_LIMIT - dailyPoints,
-    resetsAt: "midnight",
-  });
+    res.json({ status: r.status, totalResults: data.totalResults, returned: data.results?.length || 0, firstTitle: data.results?.[0]?.title || "none", error: data.message || null });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 const PORT = process.env.PORT || 5000;

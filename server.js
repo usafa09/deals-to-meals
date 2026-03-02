@@ -40,14 +40,13 @@ const supabase = createClient(
 const krogerTokens = new Map();
 
 // ── Spoonacular cache & point tracker ────────────────────────────────────────
-const recipeCache = new Map();    // key -> { recipes, timestamp }
-recipeCache.clear(); // clear on startup
+const recipeCache = new Map();
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 let dailyPoints = 0;
 let pointsResetDate = new Date().toDateString();
-const DAILY_POINT_LIMIT = 180; // stay under 200 with buffer
-const POINTS_PER_SEARCH = 3;   // Spoonacular complexSearch costs ~3 points
+const DAILY_POINT_LIMIT = 180;
+const POINTS_PER_SEARCH = 3;
 
 function checkAndResetPoints() {
   const today = new Date().toDateString();
@@ -78,21 +77,17 @@ const DEAL_CATEGORIES = [
   "deli", "lunch meat", "hot dogs",
 ];
 
-// Spoonacular diet mapping
 const DIET_MAP = {
   "Vegan": "vegan",
   "Vegetarian": "vegetarian",
   "Pescetarian": "pescetarian",
-  "Ketogenic": "ketogenic",
   "Keto": "ketogenic",
   "Paleo": "paleo",
   "Gluten-Free": "gluten free",
   "Dairy-Free": "dairy free",
   "Mediterranean": "mediterranean",
-  "Low Calorie": "whole30",
 };
 
-// Spoonacular meal type mapping
 const MEAL_TYPE_MAP = {
   "Breakfast": "breakfast",
   "Lunch": "main course,salad,soup",
@@ -100,6 +95,16 @@ const MEAL_TYPE_MAP = {
   "Snack": "snack,fingerfood,appetizer",
   "Dessert": "dessert",
   "Appetizer": "appetizer,fingerfood",
+};
+
+// Kid friendly queries by meal type
+const KID_QUERIES = {
+  "Breakfast": "pancakes waffles french toast eggs",
+  "Lunch": "grilled cheese quesadilla mac cheese sandwich",
+  "Dinner": "pasta spaghetti meatballs chicken tacos",
+  "Snack": "fruit apple cheese crackers",
+  "Dessert": "cookies brownies cupcakes pudding",
+  "Appetizer": "mini pizza sliders pigs blanket",
 };
 
 async function getAppToken() {
@@ -340,54 +345,38 @@ app.post("/api/recipes/search", async (req, res) => {
     // Check daily point limit
     checkAndResetPoints();
     if (dailyPoints + POINTS_PER_SEARCH > DAILY_POINT_LIMIT) {
-      return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow or the cache will refresh in 2 hours." });
+      return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow." });
     }
 
-    // Build query params — simplify Kroger brand names to generic ingredient terms
-    const stopWords = new Set(["simple","truth","organic","natural","fresh","kroger","brand","premium","select","free","range","grade","a","boneless","skinless","sliced","diced","chopped","frozen","canned","whole","extra","large","small","medium","lean","fat","reduced","low","lite","light","classic","original","traditional","homestyle","value","pack","family","size"]);
-    const simplifyIngredient = (name) => {
-      const words = name.toLowerCase().replace(/[^a-z\s]/g,"").split(" ").filter(w => w.length > 2 && !stopWords.has(w));
-      return words.slice(0, 2).join(" ") || name.split(" ")[0];
-    };
-    const ingredientStr = [...new Set(ingredients.slice(0, 20).map(i => simplifyIngredient(i.name)))].join(",");
     const typeStr = MEAL_TYPE_MAP[mealType] || "main course";
-    const dietStr = diets?.length
-      ? diets.map(d => DIET_MAP[d] || d.toLowerCase()).filter(Boolean).join(",")
-      : "";
-
     const isKidFriendly = diets?.includes("Kid Friendly");
+    const dietStr = diets?.length
+      ? diets.filter(d => d !== "Kid Friendly" && DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
+      : "";
 
     const searchParams = new URLSearchParams({
       apiKey,
       type: typeStr,
       number: "50",
+      offset: String(offset),
       addRecipeInformation: "true",
       fillIngredients: "true",
       instructionsRequired: "true",
     });
 
-    // Set offset for load more
-    searchParams.set("offset", String(offset));
-    searchParams.set("sort", "popularity");
-    searchParams.set("sortDirection", "desc");
-
     if (isKidFriendly) {
-      // Kid friendly: search for classic kid dishes by meal type
-      const kidQueries = {
-        "Breakfast": "pancakes waffles eggs toast",
-        "Lunch": "grilled cheese quesadilla mac cheese sandwich",
-        "Dinner": "pasta chicken nuggets meatballs spaghetti tacos",
-        "Snack": "fruit snack crackers cheese",
-        "Dessert": "cookies brownies cupcakes ice cream",
-        "Appetizer": "mini pizza sliders finger food",
-      };
-      searchParams.set("query", kidQueries[mealType] || "pasta chicken rice");
+      // Kid friendly: query by classic kid dishes for the meal type
+      searchParams.set("query", KID_QUERIES[mealType] || "pasta chicken rice");
       searchParams.set("maxReadyTime", "45");
+      searchParams.set("sort", "popularity");
+      searchParams.set("sortDirection", "desc");
       searchParams.set("excludeIngredients", "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero");
     } else {
-      // Normal search: use simplified ingredient names as query
-      const topIngredients = ingredientStr.split(",").filter(Boolean).slice(0, 5).join(" ");
-      searchParams.set("query", topIngredients || mealType);
+      // Normal: search by sale ingredients
+      const ingredientStr = ingredients.slice(0, 20).map(i => i.name).join(",");
+      searchParams.set("includeIngredients", ingredientStr);
+      searchParams.set("sort", "max-used-ingredients");
+      searchParams.set("sortDirection", "desc");
       if (dietStr) searchParams.set("diet", dietStr);
       if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
       if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
@@ -395,7 +384,7 @@ app.post("/api/recipes/search", async (req, res) => {
       if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     }
 
-    // Increment point counter before API call
+    // Increment point counter
     dailyPoints += POINTS_PER_SEARCH;
     console.log(`Spoonacular points used today: ${dailyPoints}/${DAILY_POINT_LIMIT}`);
 
@@ -417,7 +406,6 @@ app.post("/api/recipes/search", async (req, res) => {
       let totalSavings = 0;
       let estimatedCost = 0;
 
-      // Match recipe ingredients to sale items
       for (const ing of (recipe.usedIngredients || [])) {
         const key = ing.name.toLowerCase().split(" ")[0];
         const deal = ingredientLookup[key] || ingredients.find(i =>
@@ -430,10 +418,8 @@ app.post("/api/recipes/search", async (req, res) => {
         }
       }
 
-      // Add estimated pantry item costs (~$0.50 each)
       estimatedCost += (recipe.missedIngredientCount || 0) * 0.5;
 
-      // Match available coupons to recipe ingredients
       const allCoupons = [...(coupons || []), ...(boostDeals || [])];
       const couponsToClip = allCoupons.filter(c => {
         const desc = (c.description + " " + c.brand).toLowerCase();
@@ -466,13 +452,10 @@ app.post("/api/recipes/search", async (req, res) => {
       };
     });
 
-    // Sort by largest savings first
     enriched.sort((a, b) => b.totalSavings - a.totalSavings);
 
-    // Cache the results
+    // Save to cache
     recipeCache.set(cacheKey, { recipes: enriched, timestamp: Date.now() });
-
-    // Clean up old cache entries
     for (const [key, val] of recipeCache.entries()) {
       if (Date.now() - val.timestamp > CACHE_TTL) recipeCache.delete(key);
     }
@@ -551,14 +534,15 @@ app.post("/api/cart", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Points status endpoint ───────────────────────────────────────────────────
+// ══ POINTS STATUS ═════════════════════════════════════════════════════════════
+
 app.get("/api/points", (req, res) => {
   checkAndResetPoints();
   res.json({
     used: dailyPoints,
     limit: DAILY_POINT_LIMIT,
     remaining: DAILY_POINT_LIMIT - dailyPoints,
-    resetsAt: "midnight"
+    resetsAt: "midnight",
   });
 });
 

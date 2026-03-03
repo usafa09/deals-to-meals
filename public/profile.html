@@ -174,7 +174,6 @@ async function initApp() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
-  window.history.replaceState({}, "", "/profile.html");
 
   // Only use onAuthStateChange for future sign in/out events
   sb.auth.onAuthStateChange((event, session) => {
@@ -184,7 +183,11 @@ async function initApp() {
     }
   });
 
-  // Always get session directly — most reliable approach
+  // If URL has an OAuth token hash, let Supabase process it first
+  if (window.location.hash.includes("access_token")) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
   try {
     const { data, error } = await sb.auth.getSession();
     console.log("Session data:", data?.session?.user?.email, "Error:", error);
@@ -199,6 +202,9 @@ async function initApp() {
     console.error("Session check failed:", e);
     renderAuth();
   }
+
+  // Clear URL params AFTER reading session
+  window.history.replaceState({}, "", "/profile.html");
 }
 
 window.addEventListener("load", initApp);

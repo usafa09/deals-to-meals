@@ -261,7 +261,7 @@ app.delete("/api/recipes/saved/:id", async (req, res) => {
 
 // ══ WALMART AUTH ═════════════════════════════════════════════════════════════
 
-const crypto = require("crypto");
+import crypto from "crypto";
 
 function getWalmartHeaders() {
   const consumerId = process.env.WALMART_CONSUMER_ID;

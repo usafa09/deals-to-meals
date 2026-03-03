@@ -383,12 +383,12 @@ async function findStores() {
   const zip = document.getElementById("zipInput").value;
   if (zip.length < 5) return;
   state.zip = zip;
-  showLoading("Finding Kroger-family stores near you…");
+  showLoading("Finding grocery stores near you…");
   try {
     const res = await fetch(`/api/stores?zip=${zip}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load stores");
-    if (!data.stores.length) throw new Error("No Kroger-family stores found. Try a nearby zip.");
+    if (!data.stores.length) throw new Error("No stores found near that zip code. Try a nearby zip.");
     state.stores = data.stores;
     renderStores();
     goTo(2);
@@ -396,17 +396,52 @@ async function findStores() {
   finally { hideLoading(); }
 }
 
+const BANNER_INFO = {
+  "kroger":        { emoji: "🛒", color: "#003DA5" },
+  "ralphs":        { emoji: "🌴", color: "#E31837" },
+  "fred meyer":    { emoji: "🏔️", color: "#003DA5" },
+  "king soopers":  { emoji: "👑", color: "#E31837" },
+  "harris teeter": { emoji: "🌿", color: "#007A33" },
+  "smiths":        { emoji: "🏜️", color: "#003DA5" },
+  "smith's":       { emoji: "🏜️", color: "#003DA5" },
+  "frys":          { emoji: "☀️", color: "#E31837" },
+  "fry's":         { emoji: "☀️", color: "#E31837" },
+  "qfc":           { emoji: "🏪", color: "#003DA5" },
+  "mariano's":     { emoji: "🌆", color: "#003DA5" },
+  "pick n save":   { emoji: "🏪", color: "#E31837" },
+  "city market":   { emoji: "🏙️", color: "#003DA5" },
+  "dillons":       { emoji: "🌾", color: "#003DA5" },
+  "baker's":       { emoji: "🥖", color: "#003DA5" },
+};
+
+function getBannerInfo(name) {
+  const key = (name || "").toLowerCase();
+  for (const [banner, info] of Object.entries(BANNER_INFO)) {
+    if (key.includes(banner)) return info;
+  }
+  return { emoji: "🏪", color: "#003DA5" };
+}
+
 function renderStores() {
-  document.getElementById("storesTitle").textContent = `Kroger stores near ${state.zip}`;
-  document.getElementById("storesList").innerHTML = state.stores.map(store => `
+  const bannerNames = [...new Set(state.stores.map(s => s.name))];
+  const title = bannerNames.length === 1
+    ? `${bannerNames[0]} stores near ${state.zip}`
+    : `Grocery stores near ${state.zip}`;
+  document.getElementById("storesTitle").textContent = title;
+  document.getElementById("storesList").innerHTML = state.stores.map(store => {
+    const info = getBannerInfo(store.name);
+    return `
     <div class="card clickable" id="store-${store.id}" onclick="toggleStore('${store.id}')">
       <div class="store-row">
-        <span style="font-size:28px">🏪</span>
-        <div><div class="store-name">${store.name}</div><div class="store-addr">${store.address}${store.hours?" · "+store.hours:""}</div></div>
+        <div style="width:44px;height:44px;border-radius:12px;background:${info.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${info.emoji}</div>
+        <div style="flex:1">
+          <div class="store-name">${store.name}</div>
+          <div class="store-addr">${store.address}${store.hours?" · "+store.hours:""}</div>
+        </div>
         <div class="store-check">✓</div>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 }
 
 function toggleStore(id) {

@@ -174,26 +174,22 @@ async function initApp() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
+  window.history.replaceState({}, "", "/profile.html");
 
-  // Listen for future auth changes (sign in, sign out)
-  sb.auth.onAuthStateChange(async (event, session) => {
-    console.log("Auth event:", event);
-    if (event === "SIGNED_IN") {
-      currentUser = session.user;
-      await loadProfileData();
-      renderProfile();
-      window.history.replaceState({}, "", "/profile.html");
-    } else if (event === "SIGNED_OUT") {
+  // Only use onAuthStateChange for future sign in/out events
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
     }
   });
 
-  // Check current session immediately
+  // Always get session directly — most reliable approach
   try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session?.user) {
-      currentUser = session.user;
+    const { data, error } = await sb.auth.getSession();
+    console.log("Session data:", data?.session?.user?.email, "Error:", error);
+    if (data?.session?.user) {
+      currentUser = data.session.user;
       await loadProfileData();
       renderProfile();
     } else {
@@ -203,8 +199,6 @@ async function initApp() {
     console.error("Session check failed:", e);
     renderAuth();
   }
-
-  window.history.replaceState({}, "", "/profile.html");
 }
 
 window.addEventListener("load", initApp);

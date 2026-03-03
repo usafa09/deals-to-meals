@@ -293,6 +293,21 @@ async function checkAuth() {
       btn.classList.add("logged-in");
       document.getElementById("profileBtnIcon").innerHTML = `<div class="profile-avatar">${name[0].toUpperCase()}</div>`;
       document.getElementById("profileBtnText").textContent = session.user.user_metadata?.full_name?.split(" ")[0] || "My Account";
+
+      // Load profile preferences and pre-apply dietary filters
+      try {
+        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (res.ok) {
+          const profile = await res.json();
+          if (profile.dietary_preferences?.length) {
+            state.selectedDiets = [...profile.dietary_preferences];
+            // Re-render filter grid if already visible so chips show as selected
+            const filterGrid = document.getElementById("filterGrid");
+            if (filterGrid) renderFilterGrid();
+            showToast(`✅ Preferences loaded: ${profile.dietary_preferences.join(", ")}`, "success");
+          }
+        }
+      } catch (e) {}
     }
   } catch (e) {}
 }
@@ -461,7 +476,7 @@ function selectMeal(id) {
 
 function renderFilterGrid() {
   document.getElementById("filterGrid").innerHTML = DIET_FILTERS.map(f => `
-    <div class="filter-chip" onclick="toggleFilter(this, '${f}')">${f}</div>
+    <div class="filter-chip ${state.selectedDiets.includes(f) ? 'selected' : ''}" onclick="toggleFilter(this, '${f}')">${f}</div>
   `).join("");
 }
 

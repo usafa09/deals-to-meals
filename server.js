@@ -259,6 +259,136 @@ app.delete("/api/recipes/saved/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// ══ WALMART AUTH ═════════════════════════════════════════════════════════════
+
+const crypto = require("crypto");
+
+function getWalmartHeaders() {
+  const consumerId = process.env.WALMART_CONSUMER_ID;
+  const privateKeyStr = process.env.WALMART_PRIVATE_KEY;
+  if (!consumerId || !privateKeyStr) throw new Error("Walmart credentials not configured");
+
+  const timestamp = Date.now().toString();
+  const keyVersion = "1";
+
+  // Format private key with headers if not already present
+  const pemKey = privateKeyStr.includes("-----BEGIN")
+    ? privateKeyStr
+    : `-----BEGIN PRIVATE KEY-----
+${privateKeyStr}
+-----END PRIVATE KEY-----`;
+
+  const strToSign = `${consumerId}
+${timestamp}
+${keyVersion}
+`;
+  const sign = crypto.createSign("RSA-SHA256");
+  sign.update(strToSign);
+  const signature = sign.sign(pemKey, "base64");
+
+  return {
+    "WM_SEC.KEY_VERSION": keyVersion,
+    "WM_CONSUMER.ID": consumerId,
+    "WM_CONSUMER.INTIMESTAMP": timestamp,
+    "WM_SEC.AUTH_SIGNATURE": signature,
+    "WM_SVC.NAME": "Walmart Affiliate APIs",
+    "WM_QOS.CORRELATION_ID": Math.random().toString(36).slice(2),
+    "Accept": "application/json",
+  };
+}
+
+const WALMART_API_BASE = "https://developer.api.walmart.com/api-proxy/service/affil/product/v2";
+
+const WALMART_FOOD_CATEGORIES = [
+  { id: "976759", name: "Fresh Produce" },
+  { id: "976760", name: "Meat & Seafood" },
+  { id: "976761", name: "Dairy & Eggs" },
+  { id: "976762", name: "Deli & Prepared Foods" },
+  { id: "976763", name: "Frozen Foods" },
+  { id: "976764", name: "Pantry & Dry Goods" },
+  { id: "976765", name: "Snacks & Candy" },
+  { id: "976766", name: "Beverages" },
+  { id: "976767", name: "Breakfast & Cereal" },
+  { id: "976768", name: "Bread & Bakery" },
+  { id: "976769", name: "Condiments & Sauces" },
+  { id: "976770", name: "Canned & Packaged Goods" },
+];
+
+app.get("/api/walmart/stores", async (req, res) => {
+  const { zip } = req.query;
+  if (!zip) return res.status(400).json({ error: "zip is required" });
+  try {
+    const headers = getWalmartHeaders();
+    const r = await fetch(`${WALMART_API_BASE}/stores?zip=${zip}&responseGroup=full`, { headers });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    const stores = (data.stores || []).slice(0, 8).map(s => ({
+      id: String(s.storeId),
+      name: "Walmart",
+      address: `${s.streetAddress}, ${s.city}, ${s.stateProvCode}`,
+      hours: s.openingHour ? `Opens ${s.openingHour}` : "",
+      type: "walmart",
+    }));
+    res.json({ stores });
+  } catch (err) {
+    console.error("Walmart stores error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/walmart/deals", async (req, res) => {
+  try {
+    const headers = getWalmartHeaders();
+    const allProducts = [];
+
+    // Fetch rollback/clearance items across food-related search terms
+    const searchTerms = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
+    await Promise.all(searchTerms.map(async (term) => {
+      try {
+        const r = await fetch(
+          `${WALMART_API_BASE}/search?query=${encodeURIComponent(term)}&categoryId=976759&specialOffer=rollback&numItems=25&responseGroup=full`,
+          { headers }
+        );
+        if (!r.ok) return;
+        const data = await r.json();
+        const items = (data.items || [])
+          .filter(p => p.salePrice && p.msrp && p.salePrice < p.msrp)
+          .map(p => {
+            const savings = (p.msrp - p.salePrice).toFixed(2);
+            const pctOff = Math.round(((p.msrp - p.salePrice) / p.msrp) * 100);
+            return {
+              id: String(p.itemId),
+              upc: p.upc || "",
+              name: p.name,
+              brand: p.brandName || "",
+              category: term,
+              regularPrice: p.msrp.toFixed(2),
+              salePrice: p.salePrice.toFixed(2),
+              savings,
+              pctOff,
+              size: p.size || "",
+              image: p.thumbnailImage || p.mediumImage || null,
+              productUrl: p.productUrl || null,
+              type: "walmart",
+            };
+          });
+        allProducts.push(...items);
+      } catch (e) {}
+    }));
+
+    const seen = new Set();
+    const unique = allProducts
+      .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+      .sort((a, b) => b.pctOff - a.pctOff)
+      .slice(0, 200);
+
+    res.json({ deals: unique });
+  } catch (err) {
+    console.error("Walmart deals error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ══ STORES API ════════════════════════════════════════════════════════════════
 
 app.get("/api/stores", async (req, res) => {

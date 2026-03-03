@@ -12,16 +12,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── Site password protection ──────────────────────────────────────────────────
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api") || req.path.startsWith("/auth") || req.path === "/login.html") {
-    return next();
-  }
-  const cookies = req.headers.cookie || "";
-  const authed = cookies.split(";").some(c => c.trim() === `site_auth=${process.env.SITE_PASSWORD}`);
-  if (authed) return next();
-  res.redirect("/login.html");
-});
+// ── Site password protection (TEMPORARILY DISABLED FOR WALMART VERIFICATION) ──
+// app.use((req, res, next) => {
+//   if (req.path.startsWith("/api") || req.path.startsWith("/auth") || req.path === "/login.html") {
+//     return next();
+//   }
+//   const cookies = req.headers.cookie || "";
+//   const authed = cookies.split(";").some(c => c.trim() === `site_auth=${process.env.SITE_PASSWORD}`);
+//   if (authed) return next();
+//   res.redirect("/login.html");
+// });
 
 app.use(express.static(join(__dirname, "public")));
 

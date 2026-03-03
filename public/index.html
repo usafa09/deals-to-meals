@@ -213,14 +213,18 @@
   <div class="screen active" id="screen1">
     <span class="hero-emoji">🛒</span>
     <h2 class="hero-title">Turn this week's deals<br/>into tonight's dinner.</h2>
-    <p class="hero-sub">Find real sale prices at your local Kroger — turned into recipes by AI.</p>
+    <p class="hero-sub">Find real sale prices at your local grocery store — turned into recipes by AI.</p>
     <div class="zip-box">
       <label class="zip-label" for="zipInput">Your Zip Code</label>
       <div class="zip-row">
         <input id="zipInput" type="text" maxlength="5" placeholder="e.g. 30301" inputmode="numeric" />
         <button class="btn btn-primary" id="zipBtn" style="width:auto;padding:13px 22px" disabled>Find Stores →</button>
       </div>
-      <p class="zip-hint">Searches Kroger, Ralphs, Fred Meyer, King Soopers, Harris Teeter & more</p>
+      <p class="zip-hint">Choose your store and enter your zip code</p>
+      <div style="display:flex;gap:10px;margin-top:14px;justify-content:center">
+        <div id="storePickerKroger" onclick="selectStoreType('kroger')" style="flex:1;padding:12px;border:2px solid var(--green-mid);border-radius:12px;background:var(--green-mid);color:white;text-align:center;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s">🛒 Kroger Family</div>
+        <div id="storePickerWalmart" onclick="selectStoreType('walmart')" style="flex:1;padding:12px;border:2px solid var(--sand);border-radius:12px;background:white;color:#333;text-align:center;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s">🔵 Walmart</div>
+      </div>
     </div>
     <div class="feature-row">
       <div class="feature-chip"><div class="f-icon">🏪</div><div class="f-label">Real stores</div></div>
@@ -331,7 +335,7 @@ const DIET_FILTERS = [
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let state = {
-  zip:"", stores:[], selectedStoreIds:[],
+  zip:"", storeType:"kroger", stores:[], selectedStoreIds:[],
   deals:[], coupons:[], boostDeals:[],
   selectedMeal: null, selectedDiets:[],
   recipes:[], currentRecipe: null,
@@ -354,7 +358,7 @@ function renderProgress(step) {
 }
 
 function resetApp() {
-  state = { zip:"", stores:[], selectedStoreIds:[], deals:[], coupons:[], boostDeals:[], selectedMeal:null, selectedDiets:[], recipes:[], currentRecipe:null, savedRecipeIds: new Set() };
+  state = { zip:"", storeType:"kroger", stores:[], selectedStoreIds:[], deals:[], coupons:[], boostDeals:[], selectedMeal:null, selectedDiets:[], recipes:[], currentRecipe:null, savedRecipeIds: new Set() };
   document.getElementById("zipInput").value = "";
   document.getElementById("zipBtn").disabled = true;
 }
@@ -380,13 +384,28 @@ document.getElementById("zipInput").addEventListener("input", function() {
 document.getElementById("zipInput").addEventListener("keydown", e => { if (e.key==="Enter") document.getElementById("zipBtn").click(); });
 document.getElementById("zipBtn").addEventListener("click", findStores);
 
+function selectStoreType(type) {
+  state.storeType = type;
+  const krogerBtn = document.getElementById("storePickerKroger");
+  const walmartBtn = document.getElementById("storePickerWalmart");
+  if (type === "kroger") {
+    krogerBtn.style.background = "var(--green-mid)"; krogerBtn.style.color = "white"; krogerBtn.style.borderColor = "var(--green-mid)";
+    walmartBtn.style.background = "white"; walmartBtn.style.color = "#333"; walmartBtn.style.borderColor = "var(--sand)";
+  } else {
+    walmartBtn.style.background = "#0071CE"; walmartBtn.style.color = "white"; walmartBtn.style.borderColor = "#0071CE";
+    krogerBtn.style.background = "white"; krogerBtn.style.color = "#333"; krogerBtn.style.borderColor = "var(--sand)";
+  }
+}
+
 async function findStores() {
   const zip = document.getElementById("zipInput").value;
   if (zip.length < 5) return;
   state.zip = zip;
-  showLoading("Finding grocery stores near you…");
+  const isWalmart = state.storeType === "walmart";
+  showLoading(`Finding ${isWalmart ? "Walmart" : "Kroger-family"} stores near you…`);
   try {
-    const res = await fetch(`/api/stores?zip=${zip}`);
+    const endpoint = isWalmart ? `/api/walmart/stores?zip=${zip}` : `/api/stores?zip=${zip}`;
+    const res = await fetch(endpoint);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load stores");
     if (!data.stores.length) throw new Error("No stores found near that zip code. Try a nearby zip.");
@@ -466,8 +485,12 @@ async function startLoadingDeals() {
   document.getElementById("dealsLoadedMsg").textContent = "Loading this week's deals in the background…";
   try {
     const allDeals = [];
+    const isWalmart = state.storeType === "walmart";
     for (const storeId of state.selectedStoreIds) {
-      const res = await fetch(`/api/deals?locationId=${storeId}`);
+      const endpoint = isWalmart
+        ? `/api/walmart/deals?storeId=${storeId}`
+        : `/api/deals?locationId=${storeId}`;
+      const res = await fetch(endpoint);
       const data = await res.json();
       if (res.ok && data.deals) allDeals.push(...data.deals);
     }
@@ -599,6 +622,11 @@ function renderRecipeGrid() {
 function openModal(i) {
   state.currentRecipe = { ...state.recipes[i], index: i };
   renderModal(state.currentRecipe);
+  // Update cart button label based on store type
+  setTimeout(() => {
+    const btn = document.getElementById("cartBtn");
+    if (btn) btn.textContent = state.storeType === "walmart" ? "🔵 Shop at Walmart" : "🛒 Add to Kroger Cart";
+  }, 50);
   document.getElementById("modalOverlay").classList.add("show");
   document.body.style.overflow = "hidden";
 }
@@ -755,10 +783,30 @@ function showShoppingList() {
       <div class="cart-success-msg" id="cartSuccessMsg2">✅ Items added to your Kroger cart!</div>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">← Back to Recipe</button>
-        <button class="modal-btn modal-btn-cart" onclick="addToCart()">🛒 Add to Kroger Cart</button>
+        <button class="modal-btn modal-btn-cart" id="cartBtn" onclick="handleCartAction()">🛒 Add to Kroger Cart</button>
       </div>
     </div>
   `;
+}
+
+function handleCartAction() {
+  if (state.storeType === "walmart") {
+    shopAtWalmart();
+  } else {
+    addToCart();
+  }
+}
+
+function shopAtWalmart() {
+  const r = state.currentRecipe;
+  const items = r.usedSaleItems || [];
+  if (items.length && items[0].productUrl) {
+    window.open(items[0].productUrl, "_blank");
+  } else {
+    const query = encodeURIComponent((r.title || "grocery").split(" ").slice(0,3).join(" "));
+    window.open(`https://www.walmart.com/search?q=${query}`, "_blank");
+  }
+  showToast("🔵 Opening Walmart to shop ingredients!", "success");
 }
 
 async function addToCart() {

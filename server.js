@@ -319,15 +319,15 @@ app.get("/api/walmart/stores", async (req, res) => {
   if (!zip) return res.status(400).json({ error: "zip is required" });
   try {
     const headers = getWalmartHeaders();
-    const r = await fetch(`${WALMART_API_BASE}/stores?zip=${zip}&responseGroup=full`, { headers });
+    const r = await fetch(`https://developer.api.walmart.com/api-proxy/service/affil/product/v2/stores?zip=${zip}`, { headers });
     if (!r.ok) throw new Error(await r.text());
     const data = await r.json();
     const stores = (data.stores || []).slice(0, 8).map(s => ({
-      id: String(s.storeId),
+      id: String(s.no || s.storeId || s.id),
       name: "Walmart",
-      address: `${s.streetAddress}, ${s.city}, ${s.stateProvCode}`,
+      address: `${s.streetAddress || s.street || ""}, ${s.city}, ${s.stateProvCode || s.state || ""}`,
       hours: s.openingHour ? `Opens ${s.openingHour}` : "",
-      type: "walmart",
+      source: "walmart",
     }));
     res.json({ stores });
   } catch (err) {
@@ -709,6 +709,16 @@ app.get("/api/points", (req, res) => {
 });
 
 // ══ DEBUG ══════════════════════════════════════════════════════════════════════
+
+app.get("/api/debug-walmart", async (req, res) => {
+  try {
+    const headers = getWalmartHeaders();
+    const zip = req.query.zip || "10001";
+    const r = await fetch(`https://developer.api.walmart.com/api-proxy/service/affil/product/v2/stores?zip=${zip}`, { headers });
+    const text = await r.text();
+    res.json({ status: r.status, raw: text.slice(0, 1000) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 app.get("/api/debug-recipes", async (req, res) => {
   try {

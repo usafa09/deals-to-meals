@@ -353,24 +353,30 @@ app.get("/api/walmart/deals", async (req, res) => {
         if (!r.ok) return;
         const data = await r.json();
         const items = (data.items || [])
-          .filter(p => p.salePrice && p.msrp && p.salePrice < p.msrp)
+          .filter(p => {
+            const sale = p.salePrice;
+            const regular = p.regularPrice || p.msrp;
+            // Must have both prices, sale must be lower, and regular must be realistic for grocery (<$50)
+            return sale && regular && sale < regular && regular <= 50;
+          })
           .map(p => {
-            const savings = (p.msrp - p.salePrice).toFixed(2);
-            const pctOff = Math.round(((p.msrp - p.salePrice) / p.msrp) * 100);
+            const regular = p.regularPrice || p.msrp;
+            const savings = (regular - p.salePrice).toFixed(2);
+            const pctOff = Math.round(((regular - p.salePrice) / regular) * 100);
             return {
               id: String(p.itemId),
               upc: p.upc || "",
               name: p.name,
               brand: p.brandName || "",
               category: term,
-              regularPrice: p.msrp.toFixed(2),
+              regularPrice: regular.toFixed(2),
               salePrice: p.salePrice.toFixed(2),
               savings,
               pctOff,
               size: p.size || "",
               image: p.thumbnailImage || p.mediumImage || null,
               productUrl: p.productUrl || null,
-              type: "walmart",
+              source: "walmart",
             };
           });
         allProducts.push(...items);

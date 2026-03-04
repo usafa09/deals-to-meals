@@ -314,6 +314,93 @@ const WALMART_FOOD_CATEGORIES = [
   { id: "976770", name: "Canned & Packaged Goods" },
 ];
 
+// ══ ALDI API (reads from Supabase, populated by scrapers/aldi.js) ══════════
+
+app.get("/api/aldi/deals", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("aldi_deals")
+      .select("*")
+      .order("name", { ascending: true })
+      .limit(300);
+    if (error) throw new Error(error.message);
+    const deals = (data || []).map(d => ({
+      id: d.id,
+      upc: "",
+      name: d.name,
+      brand: d.brand || "",
+      category: d.category || "ALDI",
+      regularPrice: d.regular_price || "",
+      salePrice: d.price,
+      savings: d.savings || "",
+      pctOff: (() => {
+        const sale = parseFloat(d.price?.replace(/[^0-9.]/g, ""));
+        const reg = parseFloat(d.regular_price?.replace(/[^0-9.]/g, ""));
+        if (sale && reg && reg > sale) return Math.round(((reg - sale) / reg) * 100);
+        return 0;
+      })(),
+      size: "",
+      image: d.image || null,
+      productUrl: d.product_url || null,
+      weekStart: d.week_start,
+      weekEnd: d.week_end,
+      source: "aldi",
+    }));
+    res.json({ deals });
+  } catch (err) {
+    console.error("Aldi deals error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/aldi/stores", async (req, res) => {
+  const { zip } = req.query;
+  if (!zip) return res.status(400).json({ error: "zip is required" });
+  try {
+    // Aldi store locator API
+    const r = await fetch(
+      `https://storelocator.aldi.us/api/stores?zip=${zip}&radius=25&count=8`,
+      { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } }
+    );
+    const text = await r.text();
+    let stores = [];
+    try {
+      const data = JSON.parse(text);
+      const list = Array.isArray(data) ? data : (data.stores || data.results || []);
+      stores = list.slice(0, 8).map((s, i) => ({
+        id: String(s.id || s.storeId || s.no || i),
+        name: s.name || "ALDI",
+        address: `${s.address || s.streetAddress || ""}, ${s.city || ""}, ${s.state || s.stateProvCode || ""}`.replace(/^,\s*/, ""),
+        hours: s.hours || "",
+        source: "aldi",
+      }));
+    } catch {
+      // If store locator fails, return a generic "ALDI near you" placeholder
+      stores = [{ id: "aldi-1", name: "ALDI", address: `Near ${zip}`, hours: "", source: "aldi" }];
+    }
+    res.json({ stores });
+  } catch (err) {
+    console.error("Aldi stores error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/aldi/status", async (req, res) => {
+  try {
+    const { count, data } = await supabase
+      .from("aldi_deals")
+      .select("scraped_at", { count: "exact", head: false })
+      .order("scraped_at", { ascending: false })
+      .limit(1);
+    res.json({
+      deals_in_db: count || 0,
+      last_scraped: data?.[0]?.scraped_at || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/walmart/stores", async (req, res) => {
   const { zip } = req.query;
   if (!zip) return res.status(400).json({ error: "zip is required" });

@@ -1,11 +1,10 @@
 /**
  * Aldi Weekly Ad Scraper
- * Scrapes weekly grocery SALE items from aldi.us category pages
- * Focuses only on items with actual price drops (sale price vs regular price)
- * Saves results to Supabase table: aldi_deals
+ * Sources:
+ *   1. https://www.aldi.us/weekly-specials/weekly-ads
+ *   2. https://www.aldi.us/products/featured/price-drops/k/280
  *
- * Run manually:  node Aldi.js
- * Schedule:      Every Wednesday at 8am (when Aldi resets their weekly ad)
+ * Run: node Aldi.js
  */
 
 import { chromium } from "playwright";
@@ -18,18 +17,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// Weekly ad grocery category pages on aldi.us
-const GROCERY_CATEGORIES = [
-  { url: "https://www.aldi.us/products/fresh-meat-seafood/k/12", name: "Fresh Meat & Seafood" },
-  { url: "https://www.aldi.us/products/fresh-produce/k/13", name: "Fresh Produce" },
-  { url: "https://www.aldi.us/products/dairy-eggs/k/10", name: "Dairy & Eggs" },
-  { url: "https://www.aldi.us/products/bakery-bread/k/6", name: "Bakery & Bread" },
-  { url: "https://www.aldi.us/products/frozen-foods/k/14", name: "Frozen Foods" },
-  { url: "https://www.aldi.us/products/pantry-essentials/k/16", name: "Pantry Essentials" },
-  { url: "https://www.aldi.us/products/snacks/k/20", name: "Snacks" },
-  { url: "https://www.aldi.us/products/breakfast-cereals/k/9", name: "Breakfast & Cereals" },
-  { url: "https://www.aldi.us/products/beverages/k/7", name: "Beverages" },
-  { url: "https://www.aldi.us/products/deli/k/11", name: "Deli" },
+const SOURCES = [
+  { url: "https://www.aldi.us/products/featured/price-drops/k/280", name: "Price Drops" },
+  { url: "https://www.aldi.us/weekly-specials/weekly-ads", name: "Weekly Ads" },
 ];
 
 function getWeekDates() {
@@ -45,75 +35,114 @@ function getWeekDates() {
   };
 }
 
-async function scrapeCategory(page, url, categoryName) {
-  console.log(`  Scraping ${categoryName}...`);
+async function scrapePage(page, url, sourceName) {
+  console.log(`\n📄 Scraping ${sourceName}...`);
+  console.log(`   ${url}`);
 
-  try {
-    await page.goto(url, { waitUntil: "networkidle", timeout: 45000 });
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(2000);
+  await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
+  
+  // Scroll to load all products
+  for (let i = 0; i < 5; i++) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(1500);
-  } catch (e) {
-    console.log(`    ⚠️  Timeout on ${categoryName}, continuing...`);
   }
 
-  const products = await page.evaluate((catName) => {
+  // Log what's on the page to help debug
+  const pageInfo = await page.evaluate(() => {
+    const allText = document.body.innerText.slice(0, 500);
+    const imgs = document.querySelectorAll("img").length;
+    const links = document.querySelectorAll("a").length;
+    const articleCount = document.querySelectorAll("article").length;
+    const liCount = document.querySelectorAll("li").length;
+    return { allText, imgs, links, articleCount, liCount };
+  });
+  console.log(`   Page has ${pageInfo.imgs} images, ${pageInfo.articleCount} articles, ${pageInfo.liCount} list items`);
+
+  const products = await page.evaluate((srcName) => {
     const items = [];
+
+    // Try every possible product card selector
     const selectors = [
       "[data-test='product-tile']",
       "[class*='ProductTile']",
       "[class*='product-tile']",
       "[class*='productTile']",
-      "article[class*='product']",
-      "li[class*='product']",
+      "[class*='ProductCard']",
+      "[class*='product-card']",
+      "article",
+      "[class*='weekly'] li",
+      "[class*='grid'] li",
+      "[class*='item']",
     ];
 
     let productEls = [];
     for (const sel of selectors) {
-      productEls = [...document.querySelectorAll(sel)];
-      if (productEls.length > 0) break;
+      const found = [...document.querySelectorAll(sel)];
+      // Must have an image and some text
+      const valid = found.filter(el => el.querySelector("img") && el.textContent.trim().length > 5);
+      if (valid.length > 2) {
+        productEls = valid;
+        break;
+      }
     }
 
     productEls.forEach((el, i) => {
-      const nameEl = el.querySelector(
-        "h2, h3, h4, [class*='title'], [class*='name'], [class*='description'], [class*='Title'], [class*='Name']"
-      );
+      const text = el.textContent || "";
+      
+      // Skip non-food items
+      const nonFood = ["candle", "storage", "furniture", "clothing", "tool", "appliance", "gadget", "mat", "towel", "sheets", "pillow"];
+      if (nonFood.some(w => text.toLowerCase().includes(w))) return;
+
+      // Name
+      const nameEl = el.querySelector("h2, h3, h4, [class*='title'], [class*='name'], [class*='description'], [class*='Title'], [class*='Name'], p");
       const name = nameEl?.textContent?.trim() || "";
-      if (!name) return;
+      if (!name || name.length < 3) return;
 
-      const priceEl = el.querySelector("[class*='price'], [data-test*='price']");
-      const priceText = priceEl?.textContent?.trim() || "";
+      // All price elements
+      const priceEls = [...el.querySelectorAll("[class*='price'], [class*='Price']")];
+      const allPrices = priceEls.map(p => p.textContent.trim()).filter(t => t.includes("$"));
 
-      const wasEl = el.querySelector(
-        "[class*='was'], [class*='regular'], [class*='original'], [class*='before'], s, strike, del"
-      );
+      // Crossed out / was price
+      const wasEl = el.querySelector("s, strike, del, [class*='was'], [class*='Was'], [class*='regular'], [class*='Regular'], [class*='original'], [class*='Original'], [class*='before'], [class*='old']");
       const wasText = wasEl?.textContent?.trim() || "";
+
+      // Current price (first $ amount that isn't the was price)
+      let priceText = allPrices.find(p => p !== wasText) || allPrices[0] || "";
+      if (!priceText) {
+        const match = text.match(/\$[\d]+\.[\d]{2}/);
+        priceText = match ? match[0] : "";
+      }
 
       const imgEl = el.querySelector("img");
       const image = imgEl?.src || imgEl?.getAttribute("data-src") || "";
-
-      const linkEl = el.querySelector("a");
+      const linkEl = el.querySelector("a[href]");
       const link = linkEl?.href || "";
 
-      if (!priceText || !priceText.includes("$")) return;
+      if (!priceText) return;
 
       const salePrice = parseFloat(priceText.replace(/[^0-9.]/g, ""));
       const regPrice = wasText ? parseFloat(wasText.replace(/[^0-9.]/g, "")) : null;
-      const hasPriceDrop = regPrice && regPrice > salePrice;
 
-      if (salePrice) {
-        items.push({ name, category: catName, priceText, wasText, salePrice, regPrice, hasPriceDrop, image, link, index: i });
-      }
+      if (!salePrice || salePrice > 50) return; // sanity check for grocery prices
+
+      items.push({
+        name,
+        source: srcName,
+        priceText,
+        wasText,
+        salePrice,
+        regPrice,
+        hasPriceDrop: !!(regPrice && regPrice > salePrice),
+        image,
+        link,
+      });
     });
 
     return items;
-  }, categoryName);
+  }, sourceName);
 
-  const withDrops = products.filter(p => p.hasPriceDrop);
-  const result = withDrops.length > 0 ? withDrops : products;
-  console.log(`    ✓ ${result.length} items (${withDrops.length} with price drops)`);
-  return result;
+  console.log(`   ✓ Found ${products.length} items (${products.filter(p => p.hasPriceDrop).length} with price drops)`);
+  return products;
 }
 
 async function saveToSupabase(deals) {
@@ -129,11 +158,14 @@ async function saveToSupabase(deals) {
 }
 
 async function main() {
-  console.log("🛒 Starting Aldi Weekly Ad scraper...");
+  console.log("🛒 Starting Aldi scraper...");
   const { weekStart, weekEnd } = getWeekDates();
-  console.log(`📅 Week: ${weekStart} → ${weekEnd}\n`);
+  console.log(`📅 Week: ${weekStart} → ${weekEnd}`);
 
-  const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  const browser = await chromium.launch({ 
+    headless: false, // visible browser so we can see what's happening
+    args: ["--no-sandbox"] 
+  });
   const context = await browser.newContext({
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     viewport: { width: 1280, height: 900 },
@@ -141,29 +173,30 @@ async function main() {
   const page = await context.newPage();
   const allProducts = [];
 
-  for (const cat of GROCERY_CATEGORIES) {
-    const items = await scrapeCategory(page, cat.url, cat.name);
+  for (const source of SOURCES) {
+    const items = await scrapePage(page, source.url, source.name);
     allProducts.push(...items);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
   }
 
   await browser.close();
 
+  // Deduplicate
   const seen = new Set();
   const unique = allProducts.filter((p) => {
-    const key = `${p.name}-${p.category}`;
+    const key = p.name.toLowerCase().trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  console.log(`\n📊 Total unique grocery items: ${unique.length}`);
+  console.log(`\n📊 Total unique items: ${unique.length}`);
 
   const deals = unique.map((p, i) => ({
     id: `aldi-${i}-${p.name.slice(0, 20).replace(/\s+/g, "-").toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
     name: p.name,
     brand: "",
-    category: p.category,
+    category: p.source,
     price: p.priceText,
     regular_price: p.wasText || "",
     savings: p.hasPriceDrop ? `$${(p.regPrice - p.salePrice).toFixed(2)}` : "",
@@ -174,7 +207,7 @@ async function main() {
   }));
 
   await saveToSupabase(deals);
-  console.log("\n✅ Aldi scrape complete!");
+  console.log("\n✅ Done!");
 }
 
 main().catch(console.error);

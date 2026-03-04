@@ -322,11 +322,12 @@ app.get("/api/walmart/stores", async (req, res) => {
     const r = await fetch(`https://developer.api.walmart.com/api-proxy/service/affil/product/v2/stores?zip=${zip}`, { headers });
     if (!r.ok) throw new Error(await r.text());
     const data = await r.json();
-    const stores = (data.stores || []).slice(0, 8).map(s => ({
+    const list = Array.isArray(data) ? data : (data.stores || []);
+    const stores = list.slice(0, 8).map(s => ({
       id: String(s.no || s.storeId || s.id),
-      name: "Walmart",
+      name: s.name || "Walmart",
       address: `${s.streetAddress || s.street || ""}, ${s.city}, ${s.stateProvCode || s.state || ""}`,
-      hours: s.openingHour ? `Opens ${s.openingHour}` : "",
+      hours: s.sundayOpen ? "Open Sundays" : "",
       source: "walmart",
     }));
     res.json({ stores });

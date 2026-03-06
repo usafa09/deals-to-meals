@@ -1,3 +1,12 @@
+/**
+ * Aldi Weekly Ad Scraper
+ * Sources:
+ *   1. https://www.aldi.us/weekly-specials/weekly-ads
+ *   2. https://www.aldi.us/products/featured/price-drops/k/280
+ *
+ * Run: node Aldi.js
+ */
+
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
@@ -7,6 +16,11 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+const SOURCES = [
+  { url: "https://www.aldi.us/weekly-specials/weekly-ads", name: "Weekly Ads" },
+  { url: "https://www.aldi.us/products/featured/price-drops/k/280", name: "Price Drops" },
+];
 
 function getWeekDates() {
   const now = new Date();
@@ -21,99 +35,176 @@ function getWeekDates() {
   };
 }
 
-async function scrapeUrl(page, url) {
+async function scrapePage(page, url, sourceName) {
   console.log(`\n🌐 Navigating to: ${url}`);
-  
-  // Block any redirects or navigations to other pages
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForTimeout(5000); // wait for JS to render products
-  
-  const actualUrl = page.url();
-  console.log(`   Actual URL loaded: ${actualUrl}`);
 
-  // Scroll to load all products
+  await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
+
+  // Scroll multiple times to load all lazy-loaded products
+  for (let i = 0; i < 8; i++) {
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(1200);
+  }
+  // Scroll back to top and down again to catch any missed items
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(500);
   for (let i = 0; i < 5; i++) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
   }
 
-  const results = await page.evaluate(() => {
-    const items = [];
-    const selectors = [
-      "[data-test='product-tile']",
-      "[class*='ProductTile']",
-      "[class*='product-tile']",
-      "[class*='productTile']",
-      "[class*='ProductCard']",
-      "article",
-    ];
+  // Debug: log all classes on the page to find the right selector
+  const debugInfo = await page.evaluate(() => {
+    // Find elements that look like product cards (have image + price)
+    const allEls = [...document.querySelectorAll("*")];
+    const candidates = allEls.filter(el => {
+      const hasImg = el.querySelector("img");
+      const hasPrice = el.textContent.includes("$");
+      const children = el.children.length;
+      return hasImg && hasPrice && children > 1 && children < 20;
+    });
+    // Get unique class names from top candidates
+    const classNames = [...new Set(candidates.slice(0, 20).map(el => el.className).filter(c => c && typeof c === "string"))];
+    return { count: candidates.length, classNames: classNames.slice(0, 10) };
+  });
+  console.log(`   Found ${debugInfo.count} candidate elements`);
+  console.log(`   Classes: ${debugInfo.classNames.join(" | ")}`);
 
-    let productEls = [];
-    for (const sel of selectors) {
-      const found = [...document.querySelectorAll(sel)].filter(
-        el => el.querySelector("img") && el.textContent.trim().length > 5
-      );
-      if (found.length > 2) {
-        productEls = found;
-        console.log(`Using selector: ${sel}, found ${found.length} elements`);
-        break;
-      }
-    }
+  const products = await page.evaluate((srcName) => {
+    const items = [];
+
+    // Find all product card elements by looking for elements with both an image and a price
+    const allEls = [...document.querySelectorAll("*")];
+    let productEls = allEls.filter(el => {
+      const hasImg = !!el.querySelector("img");
+      const hasPrice = el.textContent.includes("$");
+      const childCount = el.children.length;
+      const tag = el.tagName.toLowerCase();
+      // Exclude wrapper/layout elements that are too big
+      return hasImg && hasPrice && childCount >= 2 && childCount <= 15 && tag !== "body" && tag !== "html";
+    });
+
+    // Remove elements that contain other matching elements (keep the innermost)
+    productEls = productEls.filter(el => {
+      return !productEls.some(other => other !== el && el.contains(other));
+    });
 
     productEls.forEach((el, i) => {
-      const nameEl = el.querySelector("h2, h3, h4, [class*='title'], [class*='name'], [class*='description'], [class*='Title'], [class*='Name']");
-      const name = nameEl?.textContent?.trim() || "";
-      if (!name || name.length < 3) return;
+      // Get ALL text nodes to build full product name
+      const allTextEls = [...el.querySelectorAll("p, span, h1, h2, h3, h4, h5, div")].filter(t => {
+        const txt = t.textContent.trim();
+        const directText = [...t.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join("");
+        return directText.length > 2 && !txt.includes("$") && txt.length < 100;
+      });
 
-      const allPriceEls = [...el.querySelectorAll("[class*='price'], [class*='Price']")];
-      const allPrices = allPriceEls.map(p => p.textContent.trim()).filter(t => t.includes("$"));
+      // Price elements
+      const priceEls = [...el.querySelectorAll("*")].filter(e => {
+        const txt = e.textContent.trim();
+        return txt.startsWith("$") && txt.length < 15;
+      });
 
-      const wasEl = el.querySelector("s, strike, del, [class*='was'], [class*='Was'], [class*='regular'], [class*='Regular'], [class*='original'], [class*='before'], [class*='old']");
+      // Crossed out price
+      const wasEl = el.querySelector("s, strike, del, [class*='was'], [class*='Was'], [class*='regular'], [class*='Regular'], [class*='original'], [class*='before'], [class*='old'], [class*='compare']");
       const wasText = wasEl?.textContent?.trim() || "";
 
-      let priceText = allPrices.find(p => p !== wasText) || allPrices[0] || "";
-      if (!priceText) {
-        const match = el.textContent.match(/\$[\d]+\.[\d]{2}/);
-        priceText = match ? match[0] : "";
-      }
+      // Current price — smallest $ value or first non-was price
+      const prices = priceEls.map(p => ({
+        text: p.textContent.trim(),
+        val: parseFloat(p.textContent.replace(/[^0-9.]/g, "")),
+        isWas: wasEl?.contains(p),
+      })).filter(p => p.val && p.val > 0);
 
-      if (!priceText) return;
+      const currentPrice = prices.find(p => !p.isWas) || prices[0];
+      if (!currentPrice) return;
+      if (currentPrice.val > 50) return; // not a grocery item
 
-      const salePrice = parseFloat(priceText.replace(/[^0-9.]/g, ""));
-      const regPrice = wasText ? parseFloat(wasText.replace(/[^0-9.]/g, "")) : null;
-      if (!salePrice || salePrice > 50) return;
+      // Build full name from all text elements, joining brand + description
+      const nameParts = allTextEls
+        .map(e => e.textContent.trim())
+        .filter(t => t.length > 2 && !t.startsWith("$") && t !== currentPrice.text && t !== wasText)
+        .filter((t, idx, arr) => arr.indexOf(t) === idx); // unique
+
+      const fullName = nameParts.slice(0, 3).join(" — ").trim();
+      if (!fullName || fullName.length < 3) return;
 
       const imgEl = el.querySelector("img");
       const image = imgEl?.src || imgEl?.getAttribute("data-src") || "";
       const linkEl = el.querySelector("a[href]");
       const link = linkEl?.href || "";
 
+      const regPrice = wasText ? parseFloat(wasText.replace(/[^0-9.]/g, "")) : null;
+      const hasPriceDrop = !!(regPrice && regPrice > currentPrice.val);
+
       items.push({
-        name,
-        priceText,
+        name: fullName,
+        source: srcName,
+        priceText: currentPrice.text,
         wasText,
-        salePrice,
+        salePrice: currentPrice.val,
         regPrice,
-        hasPriceDrop: !!(regPrice && regPrice > salePrice),
+        hasPriceDrop,
         image,
         link,
       });
     });
 
     return items;
-  });
+  }, sourceName);
 
-  console.log(`   ✓ Found ${results.length} items on this page`);
-  return results;
+  console.log(`   ✓ Found ${products.length} items (${products.filter(p => p.hasPriceDrop).length} with price drops)`);
+  return products;
 }
 
-async function saveToSupabase(deals, weekStart, weekEnd) {
+async function saveToSupabase(deals) {
   if (deals.length === 0) { console.log("⚠️  No deals to save"); return; }
-  
-  console.log(`\n💾 Clearing old data and saving ${deals.length} new items...`);
   await supabase.from("aldi_deals").delete().neq("id", "____");
+  const BATCH = 100;
+  for (let i = 0; i < deals.length; i += BATCH) {
+    const batch = deals.slice(i, i + BATCH);
+    const { error } = await supabase.from("aldi_deals").upsert(batch);
+    if (error) console.error("  ❌ Error:", error.message);
+    else console.log(`  ✅ Saved ${batch.length} items`);
+  }
+}
 
-  const rows = deals.map((p, i) => ({
+async function main() {
+  console.log("🛒 Starting Aldi scraper...");
+  const { weekStart, weekEnd } = getWeekDates();
+  console.log(`📅 Week: ${weekStart} → ${weekEnd}`);
+
+  const browser = await chromium.launch({
+    headless: false,
+    args: ["--no-sandbox"]
+  });
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await context.newPage();
+  const allProducts = [];
+
+  for (const source of SOURCES) {
+    const items = await scrapePage(page, source.url, source.name);
+    allProducts.push(...items);
+    await page.waitForTimeout(2000);
+  }
+
+  await browser.close();
+
+  // Deduplicate by full name + price combo
+  const seen = new Set();
+  const unique = allProducts.filter((p) => {
+    const key = `${p.name.toLowerCase().trim()}-${p.salePrice}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  console.log(`\n📊 Total unique items: ${unique.length}`);
+  console.log("Items found:");
+  unique.forEach(p => console.log(`  - ${p.name} (${p.priceText})${p.hasPriceDrop ? ` was ${p.wasText}` : ""} [${p.source}]`));
+
+  const deals = unique.map((p, i) => ({
     id: `aldi-${i}-${p.name.slice(0, 20).replace(/\s+/g, "-").toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
     name: p.name,
     brand: "",
@@ -127,59 +218,8 @@ async function saveToSupabase(deals, weekStart, weekEnd) {
     week_end: weekEnd,
   }));
 
-  const { error } = await supabase.from("aldi_deals").upsert(rows);
-  if (error) console.error("❌ Supabase error:", error.message);
-  else console.log(`✅ Saved ${rows.length} items to Supabase`);
-}
-
-async function main() {
-  console.log("🛒 Aldi scraper — pulling from ONLY these two pages:");
-  console.log("   1. https://www.aldi.us/weekly-specials/weekly-ads");
-  console.log("   2. https://www.aldi.us/products/featured/price-drops/k/280");
-
-  const { weekStart, weekEnd } = getWeekDates();
-  console.log(`📅 Week: ${weekStart} → ${weekEnd}`);
-
-  const browser = await chromium.launch({ 
-    headless: false,
-    args: ["--no-sandbox"] 
-  });
-  
-  const context = await browser.newContext({
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    viewport: { width: 1280, height: 900 },
-  });
-
-  const page = await context.newPage();
-  const allProducts = [];
-
-  // ONLY these two URLs — nothing else
-  const page1Items = await scrapeUrl(page, "https://www.aldi.us/weekly-specials/weekly-ads");
-  page1Items.forEach(p => p.source = "Weekly Ads");
-  allProducts.push(...page1Items);
-
-  await page.waitForTimeout(2000);
-
-  const page2Items = await scrapeUrl(page, "https://www.aldi.us/products/featured/price-drops/k/280");
-  page2Items.forEach(p => p.source = "Price Drops");
-  allProducts.push(...page2Items);
-
-  await browser.close();
-
-  // Deduplicate by name
-  const seen = new Set();
-  const unique = allProducts.filter(p => {
-    const key = p.name.toLowerCase().trim();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  console.log(`\n📊 Total unique items: ${unique.length}`);
-  console.log("Items found:");
-  unique.forEach(p => console.log(`  - ${p.name} (${p.priceText}) [${p.source}]`));
-
-  await saveToSupabase(unique, weekStart, weekEnd);
+  console.log(`\n💾 Saving ${deals.length} items to Supabase...`);
+  await saveToSupabase(deals);
   console.log("\n✅ Done!");
 }
 

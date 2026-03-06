@@ -25,7 +25,8 @@ async function scrapeUrl(page, url) {
   console.log(`\n🌐 Navigating to: ${url}`);
   
   // Block any redirects or navigations to other pages
-  await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForTimeout(5000); // wait for JS to render products
   
   const actualUrl = page.url();
   console.log(`   Actual URL loaded: ${actualUrl}`);

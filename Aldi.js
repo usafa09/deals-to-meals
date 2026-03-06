@@ -25,8 +25,8 @@ const SOURCES = [
 function getWeekDates() {
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  // How many days ago was the most recent Wednesday?
-  const daysSinceWed = (day - 3 + 7) % 7;
+  // Days since last Wednesday (today if Wednesday)
+  const daysSinceWed = (day + 4) % 7;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - daysSinceWed);
   const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
@@ -119,6 +119,15 @@ async function scrapePage(page, url, sourceName) {
       if (!currentPrice) return;
       if (currentPrice.val > 50) return; // not a grocery item
 
+      // Build full name from all text elements, joining brand + description
+      const nameParts = allTextEls
+        .map(e => e.textContent.trim())
+        .filter(t => t.length > 2 && !t.startsWith("$") && t !== currentPrice.text && t !== wasText)
+        .filter((t, idx, arr) => arr.indexOf(t) === idx); // unique
+
+      const fullName = nameParts.slice(0, 3).join(" — ").trim();
+      if (!fullName || fullName.length < 3) return;
+
       // Filter out non-food/home goods items
       const NON_FOOD = [
         "mat", "planter", "vase", "stand", "ladder", "tiles", "magnetic",
@@ -131,15 +140,6 @@ async function scrapePage(page, url, sourceName) {
       ];
       const nameCheck = fullName.toLowerCase();
       if (NON_FOOD.some(w => nameCheck.includes(w))) return;
-
-      // Build full name from all text elements, joining brand + description
-      const nameParts = allTextEls
-        .map(e => e.textContent.trim())
-        .filter(t => t.length > 2 && !t.startsWith("$") && t !== currentPrice.text && t !== wasText)
-        .filter((t, idx, arr) => arr.indexOf(t) === idx); // unique
-
-      const fullName = nameParts.slice(0, 3).join(" — ").trim();
-      if (!fullName || fullName.length < 3) return;
 
       const imgEl = el.querySelector("img");
       const image = imgEl?.src || imgEl?.getAttribute("data-src") || "";

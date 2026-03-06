@@ -24,10 +24,11 @@ const SOURCES = [
 
 function getWeekDates() {
   const now = new Date();
-  const day = now.getDay();
-  const daysToWed = (3 - day + 7) % 7 || 7;
+  const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // How many days ago was the most recent Wednesday?
+  const daysSinceWed = (day - 3 + 7) % 7;
   const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - (7 - daysToWed));
+  weekStart.setDate(now.getDate() - daysSinceWed);
   const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
   return {
     weekStart: weekStart.toISOString().split("T")[0],
@@ -117,6 +118,19 @@ async function scrapePage(page, url, sourceName) {
       const currentPrice = prices.find(p => !p.isWas) || prices[0];
       if (!currentPrice) return;
       if (currentPrice.val > 50) return; // not a grocery item
+
+      // Filter out non-food/home goods items
+      const NON_FOOD = [
+        "mat", "planter", "vase", "stand", "ladder", "tiles", "magnetic",
+        "coir", "suncatcher", "hanging", "garden", "tool", "appliance",
+        "clothing", "apparel", "storage", "furniture", "decor", "candle",
+        "pillow", "towel", "sheet", "lamp", "light", "bulb", "battery",
+        "cleaner", "detergent", "laundry", "dish", "trash", "bag",
+        "plant holder", "geode", "propagation", "vases", "wood stand",
+        "travel magnetic", "piece micro", "spring coir", "sun catcher"
+      ];
+      const nameCheck = fullName.toLowerCase();
+      if (NON_FOOD.some(w => nameCheck.includes(w))) return;
 
       // Build full name from all text elements, joining brand + description
       const nameParts = allTextEls

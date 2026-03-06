@@ -17,27 +17,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Set your zip code here for location-specific weekly ads
+const ZIP_CODE = "45432";
+
 const SOURCES = [
   { url: "https://www.aldi.us/weekly-specials/weekly-ads", name: "Weekly Ads" },
   { url: "https://www.aldi.us/products/featured/price-drops/k/280", name: "Price Drops" },
 ];
 
+function formatDate(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + mm + "-" + dd;
+}
+
 function getWeekDates() {
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  // Days since last Wednesday (today if Wednesday)
-  const daysSinceWed = (day + 4) % 7;
+  // Days since last Wednesday: Wed=0, Thu=1, Fri=2, Sat=3, Sun=4, Mon=5, Tue=6
+  const daysSinceWed = (day - 3 + 7) % 7;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - daysSinceWed);
-  const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
   return {
-    weekStart: weekStart.toISOString().split("T")[0],
-    weekEnd: weekEnd.toISOString().split("T")[0],
+    weekStart: formatDate(weekStart),
+    weekEnd: formatDate(weekEnd),
   };
 }
 
 async function scrapePage(page, url, sourceName) {
   console.log(`\n🌐 Navigating to: ${url}`);
+
+  // Set zip code for location-specific results on first page load
+  if (sourceName === "Weekly Ads") {
+    await page.goto("https://www.aldi.us/store-locator", { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    // Try to enter zip code in store locator
+    const zipInput = await page.locator("input[placeholder*='zip'], input[type='text'], input[name*='zip'], input[id*='zip']").first();
+    if (await zipInput.isVisible().catch(() => false)) {
+      await zipInput.fill(ZIP_CODE);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(2000);
+    }
+  }
 
   await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
 

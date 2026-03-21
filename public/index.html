@@ -611,15 +611,14 @@ function renderSaleItems() {
     const badge=ds==="include"?"✓":ds==="exclude"?"✕":"";
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
-    const perLb=d.pricePerLb?`<div style="font-size:10px;color:#999">$${d.pricePerLb}/lb</div>`:"";
+    const unit=d.priceUnit||"";
     return `<div class="sale-card ${cls}" onclick="cycleDealState('${d.id}')">
       ${pct?`<div class="sale-card-pct">${pct} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${d.image?`<img class="sale-card-img" src="${d.image}" alt="${d.name}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name">${d.name}</div>
-        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}</span>`:""}</div>
-        ${perLb}
+        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}${unit}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}${unit}</span>`:""}</div>
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${d.saleStory}</div>`:""}
         <div class="sale-card-store">${store}</div>
       </div></div>`;}).join("");
@@ -698,7 +697,7 @@ function renderRecipeGrid(){
       ${r.image?`<img class="recipe-card-img" src="${r.image}" alt="${r.title}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder" style="font-size:48px;padding:30px 0">${emoji}</div>`}
       <div class="recipe-card-body"><div class="recipe-card-title">${r.title}</div><div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${r.time}</span>`:""}
-        ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 $${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
+        ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="meta-chip meta-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
         <span class="meta-chip" style="background:#E8F4E8;color:#2D5A27">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
       </div></div></div>`;}).join("");
@@ -719,11 +718,18 @@ function renderModal(r){
       <div class="modal-stats">
         ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${r.time}</span>`:""}
         <span class="stat-pill stat-servings">👥 ${r.servings} servings</span>
-        ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 $${r.estimatedCost.toFixed(2)}${r.regularPriceTotal>r.estimatedCost?` <s style="opacity:0.5">$${r.regularPriceTotal.toFixed(2)}</s>`:""}</span>`:""}
+        ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.regularPriceTotal>r.estimatedCost?` <s style="opacity:0.5">$${r.regularPriceTotal.toFixed(2)}</s>`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="stat-pill stat-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
         ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
       </div>
-      ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — Used in This Recipe</div><div class="ing-list">${r.usedSaleItems.map(ing=>`<div class="ing-row on-sale"><span>✅ ${ing.name}</span><span><span class="ing-sale-price">$${ing.salePrice}</span><span class="ing-reg-price">$${ing.regularPrice}</span></span></div>`).join("")}</div></div>`:""}
+      ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
+        const costNum=ing.actualCost||String(ing.salePrice).replace(/[^0-9.]/g,"");
+        const cost=ing.isPerLb?`≈ $${costNum}`:`$${costNum}`;
+        const pkgNote=ing.packageNote?`<div style="font-size:10px;color:#666">${ing.packageNote}</div>`:"";
+        const perLbLine=ing.isPerLb?`<div style="font-size:10px;color:#999">${ing.salePrice} <s style="opacity:0.5">${ing.regularPrice}</s></div>`:"";
+        const regPrice=!ing.isPerLb&&ing.regularPrice&&ing.regularPrice!=="—"?`<span class="ing-reg-price">$${String(ing.regularPrice).replace(/[^0-9.]/g,"")}</span>`:"";
+        return `<div class="ing-row on-sale"><span>✅ ${ing.name}${ing.storeName?` <span style="font-size:9px;color:#999">(${ing.storeName})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
+      }).join("")}</div></div>`:""}
       ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">✂️ Clip These Coupons</div><div class="coupon-list">${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}"><span>${c.clipped?"✅":"✂️"} ${c.description}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}</div></div>`:""}
       <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map(ing=>{
         const type=ing.type||"PANTRY";
@@ -734,7 +740,7 @@ function renderModal(r){
         const label=isOnSale?"ON SALE":isOnHand?"ON HAND":isAdditional?"TO BUY":"PANTRY";
         const bg=isOnSale?"#E8F4E8":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
         const color=isOnSale?"#2D5A27":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
-        const priceTag=ing.matchedDeal?` · $${String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
+        const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${ing.name}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${step}</div></div>`).join("")}</div></div>`:""}
@@ -757,7 +763,13 @@ async function saveRecipe(){
 
 function showShoppingList(){
   const r=state.currentRecipe;const cartLabel=getCartLabel();
-  const saleRows=(r.usedSaleItems||[]).map(i=>`<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#4CAF50" /><span style="font-weight:600">${i.name}</span></div><span><span class="ing-sale-price">$${String(i.salePrice).replace(/[^0-9.]/g,"")}</span>${i.regularPrice&&i.regularPrice!=="—"?`<span class="ing-reg-price">$${String(i.regularPrice).replace(/[^0-9.]/g,"")}</span>`:""} <span style="font-size:9px;color:#999">${i.storeName||""}</span></span></div>`).join("");
+  const saleRows=(r.usedSaleItems||[]).map(i=>{
+    const costNum=i.actualCost||String(i.salePrice).replace(/[^0-9.]/g,"");
+    const cost=i.isPerLb?`≈ $${costNum}`:`$${costNum}`;
+    const pkgDetail=i.packageNote?`<div style="font-size:10px;color:#666">${i.packageNote}</div>`:"";
+    const perLb=i.isPerLb?`<div style="font-size:10px;color:#999">${i.salePrice}</div>`:"";
+    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#4CAF50" /><span style="font-weight:600">${i.name}</span></div><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${i.storeName||""}</span></div></div>`;
+  }).join("");
   const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${i.name}</span></div>`).join("");
   const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${i.name}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
   const perServing=r.estimatedCost>0&&r.servings?`$${(r.estimatedCost/r.servings).toFixed(2)}/serving`:"";
@@ -770,15 +782,16 @@ function showShoppingList(){
     <div style="background:var(--green-light);border:2px solid #4CAF50;border-radius:14px;padding:16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-weight:700;color:var(--green-dark)">With This Week's Deals</div>
-        <div style="font-size:24px;font-weight:800;color:var(--green-dark)">$${r.estimatedCost?.toFixed(2)||"?"}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--green-dark)">${(r.usedSaleItems||[]).some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost?.toFixed(2)||"?"}</div>
       </div>
+      ${(r.usedSaleItems||[]).some(i=>i.isPerLb)?`<div style="font-size:10px;color:#666;margin-bottom:6px">* Per-lb items are estimated based on typical package sizes</div>`:""}
       ${r.regularPriceTotal>r.estimatedCost?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:12px;color:#999">Without deals</div>
         <div style="font-size:14px;color:#999;text-decoration:line-through">$${r.regularPriceTotal.toFixed(2)}</div>
       </div>`:""}
       ${r.totalSavings>0?`<div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:12px;color:var(--orange);font-weight:700">You save</div>
-        <div style="font-size:16px;color:var(--orange);font-weight:800">$${r.totalSavings.toFixed(2)}</div>
+        <div style="font-size:16px;color:var(--orange);font-weight:800">≈ $${r.totalSavings.toFixed(2)}</div>
       </div>`:""}
       ${perServing?`<div style="text-align:right;font-size:11px;color:var(--green-dark);margin-top:6px">${perServing}</div>`:""}
     </div>

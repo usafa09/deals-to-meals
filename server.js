@@ -585,20 +585,17 @@ app.get("/api/deals/regional", async (req, res) => {
                   const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
                     const item = p.items[0];
                     const size = item.size || "";
-                    const isPerLb = size.toLowerCase().includes("per lb") || size.toLowerCase().includes("/lb") || size.toLowerCase().includes("lb)");
-                    const regRaw = item.price.regular || 0;
-                    const promoRaw = item.price.promo || 0;
-                    const regEstimate = item.price.regularPerUnitEstimate || 0;
-                    const promoEstimate = item.price.promoPerUnitEstimate || 0;
-                    const useEstimate = isPerLb && promoEstimate > 0;
-                    const regular = useEstimate ? regEstimate : regRaw;
-                    const sale = useEstimate ? promoEstimate : promoRaw;
-                    const pctOff = Math.round(((regRaw - promoRaw) / regRaw) * 100);
+                    const sizeLower = size.toLowerCase();
+                    const isPerLb = sizeLower === "1 lb" || sizeLower.includes("per lb") || sizeLower.includes("/lb");
+                    const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
+                    
+                    const regular = item.price.regular || 0;
+                    const sale = item.price.promo || 0;
+                    const pctOff = Math.round(((regular - sale) / regular) * 100);
                     return {
                       id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
                       regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
-                      pricePerLb: isPerLb ? promoRaw.toFixed(2) : null,
-                      regularPricePerLb: isPerLb ? regRaw.toFixed(2) : null,
+                      isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
                       savings: (regular - sale).toFixed(2), pctOff, size,
                       image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
                       storeName: krogerRegion.banner, source: "kroger",
@@ -720,26 +717,18 @@ app.get("/api/deals", async (req, res) => {
           const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
             const item = p.items[0];
             const size = item.size || "";
-            const isPerLb = size.toLowerCase().includes("per lb") || size.toLowerCase().includes("/lb") || size.toLowerCase().includes("lb)");
+            const sizeLower = size.toLowerCase();
+            const isPerLb = sizeLower === "1 lb" || sizeLower.includes("per lb") || sizeLower.includes("/lb");
+            const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
             
-            // For per-lb items, use the per-unit estimate if available (actual package price)
-            // Otherwise fall back to the raw per-lb price
-            const regRaw = item.price.regular || 0;
-            const promoRaw = item.price.promo || 0;
-            const regEstimate = item.price.regularPerUnitEstimate || 0;
-            const promoEstimate = item.price.promoPerUnitEstimate || 0;
+            const regular = item.price.regular || 0;
+            const sale = item.price.promo || 0;
+            const pctOff = Math.round(((regular - sale) / regular) * 100);
             
-            // Use estimate prices when available (they represent actual package cost)
-            const useEstimate = isPerLb && promoEstimate > 0;
-            const regular = useEstimate ? regEstimate : regRaw;
-            const sale = useEstimate ? promoEstimate : promoRaw;
-            
-            const pctOff = Math.round(((regRaw - promoRaw) / regRaw) * 100);
             return {
               id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
               regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
-              pricePerLb: isPerLb ? promoRaw.toFixed(2) : null,
-              regularPricePerLb: isPerLb ? regRaw.toFixed(2) : null,
+              isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
               savings: (regular - sale).toFixed(2), pctOff, size,
               image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
             };
@@ -1068,9 +1057,14 @@ app.post("/api/recipes/ai", async (req, res) => {
     // Build the sale items list for the prompt (using filtered list)
     const saleItemsList = filteredIngredients.slice(0, 20).map(i => {
       const parts = [i.name];
-      if (i.salePrice) parts.push(`$${i.salePrice}`);
-      if (i.pricePerLb) parts.push(`($${i.pricePerLb}/lb)`);
-      if (i.regularPrice && i.regularPrice !== i.salePrice) parts.push(`(reg $${i.regularPrice})`);
+      if (i.salePrice) {
+        const unit = i.priceUnit || "";
+        parts.push(`$${i.salePrice}${unit}`);
+      }
+      if (i.regularPrice && i.regularPrice !== i.salePrice) {
+        const unit = i.priceUnit || "";
+        parts.push(`(reg $${i.regularPrice}${unit})`);
+      }
       if (i.storeName) parts.push(`at ${i.storeName}`);
       return "- " + parts.join(" ");
     }).join("\n");
@@ -1276,22 +1270,72 @@ IMPORTANT ingredient type rules:
           }
         }
 
+        let isPerLb = false;
+        let qty = 1;
+        let itemActualCost = null;
+
         if (matchedDeal) {
           const sale = parseFloat(String(matchedDeal.salePrice).replace(/[^0-9.]/g, "")) || 0;
           const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
-          const savings = reg > sale && sale > 0 ? reg - sale : 0;
+          isPerLb = matchedDeal.isPerLb || matchedDeal.priceUnit === "/lb";
+          
+          // Parse quantity from ingredient text (e.g. "1.5 lbs chicken" → 1.5)
+          // But for cost, use TYPICAL PACKAGE SIZE (what you actually buy at store)
+          if (isPerLb) {
+            // Typical package sizes at grocery stores
+            const nameLower = (matchedDeal.name || "").toLowerCase();
+            if (nameLower.match(/chicken breast|boneless.*chicken|skinless.*chicken/)) qty = 4;       // ~4 lb package
+            else if (nameLower.match(/chicken thigh|drumstick|chicken leg|wing/)) qty = 3.5;         // ~3.5 lb tray
+            else if (nameLower.match(/whole chicken|roaster/)) qty = 5;                               // ~5 lb bird
+            else if (nameLower.match(/ground beef|ground turkey|ground pork/)) qty = 1;               // 1 lb tube/tray
+            else if (nameLower.match(/beef|steak|roast|brisket/)) qty = 2.5;                         // ~2.5 lb cut
+            else if (nameLower.match(/pork tenderloin/)) qty = 1.5;                                   // ~1.5 lb tenderloin
+            else if (nameLower.match(/pork chop|pork loin/)) qty = 2.5;                              // ~2.5 lb package
+            else if (nameLower.match(/ribs|rack/)) qty = 3;                                           // ~3 lb rack
+            else if (nameLower.match(/salmon|tilapia|cod|fish/)) qty = 1;                            // ~1 lb fillet
+            else if (nameLower.match(/shrimp/)) qty = 1;                                              // 1 lb bag
+            else if (nameLower.match(/sausage|bratwurst|hot dog/)) qty = 1;                          // 1 lb package
+            else if (nameLower.match(/bacon/)) qty = 1;                                               // 1 lb package
+            else if (nameLower.match(/ham|turkey breast deli/)) qty = 1;                             // 1 lb deli
+            else if (nameLower.match(/apple|orange|banana|grape|strawberr|blueberr|peach|pear/)) qty = 2; // ~2 lb bag/bunch
+            else if (nameLower.match(/potato|sweet potato/)) qty = 3;                                // ~3 lb bag
+            else if (nameLower.match(/onion/)) qty = 1;                                              // ~1 lb (2-3 onions)
+            else if (nameLower.match(/tomato|pepper|cucumber|zucchini|squash/)) qty = 0.5;           // ~0.5 lb each
+            else if (nameLower.match(/broccoli|cauliflower/)) qty = 1.5;                             // ~1.5 lb head
+            else if (nameLower.match(/carrot|celery/)) qty = 1;                                      // ~1 lb bag
+            else if (nameLower.match(/lettuce|spinach|greens/)) qty = 0.75;                          // ~0.75 lb
+            else if (nameLower.match(/mushroom/)) qty = 0.5;                                         // ~8oz package
+            else qty = 1; // default 1 lb for unknown per-lb items
+            
+            // Override with explicit quantity from ingredient text if it's larger
+            const qtyMatch = itemText.match(/([\d.]+)\s*(lbs?|pounds?)/i);
+            if (qtyMatch) {
+              const recipeQty = parseFloat(qtyMatch[1]) || 1;
+              // Use whichever is larger: recipe amount or package size
+              // You can't buy less than a package
+              qty = Math.max(qty, recipeQty);
+            }
+          }
+          
+          const itemSaleCost = sale * qty;
+          const itemRegCost = reg * qty;
+          const savings = itemRegCost > itemSaleCost && itemSaleCost > 0 ? itemRegCost - itemSaleCost : 0;
+          itemActualCost = itemSaleCost.toFixed(2);
 
           usedSaleItems.push({
             name: matchedDeal.name,
-            salePrice: matchedDeal.salePrice || "",
-            regularPrice: matchedDeal.regularPrice || "—",
+            salePrice: isPerLb ? `$${sale.toFixed(2)}/lb` : (matchedDeal.salePrice || ""),
+            regularPrice: isPerLb ? `$${reg.toFixed(2)}/lb` : (matchedDeal.regularPrice || "—"),
+            actualCost: itemActualCost,
+            packageNote: isPerLb ? `~${qty} lb pkg ≈ $${itemSaleCost.toFixed(2)}` : "",
             savings: savings > 0 ? savings.toFixed(2) : "",
             storeName: matchedDeal.storeName || "",
+            isPerLb,
+            qty,
           });
 
-          if (sale > 0) saleCost += sale;
-          if (reg > 0) regularCost += reg;
-          else regularCost += sale; // if no regular price, use sale as baseline
+          saleCost += itemSaleCost;
+          regularCost += itemRegCost > 0 ? itemRegCost : itemSaleCost;
           totalSavings += savings;
         }
 
@@ -1304,7 +1348,13 @@ IMPORTANT ingredient type rules:
           name: itemText.replace(/\s*\(ON SALE\)|\(ADDITIONAL\)|\(ON HAND\)/gi, "").trim(),
           type,
           onSale: type === "SALE" && matchedDeal !== null,
-          matchedDeal: matchedDeal ? { name: matchedDeal.name, salePrice: matchedDeal.salePrice, regularPrice: matchedDeal.regularPrice } : null,
+          matchedDeal: matchedDeal ? { 
+            name: matchedDeal.name, 
+            salePrice: matchedDeal.salePrice, 
+            regularPrice: matchedDeal.regularPrice,
+            isPerLb,
+            actualCost: itemActualCost,
+          } : null,
         };
       });
 
@@ -1800,6 +1850,25 @@ app.post("/api/admin/cache-cleanup", async (req, res) => {
       .select("cache_key");
     if (error) throw new Error(error.message);
     res.json({ deleted: data?.length || 0, message: `Removed entries older than 24 hours` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET version — also supports ?all=true to clear entire cache
+app.get("/api/admin/cache-cleanup", async (req, res) => {
+  try {
+    const clearAll = req.query.all === "true";
+    let query;
+    if (clearAll) {
+      query = supabase.from("deal_cache").delete().neq("cache_key", "").select("cache_key");
+    } else {
+      const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
+      query = supabase.from("deal_cache").delete().lt("fetched_at", cutoff).select("cache_key");
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    // Also clear in-memory caches
+    flippCache.clear();
+    res.json({ deleted: data?.length || 0, message: clearAll ? "Cleared ALL cache entries + memory" : "Removed entries older than 24 hours" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

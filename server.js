@@ -1468,6 +1468,30 @@ app.get("/api/points", (req, res) => {
 
 // ══ DEBUG ══════════════════════════════════════════════════════════════════════
 
+app.get("/api/debug-kroger-prices", async (req, res) => {
+  try {
+    const locationId = req.query.locationId;
+    const term = req.query.term || "chicken";
+    if (!locationId) return res.status(400).json({ error: "locationId required" });
+    const token = await getAppToken();
+    const r = await fetch(
+      `${KROGER_API_BASE}/products?filter.locationId=${locationId}&filter.term=${encodeURIComponent(term)}&filter.limit=5`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+    );
+    if (!r.ok) return res.status(r.status).json({ error: await r.text() });
+    const data = await r.json();
+    // Return raw price objects for first 5 products
+    const products = (data.data || []).slice(0, 5).map(p => ({
+      name: p.description,
+      brand: p.brand,
+      size: p.items?.[0]?.size || "",
+      priceObject: p.items?.[0]?.price || {},
+      allItemFields: Object.keys(p.items?.[0] || {}),
+    }));
+    res.json({ products });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get("/api/debug-walmart", async (req, res) => {
   try {
     const headers = getWalmartHeaders();

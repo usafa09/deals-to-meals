@@ -611,13 +611,15 @@ function renderSaleItems() {
     const badge=ds==="include"?"✓":ds==="exclude"?"✕":"";
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
+    const perLb=d.pricePerLb?`<div style="font-size:10px;color:#999">$${d.pricePerLb}/lb</div>`:"";
     return `<div class="sale-card ${cls}" onclick="cycleDealState('${d.id}')">
       ${pct?`<div class="sale-card-pct">${pct} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${d.image?`<img class="sale-card-img" src="${d.image}" alt="${d.name}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name">${d.name}</div>
-        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price}</span>`:""} ${reg?`<span class="sale-card-reg">${reg}</span>`:""}</div>
+        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}</span>`:""}</div>
+        ${perLb}
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${d.saleStory}</div>`:""}
         <div class="sale-card-store">${store}</div>
       </div></div>`;}).join("");

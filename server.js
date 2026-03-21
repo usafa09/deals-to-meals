@@ -584,11 +584,22 @@ app.get("/api/deals/regional", async (req, res) => {
                   const data = await r.json();
                   const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
                     const item = p.items[0];
-                    const pctOff = Math.round(((item.price.regular - item.price.promo) / item.price.regular) * 100);
+                    const size = item.size || "";
+                    const isPerLb = size.toLowerCase().includes("per lb") || size.toLowerCase().includes("/lb") || size.toLowerCase().includes("lb)");
+                    const regRaw = item.price.regular || 0;
+                    const promoRaw = item.price.promo || 0;
+                    const regEstimate = item.price.regularPerUnitEstimate || 0;
+                    const promoEstimate = item.price.promoPerUnitEstimate || 0;
+                    const useEstimate = isPerLb && promoEstimate > 0;
+                    const regular = useEstimate ? regEstimate : regRaw;
+                    const sale = useEstimate ? promoEstimate : promoRaw;
+                    const pctOff = Math.round(((regRaw - promoRaw) / regRaw) * 100);
                     return {
                       id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
-                      regularPrice: item.price.regular.toFixed(2), salePrice: item.price.promo.toFixed(2),
-                      savings: (item.price.regular - item.price.promo).toFixed(2), pctOff, size: item.size || "",
+                      regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
+                      pricePerLb: isPerLb ? promoRaw.toFixed(2) : null,
+                      regularPricePerLb: isPerLb ? regRaw.toFixed(2) : null,
+                      savings: (regular - sale).toFixed(2), pctOff, size,
                       image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
                       storeName: krogerRegion.banner, source: "kroger",
                     };
@@ -708,11 +719,28 @@ app.get("/api/deals", async (req, res) => {
           const data = await r.json();
           const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
             const item = p.items[0];
-            const pctOff = Math.round(((item.price.regular - item.price.promo) / item.price.regular) * 100);
+            const size = item.size || "";
+            const isPerLb = size.toLowerCase().includes("per lb") || size.toLowerCase().includes("/lb") || size.toLowerCase().includes("lb)");
+            
+            // For per-lb items, use the per-unit estimate if available (actual package price)
+            // Otherwise fall back to the raw per-lb price
+            const regRaw = item.price.regular || 0;
+            const promoRaw = item.price.promo || 0;
+            const regEstimate = item.price.regularPerUnitEstimate || 0;
+            const promoEstimate = item.price.promoPerUnitEstimate || 0;
+            
+            // Use estimate prices when available (they represent actual package cost)
+            const useEstimate = isPerLb && promoEstimate > 0;
+            const regular = useEstimate ? regEstimate : regRaw;
+            const sale = useEstimate ? promoEstimate : promoRaw;
+            
+            const pctOff = Math.round(((regRaw - promoRaw) / regRaw) * 100);
             return {
               id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
-              regularPrice: item.price.regular.toFixed(2), salePrice: item.price.promo.toFixed(2),
-              savings: (item.price.regular - item.price.promo).toFixed(2), pctOff, size: item.size || "",
+              regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
+              pricePerLb: isPerLb ? promoRaw.toFixed(2) : null,
+              regularPricePerLb: isPerLb ? regRaw.toFixed(2) : null,
+              savings: (regular - sale).toFixed(2), pctOff, size,
               image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
             };
           });
@@ -1041,6 +1069,7 @@ app.post("/api/recipes/ai", async (req, res) => {
     const saleItemsList = filteredIngredients.slice(0, 20).map(i => {
       const parts = [i.name];
       if (i.salePrice) parts.push(`$${i.salePrice}`);
+      if (i.pricePerLb) parts.push(`($${i.pricePerLb}/lb)`);
       if (i.regularPrice && i.regularPrice !== i.salePrice) parts.push(`(reg $${i.regularPrice})`);
       if (i.storeName) parts.push(`at ${i.storeName}`);
       return "- " + parts.join(" ");

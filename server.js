@@ -1038,7 +1038,7 @@ app.post("/api/recipes/ai", async (req, res) => {
     }
 
     // Build the sale items list for the prompt (using filtered list)
-    const saleItemsList = filteredIngredients.slice(0, 30).map(i => {
+    const saleItemsList = filteredIngredients.slice(0, 20).map(i => {
       const parts = [i.name];
       if (i.salePrice) parts.push(`$${i.salePrice}`);
       if (i.regularPrice && i.regularPrice !== i.salePrice) parts.push(`(reg $${i.regularPrice})`);
@@ -1124,7 +1124,7 @@ IMPORTANT ingredient type rules:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -1137,15 +1137,53 @@ IMPORTANT ingredient type rules:
 
     const data = await response.json();
     const text = data.content?.[0]?.text || "";
+    const stopReason = data.stop_reason || "";
+    if (stopReason === "max_tokens") console.log("⚠️ AI response was truncated (hit max_tokens limit)");
+    console.log(`AI response: ${text.length} chars, stop_reason: ${stopReason}`);
 
     // Parse JSON from response (strip markdown fences if present)
-    const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     let parsed;
     try {
       parsed = JSON.parse(clean);
     } catch (e) {
-      console.error("Failed to parse AI recipe response:", text.substring(0, 500));
-      throw new Error("AI returned invalid recipe format. Please try again.");
+      // Response may have been truncated — try to recover partial recipes
+      console.log("Initial JSON parse failed, attempting recovery...");
+      try {
+        // Find the last complete recipe object by looking for the last complete "}," or "}" before truncation
+        const recipesStart = clean.indexOf('"recipes"');
+        if (recipesStart === -1) throw new Error("No recipes found");
+        
+        // Find all complete recipe objects using a bracket counter
+        const arrayStart = clean.indexOf('[', recipesStart);
+        if (arrayStart === -1) throw new Error("No recipe array found");
+        
+        let depth = 0;
+        let lastCompleteRecipe = -1;
+        let inString = false;
+        let escape = false;
+        
+        for (let i = arrayStart + 1; i < clean.length; i++) {
+          const c = clean[i];
+          if (escape) { escape = false; continue; }
+          if (c === '\\') { escape = true; continue; }
+          if (c === '"') { inString = !inString; continue; }
+          if (inString) continue;
+          if (c === '{') depth++;
+          if (c === '}') { depth--; if (depth === 0) lastCompleteRecipe = i; }
+        }
+        
+        if (lastCompleteRecipe > arrayStart) {
+          const recovered = clean.substring(0, lastCompleteRecipe + 1) + ']}';
+          parsed = JSON.parse(recovered);
+          console.log(`Recovered ${parsed.recipes?.length || 0} complete recipes from truncated response`);
+        } else {
+          throw new Error("Could not recover any complete recipes");
+        }
+      } catch (e2) {
+        console.error("Failed to parse AI recipe response:", text.substring(0, 500));
+        throw new Error("AI returned invalid recipe format. Please try again.");
+      }
     }
 
     const recipes = (parsed.recipes || []).map((r, idx) => {

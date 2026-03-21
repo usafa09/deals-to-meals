@@ -28,6 +28,7 @@ app.use((req, res, next) => {
       req.path.endsWith(".woff2") || req.path.endsWith(".js")) {
     return next();
   }
+  console.log(`[AUTH] path="${req.path}" cookie="${req.cookies?.site_auth}" env="${process.env.SITE_PASSWORD}" match=${req.cookies?.site_auth === process.env.SITE_PASSWORD}`);
   if (req.cookies?.site_auth === process.env.SITE_PASSWORD) {
     return next();
   }
@@ -1082,14 +1083,15 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       "title": "Recipe Name",
       "cookTime": 25,
       "servings": 4,
-      "estimatedCost": 8.50,
       "saleItemsUsed": ["Chicken Thighs", "Rice"],
       "ingredients": [
-        "1.5 lbs chicken thighs (ON SALE)",
-        "2 cups rice (ON SALE)",
-        "3 cloves garlic",
-        "1 tbsp olive oil",
-        "Salt and pepper to taste"
+        {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs"},
+        {"item": "2 cups rice", "type": "SALE", "matchName": "Rice"},
+        {"item": "1 lb fresh broccoli", "type": "ADDITIONAL", "matchName": ""},
+        {"item": "2 cups cooked quinoa", "type": "ON_HAND", "matchName": ""},
+        {"item": "3 cloves garlic", "type": "PANTRY", "matchName": ""},
+        {"item": "1 tbsp olive oil", "type": "PANTRY", "matchName": ""},
+        {"item": "Salt and pepper to taste", "type": "PANTRY", "matchName": ""}
       ],
       "instructions": [
         "Preheat oven to 400°F.",
@@ -1102,7 +1104,14 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       ]
     }
   ]
-}`;
+}
+
+IMPORTANT ingredient type rules:
+- "SALE" = item from the sale list above. "matchName" MUST exactly match one of the sale item names listed above.
+- "ADDITIONAL" = item the customer said they want to buy (from ADDITIONAL ITEMS list). 
+- "ON_HAND" = item the customer already has (from ON HAND list).
+- "PANTRY" = common staples most people have (salt, pepper, oil, garlic, onion, butter, flour, sugar, spices, vinegar, soy sauce, etc.)
+- Do NOT include "estimatedCost" — we calculate that from real prices.`;
 
     console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);
 
@@ -1140,32 +1149,102 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
     }
 
     const recipes = (parsed.recipes || []).map((r, idx) => {
-      // Match sale items used back to actual deal data for savings calculation
+      // ── Match sale items to real deal data for accurate pricing ──
       const usedSaleItems = [];
       let totalSavings = 0;
-      let estimatedCost = r.estimatedCost || 0;
+      let saleCost = 0;       // what you'll pay for sale items
+      let regularCost = 0;    // what those items would cost at regular price
+      let additionalCost = 0; // estimated cost for non-sale items you need to buy
 
-      for (const usedName of (r.saleItemsUsed || [])) {
-        const usedLower = usedName.toLowerCase();
-        const match = ingredients.find(ing => {
-          const ingLower = ing.name.toLowerCase();
-          const usedWords = usedLower.split(/\s+/).filter(w => w.length > 2);
-          return usedWords.some(w => ingLower.includes(w));
-        });
-        if (match) {
-          const sale = parseFloat(String(match.salePrice).replace(/[^0-9.]/g, "")) || 0;
-          const reg = parseFloat(String(match.regularPrice).replace(/[^0-9.]/g, "")) || 0;
-          const savings = reg > sale ? reg - sale : 0;
+      // Build a lookup for quick matching
+      const ingredientLookup = ingredients.map(ing => ({
+        ...ing,
+        nameLower: ing.name.toLowerCase(),
+        nameWords: ing.name.toLowerCase().split(/[\s,\-\/]+/).filter(w => w.length > 2),
+      }));
+
+      // Process structured ingredients from AI
+      const processedIngredients = (r.ingredients || []).map(ing => {
+        // Handle both new structured format and legacy string format
+        const isStructured = typeof ing === "object" && ing.item;
+        const itemText = isStructured ? ing.item : String(ing);
+        const type = isStructured ? (ing.type || "PANTRY") : 
+          (itemText.toLowerCase().includes("on sale") ? "SALE" : 
+           itemText.toLowerCase().includes("additional") ? "ADDITIONAL" :
+           itemText.toLowerCase().includes("on hand") ? "ON_HAND" : "PANTRY");
+        const matchName = isStructured ? (ing.matchName || "") : "";
+
+        let matchedDeal = null;
+
+        if (type === "SALE") {
+          // Try exact matchName first
+          if (matchName) {
+            const matchLower = matchName.toLowerCase();
+            matchedDeal = ingredientLookup.find(d => d.nameLower === matchLower);
+            if (!matchedDeal) {
+              // Try partial matching: score each deal by how many words match
+              const matchWords = matchLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
+              let bestScore = 0;
+              for (const d of ingredientLookup) {
+                const score = matchWords.filter(w => d.nameLower.includes(w)).length;
+                if (score > bestScore && score >= Math.min(2, matchWords.length)) {
+                  bestScore = score;
+                  matchedDeal = d;
+                }
+              }
+            }
+          }
+          // Fallback: try matching from the ingredient text itself
+          if (!matchedDeal) {
+            const textLower = itemText.toLowerCase();
+            const textWords = textLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
+            let bestScore = 0;
+            for (const d of ingredientLookup) {
+              const score = d.nameWords.filter(w => textWords.some(tw => tw.includes(w) || w.includes(tw))).length;
+              if (score > bestScore && score >= 1) {
+                bestScore = score;
+                matchedDeal = d;
+              }
+            }
+          }
+        }
+
+        if (matchedDeal) {
+          const sale = parseFloat(String(matchedDeal.salePrice).replace(/[^0-9.]/g, "")) || 0;
+          const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
+          const savings = reg > sale && sale > 0 ? reg - sale : 0;
+
           usedSaleItems.push({
-            name: match.name,
-            salePrice: match.salePrice || "",
-            regularPrice: match.regularPrice || "—",
+            name: matchedDeal.name,
+            salePrice: matchedDeal.salePrice || "",
+            regularPrice: matchedDeal.regularPrice || "—",
             savings: savings > 0 ? savings.toFixed(2) : "",
-            storeName: match.storeName || "",
+            storeName: matchedDeal.storeName || "",
           });
+
+          if (sale > 0) saleCost += sale;
+          if (reg > 0) regularCost += reg;
+          else regularCost += sale; // if no regular price, use sale as baseline
           totalSavings += savings;
         }
-      }
+
+        // Estimate cost for ADDITIONAL items (not on sale, needs to be bought)
+        if (type === "ADDITIONAL") {
+          additionalCost += 2.50; // average cost estimate per non-sale grocery item
+        }
+
+        return {
+          name: itemText.replace(/\s*\(ON SALE\)|\(ADDITIONAL\)|\(ON HAND\)/gi, "").trim(),
+          type,
+          onSale: type === "SALE" && matchedDeal !== null,
+          matchedDeal: matchedDeal ? { name: matchedDeal.name, salePrice: matchedDeal.salePrice, regularPrice: matchedDeal.regularPrice } : null,
+        };
+      });
+
+      // Final cost = sale items at sale price + additional items estimate
+      // ON_HAND and PANTRY items cost $0 (customer already has them)
+      const estimatedCost = saleCost + additionalCost;
+      const regularPriceTotal = regularCost + additionalCost;
 
       return {
         id: `ai-${Date.now()}-${idx}`,
@@ -1179,14 +1258,14 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
         usedSaleItems,
         totalSavings: parseFloat(totalSavings.toFixed(2)),
         estimatedCost: parseFloat(estimatedCost.toFixed(2)) || 0,
+        regularPriceTotal: parseFloat(regularPriceTotal.toFixed(2)) || 0,
+        saleCost: parseFloat(saleCost.toFixed(2)),
+        additionalCost: parseFloat(additionalCost.toFixed(2)),
         couponsToClip: [],
         diets: diets || [],
         cuisines: [],
         instructions: r.instructions || [],
-        allIngredients: (r.ingredients || []).map(ing => ({
-          name: ing,
-          onSale: ing.toLowerCase().includes("on sale"),
-        })),
+        allIngredients: processedIngredients,
       };
     });
 

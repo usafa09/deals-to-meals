@@ -1116,7 +1116,7 @@ ${mustIncludeNote}${customNote}${batchNote}
 Generate exactly 8 recipes. Each recipe should:
 - Use 2-5 of the sale items above as key ingredients
 - Be genuinely budget-friendly (under $12 total for 4 servings)
-- Include simple pantry staples the customer likely already has (salt, pepper, oil, garlic, onion, butter, flour, etc.)
+- Include simple pantry staples the customer likely already has (salt, pepper, oil, butter, flour, sugar, dried spices/herbs, vinegar, soy sauce, etc.)
 - Have clear, numbered step-by-step instructions a beginner cook could follow
 - Be a REAL recipe that actually works — not made up combinations
 - Use sale items appropriately based on what they are. Raw ingredients (chicken breasts, ground beef, fresh vegetables) should be used in from-scratch recipes. Pre-made or processed products (breaded shrimp, frozen pizza, fish sticks, nuggets) should only be used in recipes where that product IS the dish or a natural component (e.g. breaded shrimp → shrimp po'boy, frozen pizza → loaded pizza). NEVER use a processed product as a substitute for a raw ingredient (e.g. do NOT use breaded frozen shrimp in a butter garlic shrimp skillet).
@@ -1156,7 +1156,7 @@ IMPORTANT ingredient type rules:
 - "SALE" = item from the sale list above. "matchName" MUST exactly match one of the sale item names listed above.
 - "ADDITIONAL" = item the customer said they want to buy (from ADDITIONAL ITEMS list). 
 - "ON_HAND" = item the customer already has (from ON HAND list).
-- "PANTRY" = common staples most people have (salt, pepper, oil, garlic, onion, butter, flour, sugar, spices, vinegar, soy sauce, etc.)
+- "PANTRY" = ONLY non-perishable staples most kitchens have: salt, pepper, cooking oil, butter, flour, sugar, dried spices/herbs (paprika, cumin, oregano, chili powder, etc.), vinegar, soy sauce, hot sauce, mustard, ketchup, honey, vanilla extract, baking powder, baking soda, cornstarch. PANTRY does NOT include any fresh/perishable items — garlic, onion, lemon, lime, ginger, fresh herbs, eggs, milk, cream, cheese, and all fresh vegetables/fruits must be "ADDITIONAL" (things the customer needs to buy).
 - Do NOT include "estimatedCost" — we calculate that from real prices.`;
 
     console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);

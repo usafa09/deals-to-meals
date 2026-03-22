@@ -1119,6 +1119,7 @@ Generate exactly 8 recipes. Each recipe should:
 - Include simple pantry staples the customer likely already has (salt, pepper, oil, garlic, onion, butter, flour, etc.)
 - Have clear, numbered step-by-step instructions a beginner cook could follow
 - Be a REAL recipe that actually works — not made up combinations
+- Use sale items appropriately based on what they are. Raw ingredients (chicken breasts, ground beef, fresh vegetables) should be used in from-scratch recipes. Pre-made or processed products (breaded shrimp, frozen pizza, fish sticks, nuggets) should only be used in recipes where that product IS the dish or a natural component (e.g. breaded shrimp → shrimp po'boy, frozen pizza → loaded pizza). NEVER use a processed product as a substitute for a raw ingredient (e.g. do NOT use breaded frozen shrimp in a butter garlic shrimp skillet).
 ${dietNote}
 
 Respond with ONLY valid JSON, no other text. Use this exact format:

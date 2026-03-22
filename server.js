@@ -122,6 +122,26 @@ let pointsResetDate = new Date().toDateString();
 const DAILY_POINT_LIMIT = 180;
 const POINTS_PER_SEARCH = 3;
 
+// Smart per-lb detection: Kroger API doesn't always flag per-lb in the size field
+// but meat/produce priced under ~$15 is almost always per-lb pricing
+function detectPerLb(sizeLower, nameLower, price) {
+  if (sizeLower === "1 lb" || sizeLower.includes("per lb") || sizeLower.includes("/lb")) return true;
+  if (price > 0 && price < 15) {
+    const perLbPatterns = [
+      /chicken|turkey|duck|cornish/,
+      /beef|steak|roast|brisket|ground.*meat|meatloaf/,
+      /pork|ham|bacon|ribs|tenderloin|chop/,
+      /salmon|tilapia|cod|shrimp|fish|seafood|crab|lobster|tuna.*steak/,
+      /sausage|bratwurst|hot dog|kielbasa|chorizo/,
+      /lamb|veal/,
+      /apple|banana|grape|orange|peach|pear|plum|nectarine|mango|strawberr|blueberr|cherry|melon|watermelon/,
+      /potato|sweet potato|onion|tomato|pepper|cucumber|zucchini|squash|broccoli|cauliflower|carrot|celery|mushroom|lettuce|spinach|greens|cabbage|corn.*cob|avocado/,
+    ];
+    if (perLbPatterns.some(p => p.test(nameLower))) return true;
+  }
+  return false;
+}
+
 function checkAndResetPoints() {
   const today = new Date().toDateString();
   if (today !== pointsResetDate) {
@@ -586,11 +606,12 @@ app.get("/api/deals/regional", async (req, res) => {
                     const item = p.items[0];
                     const size = item.size || "";
                     const sizeLower = size.toLowerCase();
-                    const isPerLb = sizeLower === "1 lb" || sizeLower.includes("per lb") || sizeLower.includes("/lb");
-                    const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
-                    
                     const regular = item.price.regular || 0;
                     const sale = item.price.promo || 0;
+                    const nameLower = (p.description || "").toLowerCase();
+                    const isPerLb = detectPerLb(sizeLower, nameLower, sale);
+                    const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
+                    
                     const pctOff = Math.round(((regular - sale) / regular) * 100);
                     return {
                       id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
@@ -718,11 +739,12 @@ app.get("/api/deals", async (req, res) => {
             const item = p.items[0];
             const size = item.size || "";
             const sizeLower = size.toLowerCase();
-            const isPerLb = sizeLower === "1 lb" || sizeLower.includes("per lb") || sizeLower.includes("/lb");
-            const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
-            
             const regular = item.price.regular || 0;
             const sale = item.price.promo || 0;
+            const nameLower = (p.description || "").toLowerCase();
+            const isPerLb = detectPerLb(sizeLower, nameLower, sale);
+            const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
+            
             const pctOff = Math.round(((regular - sale) / regular) * 100);
             
             return {
@@ -1279,42 +1301,33 @@ IMPORTANT ingredient type rules:
           const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
           isPerLb = matchedDeal.isPerLb || matchedDeal.priceUnit === "/lb";
           
-          // Parse quantity from ingredient text (e.g. "1.5 lbs chicken" → 1.5)
-          // But for cost, use TYPICAL PACKAGE SIZE (what you actually buy at store)
+          // For per-lb items, use TYPICAL PACKAGE SIZE (what you actually buy at the store)
           if (isPerLb) {
-            // Typical package sizes at grocery stores
             const nameLower = (matchedDeal.name || "").toLowerCase();
-            if (nameLower.match(/chicken breast|boneless.*chicken|skinless.*chicken/)) qty = 4;       // ~4 lb package
-            else if (nameLower.match(/chicken thigh|drumstick|chicken leg|wing/)) qty = 3.5;         // ~3.5 lb tray
-            else if (nameLower.match(/whole chicken|roaster/)) qty = 5;                               // ~5 lb bird
-            else if (nameLower.match(/ground beef|ground turkey|ground pork/)) qty = 1;               // 1 lb tube/tray
-            else if (nameLower.match(/beef|steak|roast|brisket/)) qty = 2.5;                         // ~2.5 lb cut
-            else if (nameLower.match(/pork tenderloin/)) qty = 1.5;                                   // ~1.5 lb tenderloin
-            else if (nameLower.match(/pork chop|pork loin/)) qty = 2.5;                              // ~2.5 lb package
-            else if (nameLower.match(/ribs|rack/)) qty = 3;                                           // ~3 lb rack
-            else if (nameLower.match(/salmon|tilapia|cod|fish/)) qty = 1;                            // ~1 lb fillet
-            else if (nameLower.match(/shrimp/)) qty = 1;                                              // 1 lb bag
-            else if (nameLower.match(/sausage|bratwurst|hot dog/)) qty = 1;                          // 1 lb package
-            else if (nameLower.match(/bacon/)) qty = 1;                                               // 1 lb package
-            else if (nameLower.match(/ham|turkey breast deli/)) qty = 1;                             // 1 lb deli
-            else if (nameLower.match(/apple|orange|banana|grape|strawberr|blueberr|peach|pear/)) qty = 2; // ~2 lb bag/bunch
-            else if (nameLower.match(/potato|sweet potato/)) qty = 3;                                // ~3 lb bag
-            else if (nameLower.match(/onion/)) qty = 1;                                              // ~1 lb (2-3 onions)
-            else if (nameLower.match(/tomato|pepper|cucumber|zucchini|squash/)) qty = 0.5;           // ~0.5 lb each
-            else if (nameLower.match(/broccoli|cauliflower/)) qty = 1.5;                             // ~1.5 lb head
-            else if (nameLower.match(/carrot|celery/)) qty = 1;                                      // ~1 lb bag
-            else if (nameLower.match(/lettuce|spinach|greens/)) qty = 0.75;                          // ~0.75 lb
-            else if (nameLower.match(/mushroom/)) qty = 0.5;                                         // ~8oz package
-            else qty = 1; // default 1 lb for unknown per-lb items
-            
-            // Override with explicit quantity from ingredient text if it's larger
-            const qtyMatch = itemText.match(/([\d.]+)\s*(lbs?|pounds?)/i);
-            if (qtyMatch) {
-              const recipeQty = parseFloat(qtyMatch[1]) || 1;
-              // Use whichever is larger: recipe amount or package size
-              // You can't buy less than a package
-              qty = Math.max(qty, recipeQty);
-            }
+            if (nameLower.match(/chicken breast|boneless.*chicken|skinless.*chicken/)) qty = 2.5;
+            else if (nameLower.match(/chicken thigh|drumstick|chicken leg|wing/)) qty = 2.5;
+            else if (nameLower.match(/whole chicken|roaster/)) qty = 5;
+            else if (nameLower.match(/ground beef|ground turkey|ground pork/)) qty = 1;
+            else if (nameLower.match(/steak/)) qty = 1.5;
+            else if (nameLower.match(/beef.*roast|brisket/)) qty = 3;
+            else if (nameLower.match(/pork tenderloin/)) qty = 1.5;
+            else if (nameLower.match(/pork chop|pork loin/)) qty = 2;
+            else if (nameLower.match(/ribs|rack/)) qty = 3;
+            else if (nameLower.match(/salmon|tilapia|cod|fish/)) qty = 1;
+            else if (nameLower.match(/shrimp/)) qty = 1;
+            else if (nameLower.match(/sausage|bratwurst|kielbasa/)) qty = 1;
+            else if (nameLower.match(/bacon/)) qty = 1;
+            else if (nameLower.match(/apple|orange|pear/)) qty = 3;
+            else if (nameLower.match(/banana/)) qty = 2;
+            else if (nameLower.match(/grape|strawberr|blueberr|cherry/)) qty = 1;
+            else if (nameLower.match(/potato|sweet potato/)) qty = 3;
+            else if (nameLower.match(/onion/)) qty = 1;
+            else if (nameLower.match(/tomato|pepper|cucumber|zucchini|squash/)) qty = 0.75;
+            else if (nameLower.match(/broccoli|cauliflower/)) qty = 1.5;
+            else if (nameLower.match(/carrot|celery/)) qty = 1;
+            else if (nameLower.match(/lettuce|spinach|greens/)) qty = 0.75;
+            else if (nameLower.match(/mushroom/)) qty = 0.5;
+            else qty = 1;
           }
           
           const itemSaleCost = sale * qty;

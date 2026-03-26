@@ -705,20 +705,30 @@ app.get("/api/nearby-stores", async (req, res) => {
     const location = await geocodeZip(zip);
     if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
 
-    // Search for grocery stores nearby (24km radius ≈ 15 miles)
+    // Search for grocery stores nearby — run two searches for better coverage
     const radius = 24000;
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&keyword=grocery+store+supermarket&key=${GOOGLE_MAPS_KEY}`;
-    const placesRes = await fetch(placesUrl);
-    const placesData = await placesRes.json();
-
-    if (placesData.status !== "OK" && placesData.status !== "ZERO_RESULTS") {
-      console.error("Places API error:", placesData.status, placesData.error_message);
-      return res.status(500).json({ error: "Places API error: " + placesData.status });
+    const searches = [
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&type=supermarket&key=${GOOGLE_MAPS_KEY}`,
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&keyword=grocery+store&key=${GOOGLE_MAPS_KEY}`,
+    ];
+    const allPlaces = [];
+    const seenIds = new Set();
+    for (const url of searches) {
+      const placesRes = await fetch(url);
+      const placesData = await placesRes.json();
+      if (placesData.status === "OK" && placesData.results) {
+        for (const p of placesData.results) {
+          if (!seenIds.has(p.place_id)) {
+            seenIds.add(p.place_id);
+            allPlaces.push(p);
+          }
+        }
+      }
     }
 
     // Extract unique store brands from results
     const brandMap = new Map();
-    for (const place of (placesData.results || [])) {
+    for (const place of allPlaces) {
       const name = place.name || "";
       // Normalize to brand name
       let brand = name;
@@ -801,7 +811,7 @@ app.get("/api/nearby-stores", async (req, res) => {
 
     // Cache for 30 days
     await setCachedStores(zip, enrichedStores);
-    console.log(`Nearby stores for ${zip}: ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${placesData.results?.length || 0} places [live]`);
+    console.log(`Nearby stores for ${zip}: ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);
 
     res.json({ stores: enrichedStores, cached: false });
   } catch (err) {

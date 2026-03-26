@@ -520,15 +520,57 @@ function renderStoreBrands() {
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${b.name.replace(/'/g,"\\'")}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${b.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${b.emoji}</div>
-        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||"Deals available"):"<span style='color:var(--muted);font-size:11px'>Coming soon</span>"}</div></div>
+        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`).join("");
 }
-function toggleBrand(name) {
+async function toggleBrand(name) {
+  const brand=state.storeBrands.find(b=>b.name===name);
+  const elId=`brand-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const addrId=`addr-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+
+  // If store has no deals, trigger on-demand extraction
+  if(brand && !brand.hasDeals) {
+    const addrEl=document.getElementById(addrId);
+    if(addrEl)addrEl.innerHTML=`<span style="color:var(--orange);font-size:11px">🔍 Searching for deals...</span>`;
+
+    try {
+      const res=await fetch("/api/extract-store",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({storeName:name})});
+      const data=await res.json();
+
+      if(data.status==="ready") {
+        brand.hasDeals=true;
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${data.deals} deals found! Tap again to select</span>`;
+      } else if(data.status==="extracting") {
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--orange);font-size:11px">⏳ Extracting deals (~2 min)...</span>`;
+        // Poll for completion
+        const poll=setInterval(async()=>{
+          try {
+            const s=await fetch(`/api/extract-status?store=${encodeURIComponent(name)}`).then(r=>r.json());
+            if(s.status==="ready"){
+              clearInterval(poll);
+              brand.hasDeals=true;
+              if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
+            }
+          } catch{}
+        },10000); // check every 10 seconds
+        // Stop polling after 5 minutes
+        setTimeout(()=>clearInterval(poll),300000);
+      } else if(data.status==="not-found") {
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--muted);font-size:11px">No weekly ad found</span>`;
+      }
+    } catch(e) {
+      const addrEl2=document.getElementById(addrId);
+      if(addrEl2)addrEl2.innerHTML=`<span style="color:var(--muted);font-size:11px">Could not find deals</span>`;
+    }
+    return; // don't toggle selection yet — wait for deals
+  }
+
+  // Normal toggle for stores with deals
   const idx=state.selectedBrands.indexOf(name);
   if(idx>-1)state.selectedBrands.splice(idx,1); else state.selectedBrands.push(name);
-  const el=document.getElementById(`brand-${name.replace(/[^a-zA-Z0-9]/g,'_')}`);
+  const el=document.getElementById(elId);
   if(el)el.classList.toggle("selected",state.selectedBrands.includes(name));
   const n=state.selectedBrands.length; const btn=document.getElementById("storesBtn");
   btn.disabled=n===0; btn.textContent=n>0?`View Deals from ${n} Store${n>1?"s":""} →`:"View Deals →";

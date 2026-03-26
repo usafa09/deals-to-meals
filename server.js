@@ -898,6 +898,249 @@ app.get("/api/deals/regional", async (req, res) => {
   }
 });
 
+// ══ ON-DEMAND AD EXTRACTION ═══════════════════════════════════════════════════
+// When a user clicks a store without deals, search igroceryads and extract
+
+const IGROCERYADS_STORES = {
+  "acme": "https://www.igroceryads.com/acme-weekly-ad-acme-markets-circular/",
+  "albertsons": "https://www.igroceryads.com/albertsons-weekly-ad-cat/",
+  "bashas": "https://www.igroceryads.com/bashas-weekly-ad/",
+  "big y": "https://www.igroceryads.com/big-y-flyer-big-y-circular/",
+  "cub foods": "https://www.igroceryads.com/cub-foods-ad-weekly-ad-specials/",
+  "el super": "https://www.igroceryads.com/el-super-weekly-ad-cat/",
+  "fareway": "https://www.igroceryads.com/fareway-ad-weekly-ad-specials/",
+  "food 4 less": "https://www.igroceryads.com/food4less-weekly-ad/",
+  "food city": "https://www.igroceryads.com/food-city-weekly-ad-current-circulars/",
+  "food lion": "https://www.igroceryads.com/food-lion-circular/",
+  "foodtown": "https://www.igroceryads.com/foodtown-ad/",
+  "fred meyer": "https://www.igroceryads.com/fred-meyer-weekly-ads/",
+  "giant eagle": "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
+  "giant food": "https://www.igroceryads.com/giant-food-weekly-ad-deals/",
+  "hannaford": "https://www.igroceryads.com/hannaford-flyer/",
+  "harris teeter": "https://www.igroceryads.com/harris-teeter-weekly-ad/",
+  "h-e-b": "https://www.igroceryads.com/heb-weekly-ad-cat/",
+  "heb": "https://www.igroceryads.com/heb-weekly-ad-cat/",
+  "hy-vee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
+  "hyvee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
+  "ingles": "https://www.igroceryads.com/ingles-weekly-ad-ingles-markets-ad/",
+  "jewel-osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
+  "jewel osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
+  "key food": "https://www.igroceryads.com/key-food-circular/",
+  "lidl": "https://www.igroceryads.com/lidl-weekly-ad-cat/",
+  "lowes foods": "https://www.igroceryads.com/lowes-foods/",
+  "market basket": "https://www.igroceryads.com/market-basket-flyer/",
+  "meijer": "https://www.igroceryads.com/meijer-weekly-ad-deals/",
+  "piggly wiggly": "https://www.igroceryads.com/piggly-wiggly-weekly-ad/",
+  "price chopper": "https://www.igroceryads.com/price-chopper-ad-price-chopper-flyer/",
+  "publix": "https://www.igroceryads.com/publix-weekly-specials/",
+  "ralphs": "https://www.igroceryads.com/ralphs-weekly-ad-ralphs-ads/",
+  "rouses": "https://www.igroceryads.com/rouses-ad/",
+  "safeway": "https://www.igroceryads.com/safeway-weekly-ad-cat/",
+  "save a lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
+  "save-a-lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
+  "shaws": "https://www.igroceryads.com/shaws-circular/",
+  "shaw's": "https://www.igroceryads.com/shaws-circular/",
+  "shoprite": "https://www.igroceryads.com/shoprite-weekly-ad-cat/",
+  "smart & final": "https://www.igroceryads.com/smart-and-final-weekly-ad/",
+  "sprouts": "https://www.igroceryads.com/sprouts-weekly-ad-sales/",
+  "stater bros": "https://www.igroceryads.com/stater-bros-weekly-ad/",
+  "stop & shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
+  "stop and shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
+  "tops": "https://www.igroceryads.com/tops-weekly-ad/",
+  "vons": "https://www.igroceryads.com/vons-weekly-ad-cat/",
+  "winn-dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
+  "winn dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
+  "99 ranch": "https://www.igroceryads.com/99-ranch-market-weekly-ad/",
+  "cardenas": "https://www.igroceryads.com/cardenas-weekly-ad-cat/",
+  "pavilions": "https://www.igroceryads.com/pavilions-weekly-ad/",
+};
+
+// Find the igroceryads URL for a store, checking category page for latest ad link
+function findIgroceryadsUrl(storeName) {
+  const lower = storeName.toLowerCase().trim();
+  // Direct match
+  if (IGROCERYADS_STORES[lower]) return IGROCERYADS_STORES[lower];
+  // Partial match
+  for (const [key, url] of Object.entries(IGROCERYADS_STORES)) {
+    if (lower.includes(key) || key.includes(lower)) return url;
+  }
+  return null;
+}
+
+// In-memory set to track stores currently being extracted (prevent duplicate runs)
+const extractingStores = new Set();
+
+app.post("/api/extract-store", async (req, res) => {
+  const { storeName } = req.body;
+  if (!storeName) return res.status(400).json({ error: "storeName is required" });
+
+  const storeId = storeName.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
+
+  // Check if we already have cached deals
+  const existing = await getCachedDeals(`ad-extract:${storeId}`);
+  if (existing && existing.length > 0) {
+    return res.json({ status: "ready", deals: existing.length, storeId });
+  }
+
+  // Check if extraction is already running
+  if (extractingStores.has(storeId)) {
+    return res.json({ status: "extracting", message: "Deal extraction in progress" });
+  }
+
+  // Find the igroceryads URL
+  const adUrl = findIgroceryadsUrl(storeName);
+  if (!adUrl) {
+    return res.json({ status: "not-found", message: "No ad source found for this store. Upload a photo of their weekly ad to add deals." });
+  }
+
+  // Start extraction in background
+  extractingStores.add(storeId);
+  res.json({ status: "extracting", message: `Found ${storeName} ad — extracting deals now. This takes about 2-3 minutes.` });
+
+  // Background extraction
+  try {
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_KEY) { extractingStores.delete(storeId); return; }
+
+    // Fetch ad page
+    const pageRes = await fetch(adUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+    });
+    const html = await pageRes.text();
+
+    // Extract image URLs
+    const imgRegex = /https:\/\/www\.igroceryads\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
+    let images = [...new Set(html.match(imgRegex) || [])]
+      .filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("-100x"))
+      .sort((a, b) => {
+        const extractNum = (url) => {
+          const fname = url.split("/").pop();
+          const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
+          return parseInt(m?.[1] || "0");
+        };
+        return extractNum(a) - extractNum(b);
+      });
+    images = [...new Set(images)];
+
+    // Probe for more pages if few found (lazy-loaded images)
+    if (images.length <= 3 && images.length > 0) {
+      const sample = images[0];
+      const scaledMatch = sample.match(/^(.*-)(\d+)(-scaled\.\w+)$/);
+      if (scaledMatch) {
+        const [, prefix, , suffix] = scaledMatch;
+        for (let n = 1; n <= 30; n++) {
+          const url = `${prefix}${n}${suffix}`;
+          if (!images.includes(url)) {
+            try {
+              const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
+              if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
+                images.push(url);
+              } else break;
+            } catch { break; }
+          }
+        }
+      }
+    }
+
+    console.log(`On-demand extraction for ${storeName}: ${images.length} pages found`);
+
+    // Extract deals from each page
+    const allDeals = [];
+    const maxPages = Math.min(images.length, 20);
+    for (let i = 0; i < maxPages; i++) {
+      try {
+        const imgRes = await fetch(images[i], {
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+        });
+        if (!imgRes.ok) continue;
+        const contentType = imgRes.headers.get("content-type") || "";
+        if (!contentType.startsWith("image/")) continue;
+        const buffer = await imgRes.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString("base64");
+        if (base64.length < 1000) continue;
+
+        const mediaType = images[i].endsWith(".webp") ? "image/webp" : images[i].endsWith(".png") ? "image/png" : "image/jpeg";
+
+        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 8000,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+                { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. For each item: {"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}. No markdown. Include all items with prices.` }
+              ]
+            }]
+          })
+        });
+        const aiData = await aiRes.json();
+        const text = aiData.content?.map(c => c.text || "").join("") || "";
+        let cleaned = text.replace(/```json|```/g, "").trim();
+        try {
+          const deals = JSON.parse(cleaned);
+          allDeals.push(...deals);
+        } catch {
+          const lastBrace = cleaned.lastIndexOf("}");
+          if (lastBrace > 0) {
+            try { allDeals.push(...JSON.parse(cleaned.substring(0, lastBrace + 1) + "]")); } catch {}
+          }
+        }
+        if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
+      } catch (e) { console.error(`  Page ${i+1} error: ${e.message}`); }
+    }
+
+    // Deduplicate and enrich
+    const seen = new Set();
+    const unique = allDeals.filter(d => {
+      const key = `${d.name}:${d.salePrice}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).map((d, i) => ({
+      ...d,
+      id: `${storeId}-${Date.now()}-${i}`,
+      storeName,
+      source: "ad-extract",
+      image: null,
+    }));
+
+    // Cache as master key
+    if (unique.length > 0) {
+      await setCachedDeals(`ad-extract:${storeId}`, unique);
+      console.log(`On-demand: ${storeName} — ${unique.length} deals cached`);
+    } else {
+      console.log(`On-demand: ${storeName} — no deals extracted`);
+    }
+  } catch (err) {
+    console.error(`On-demand extraction error for ${storeName}:`, err.message);
+  } finally {
+    extractingStores.delete(storeId);
+  }
+});
+
+// Check extraction status
+app.get("/api/extract-status", async (req, res) => {
+  const { store } = req.query;
+  if (!store) return res.status(400).json({ error: "store is required" });
+  const storeId = store.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
+
+  if (extractingStores.has(storeId)) {
+    return res.json({ status: "extracting" });
+  }
+  const cached = await getCachedDeals(`ad-extract:${storeId}`);
+  if (cached && cached.length > 0) {
+    return res.json({ status: "ready", deals: cached.length });
+  }
+  res.json({ status: "none" });
+});
+
 // ══ DEALS API (Kroger) ════════════════════════════════════════════════════════
 
 app.get("/api/deals", async (req, res) => {

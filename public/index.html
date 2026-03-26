@@ -467,15 +467,29 @@ function isKrogerFamily(name){const k=(name||"").toLowerCase();return KROGER_BAN
 async function findStores() {
   const zip=document.getElementById("zipInput").value; if(zip.length<5)return;
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
-  showLoading("Finding all stores with deals near you…","Checking Kroger, ALDI, and more…");
+  showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {
-    const [krogerRes,aldiRes] = await Promise.allSettled([
+    const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
       fetch(`/api/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
       fetch(`/api/aldi/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
+      fetch(`/api/nearby-stores?zip=${zip}`).then(r=>r.json()),
     ]);
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
     if(aldiRes.status==="fulfilled")allStores.push(...aldiRes.value);
+
+    // Add nearby stores from Google Places (excluding Kroger/ALDI which are already handled)
+    if(nearbyRes.status==="fulfilled" && nearbyRes.value.stores) {
+      const nearbyStores = nearbyRes.value.stores
+        .filter(s => s.name !== "Kroger" && s.name !== "ALDI")
+        .map(s => ({
+          name: s.name,
+          address: s.count > 1 ? `${s.count} locations nearby` : (s.address || "Nearby"),
+          source: "nearby",
+          storeName: s.name,
+        }));
+      allStores.push(...nearbyStores);
+    }
 
     const brandMap=new Map();
     for(const s of allStores){
@@ -483,10 +497,17 @@ async function findStores() {
       if(isKrogerFamily(s.name))brandName="Kroger";
       else if(s.name.toLowerCase().includes("aldi"))brandName="ALDI";
       else brandName=s.name.trim();
-      if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[]});}
-      brandMap.get(brandName).stores.push(s);
+      if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[],hasDeals:s.hasDeals||s.source==="kroger"||s.source==="aldi"});}
+      const brand=brandMap.get(brandName);
+      brand.stores.push(s);
+      if(s.hasDeals)brand.hasDeals=true;
     }
-    state.storeBrands=[...brandMap.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    state.storeBrands=[...brandMap.values()].sort((a,b)=>{
+      // Sort: stores with deals first, then alphabetical
+      if(a.hasDeals && !b.hasDeals) return -1;
+      if(!a.hasDeals && b.hasDeals) return 1;
+      return a.name.localeCompare(b.name);
+    });
     if(!state.storeBrands.length)throw new Error("No stores found near that zip code.");
     renderStoreBrands(); goTo(2);
   } catch(err){showToast(err.message);} finally{hideLoading();}
@@ -499,7 +520,7 @@ function renderStoreBrands() {
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${b.name.replace(/'/g,"\\'")}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${b.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${b.emoji}</div>
-        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr">${b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||""}</div></div>
+        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||"Deals available"):"<span style='color:var(--muted);font-size:11px'>Coming soon</span>"}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`).join("");

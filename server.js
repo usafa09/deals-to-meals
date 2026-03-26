@@ -546,17 +546,203 @@ app.get("/api/stores", async (req, res) => {
 
 // ══ AD REGIONS — which stores serve a given zip ═══════════════════════════════
 
+// ══ NEARBY GROCERY STORES (Google Places API with 30-day cache) ═══════════════
+
+const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const STORE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+async function geocodeZip(zip) {
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?address=${zip}&key=${GOOGLE_MAPS_KEY}`
+  );
+  const data = await res.json();
+  if (data.results?.[0]?.geometry?.location) {
+    return data.results[0].geometry.location; // { lat, lng }
+  }
+  return null;
+}
+
+async function getCachedStores(zip) {
+  try {
+    const { data, error } = await supabase
+      .from("deal_cache")
+      .select("data, fetched_at")
+      .eq("cache_key", `nearby-stores:${zip}`)
+      .single();
+    if (error || !data) return null;
+    const age = Date.now() - new Date(data.fetched_at).getTime();
+    if (age > STORE_CACHE_TTL) return null;
+    return data.data;
+  } catch { return null; }
+}
+
+async function setCachedStores(zip, stores) {
+  try {
+    await supabase.from("deal_cache").upsert({
+      cache_key: `nearby-stores:${zip}`,
+      data: stores,
+      fetched_at: new Date().toISOString(),
+    }, { onConflict: "cache_key" });
+  } catch (e) { console.error("Store cache write error:", e.message); }
+}
+
+app.get("/api/nearby-stores", async (req, res) => {
+  const { zip } = req.query;
+  if (!zip) return res.status(400).json({ error: "zip is required" });
+
+  try {
+    // Check cache first
+    const cached = await getCachedStores(zip);
+    if (cached) {
+      console.log(`Nearby stores for ${zip}: ${cached.length} stores [cached]`);
+      return res.json({ stores: cached, cached: true });
+    }
+
+    if (!GOOGLE_MAPS_KEY) {
+      console.log("Google Maps API key not configured, falling back to ad_regions");
+      return res.json({ stores: [], error: "Google Maps API key not configured" });
+    }
+
+    // Geocode zip to lat/lng
+    const location = await geocodeZip(zip);
+    if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
+
+    // Search for grocery stores nearby (16km radius ≈ 10 miles)
+    const radius = 16000;
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&type=supermarket&key=${GOOGLE_MAPS_KEY}`;
+    const placesRes = await fetch(placesUrl);
+    const placesData = await placesRes.json();
+
+    if (placesData.status !== "OK" && placesData.status !== "ZERO_RESULTS") {
+      console.error("Places API error:", placesData.status, placesData.error_message);
+      return res.status(500).json({ error: "Places API error: " + placesData.status });
+    }
+
+    // Extract unique store brands from results
+    const brandMap = new Map();
+    for (const place of (placesData.results || [])) {
+      const name = place.name || "";
+      // Normalize to brand name
+      let brand = name;
+      // Match known chains
+      const lower = name.toLowerCase();
+      if (lower.includes("kroger")) brand = "Kroger";
+      else if (lower.includes("aldi")) brand = "ALDI";
+      else if (lower.includes("walmart")) brand = "Walmart";
+      else if (lower.includes("meijer")) brand = "Meijer";
+      else if (lower.includes("publix")) brand = "Publix";
+      else if (lower.includes("giant eagle")) brand = "Giant Eagle";
+      else if (lower.includes("food lion")) brand = "Food Lion";
+      else if (lower.includes("hy-vee") || lower.includes("hyvee")) brand = "Hy-Vee";
+      else if (lower.includes("sprouts")) brand = "Sprouts";
+      else if (lower.includes("target")) brand = "Target";
+      else if (lower.includes("costco")) brand = "Costco";
+      else if (lower.includes("trader joe")) brand = "Trader Joe's";
+      else if (lower.includes("save a lot") || lower.includes("save-a-lot")) brand = "Save-A-Lot";
+      else if (lower.includes("dollar general")) brand = "Dollar General";
+      else if (lower.includes("albertsons")) brand = "Albertsons";
+      else if (lower.includes("safeway")) brand = "Safeway";
+      else if (lower.includes("harris teeter")) brand = "Harris Teeter";
+      else if (lower.includes("h-e-b") || lower === "heb") brand = "H-E-B";
+      else if (lower.includes("wegman")) brand = "Wegmans";
+      else if (lower.includes("shoprite")) brand = "ShopRite";
+      else if (lower.includes("winn-dixie") || lower.includes("winn dixie")) brand = "Winn-Dixie";
+      else if (lower.includes("lidl")) brand = "Lidl";
+      else if (lower.includes("piggly wiggly")) brand = "Piggly Wiggly";
+      else if (lower.includes("marc's") || lower.includes("marcs")) brand = "Marc's";
+      else if (lower.includes("winco")) brand = "WinCo";
+      else if (lower.includes("food city")) brand = "Food City";
+      else if (lower.includes("ingles")) brand = "Ingles";
+      else if (lower.includes("fred meyer")) brand = "Kroger"; // Kroger banner
+      else if (lower.includes("king soopers")) brand = "Kroger";
+      else if (lower.includes("ralphs")) brand = "Kroger";
+      else if (lower.includes("fry's food")) brand = "Kroger";
+      else if (lower.includes("smith's food") || lower.includes("smiths food")) brand = "Kroger";
+      else if (lower.includes("qfc")) brand = "Kroger";
+      else if (lower.includes("dillons")) brand = "Kroger";
+      else if (lower.includes("pick n save") || lower.includes("pick 'n save")) brand = "Kroger";
+      else if (lower.includes("mariano")) brand = "Kroger";
+
+      if (!brandMap.has(brand)) {
+        brandMap.set(brand, {
+          name: brand,
+          address: place.vicinity || "",
+          lat: place.geometry?.location?.lat,
+          lng: place.geometry?.location?.lng,
+          count: 0,
+        });
+      }
+      brandMap.get(brand).count++;
+    }
+
+    const stores = [...brandMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Check which stores have cached deals
+    const { data: dealKeys } = await supabase
+      .from("deal_cache")
+      .select("cache_key")
+      .like("cache_key", "ad-extract:%");
+    const storesWithDeals = new Set();
+    for (const row of (dealKeys || [])) {
+      const parts = row.cache_key.split(":");
+      if (parts.length >= 2) {
+        // Normalize: "food-lion" -> "foodlion", "hyvee" -> "hyvee"
+        storesWithDeals.add(parts[1].toLowerCase().replace(/[-\s]/g, ""));
+      }
+    }
+    // Mark each store with deal availability
+    const normalizeName = (n) => n.toLowerCase().replace(/['\s-]/g, "");
+    const enrichedStores = stores.map(s => ({
+      ...s,
+      hasDeals: storesWithDeals.has(normalizeName(s.name))
+        || s.name === "Kroger" || s.name === "ALDI",
+    }));
+
+    // Cache for 30 days
+    await setCachedStores(zip, enrichedStores);
+    console.log(`Nearby stores for ${zip}: ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${placesData.results?.length || 0} places [live]`);
+
+    res.json({ stores: enrichedStores, cached: false });
+  } catch (err) {
+    console.error("Nearby stores error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ══ AD REGIONS (kept for reference/fallback) ═════════════════════════════════
+
 app.get("/api/ad-regions", async (req, res) => {
   const { zip } = req.query;
   if (!zip) return res.status(400).json({ error: "zip is required" });
   try {
+    const zip3 = zip.substring(0, 3);
     const regions = await getAdRegions(zip);
     const summary = summarizeRegions(regions);
-    console.log(`Ad regions for zip ${zip} (${zip.substring(0,3)}): ${summary.length} store/banners`);
+
+    // Check which stores actually have cached deals
+    const { data: cacheRows } = await supabase
+      .from("deal_cache")
+      .select("cache_key")
+      .or(`cache_key.like.ad-extract:%:${zip3},cache_key.like.ad-extract:%`);
+
+    const cachedStoreIds = new Set();
+    for (const row of (cacheRows || [])) {
+      // Extract store ID from cache_key like "ad-extract:publix:320" or "ad-extract:publix"
+      const parts = row.cache_key.split(":");
+      if (parts.length >= 2) cachedStoreIds.add(parts[1]);
+    }
+
+    // Mark stores that have deals available
+    const enriched = summary.map(s => ({
+      ...s,
+      hasDeals: cachedStoreIds.has(s.store) || s.store === "kroger" || s.store === "aldi",
+    }));
+
+    console.log(`Ad regions for zip ${zip} (${zip3}): ${summary.length} chains, ${enriched.filter(s => s.hasDeals).length} with deals`);
     res.json({
-      zip3: zip.substring(0, 3),
-      stores: summary,
-      count: summary.length,
+      zip3,
+      stores: enriched,
+      count: enriched.length,
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -659,22 +845,35 @@ app.get("/api/deals/regional", async (req, res) => {
 
     await Promise.all(fetchPromises);
 
-    // Also include any ad-extracted deals for this region
-    const adExtractPattern = `ad-extract:%:${zip3}`;
+    // Also include any ad-extracted deals
+    // Check zip3-specific keys first, then fall back to master keys (ads are mostly national)
     let adExtractDeals = [];
     try {
-      const { data } = await supabase.from("deal_cache").select("data").like("cache_key", adExtractPattern);
-      if (data) {
-        for (const row of data) {
+      const { data: zip3Data } = await supabase.from("deal_cache").select("data, cache_key").like("cache_key", `ad-extract:%:${zip3}`);
+      if (zip3Data) {
+        for (const row of zip3Data) {
           if (row.data) adExtractDeals.push(...row.data);
+        }
+      }
+      // If no zip3-specific deals, check master keys (ad-extract:storename without zip3)
+      if (adExtractDeals.length === 0) {
+        const { data: masterData } = await supabase
+          .from("deal_cache")
+          .select("data, cache_key")
+          .like("cache_key", "ad-extract:%")
+          .not("cache_key", "like", "ad-extract:%:%");
+        if (masterData) {
+          for (const row of masterData) {
+            if (row.data) adExtractDeals.push(...row.data);
+          }
         }
       }
       if (adExtractDeals.length > 0) {
         results.sources.push({ store: "ad-extract", deals: adExtractDeals.length, cached: true });
-        console.log(`  Ad-extracted deals: ${adExtractDeals.length} deals for region ${zip3}`);
+        console.log(`  Ad-extracted deals: ${adExtractDeals.length} deals`);
       }
     } catch (e) {
-      console.log(`  No ad-extracted deals for region ${zip3}`);
+      console.log(`  No ad-extracted deals found`);
     }
 
     // Merge all deals into one array

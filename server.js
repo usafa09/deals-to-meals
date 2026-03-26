@@ -1033,9 +1033,9 @@ app.post("/api/extract-store", async (req, res) => {
 
   const storeId = storeName.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
 
-  // Check if we already have cached deals
+  // Check if we already have cached deals (with enough results)
   const existing = await getCachedDeals(`ad-extract:${storeId}`);
-  if (existing && existing.length > 0) {
+  if (existing && existing.length >= 10) {
     return res.json({ status: "ready", deals: existing.length, storeId });
   }
 

@@ -469,15 +469,13 @@ async function findStores() {
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Checking Kroger, ALDI, and more…");
   try {
-    const [krogerRes,aldiRes,flippRes] = await Promise.allSettled([
+    const [krogerRes,aldiRes] = await Promise.allSettled([
       fetch(`/api/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
       fetch(`/api/aldi/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
-      fetch(`/api/flipp/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"flipp"}))),
     ]);
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
     if(aldiRes.status==="fulfilled")allStores.push(...aldiRes.value);
-    if(flippRes.status==="fulfilled")allStores.push(...flippRes.value);
 
     const brandMap=new Map();
     for(const s of allStores){
@@ -501,7 +499,7 @@ function renderStoreBrands() {
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${b.name.replace(/'/g,"\\'")}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${b.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${b.emoji}</div>
-        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr">${b.stores.length>1?b.stores.length+" locations nearby":(b.source==="flipp"?"Weekly deals available":b.stores[0]?.address||"")}</div></div>
+        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr">${b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||""}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`).join("");
@@ -551,7 +549,7 @@ function goBackFromDeals(){if(state.selectedBrands.includes("Kroger")&&state.kro
 async function loadDealsAndShow() {
   showLoading("Loading this week's deals…","Fetching sale items from your stores");
   try {
-    // Use the new regional deals endpoint — fetches Kroger + ALDI + Flipp in one call
+    // Use the regional deals endpoint — fetches Kroger + ALDI + ad-extracted deals
     const params = new URLSearchParams({ zip: state.zip });
     if (state.selectedKrogerId) params.set("locationId", state.selectedKrogerId);
     const res = await fetch(`/api/deals/regional?${params}`);
@@ -568,8 +566,8 @@ async function loadDealsAndShow() {
       if (d.source === "kroger" && selectedLower.some(b => b === "kroger" || store.includes(b))) return true;
       // ALDI
       if (d.source === "aldi" && selectedLower.includes("aldi")) return true;
-      // Flipp stores: match by storeName
-      if (d.source === "flipp") return selectedLower.some(b => store.includes(b));
+      // Ad-extracted deals: match by storeName
+      if (d.source === "ad-extract") return selectedLower.some(b => store.includes(b));
       // Fallback
       return selectedLower.some(b => store.includes(b));
     });

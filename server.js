@@ -573,7 +573,7 @@ app.get("/api/deals/regional", async (req, res) => {
     const summary = summarizeRegions(regions);
     console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains ═══`);
 
-    const results = { kroger: null, aldi: null, flipp: null, sources: [] };
+    const results = { kroger: null, aldi: null, sources: [] };
     const fetchPromises = [];
 
     // ── Kroger: use division from ad_regions if available ──
@@ -657,39 +657,31 @@ app.get("/api/deals/regional", async (req, res) => {
       })());
     }
 
-    // ── Flipp: all other stores, cache by zip3 ──
-    const flippStores = summary.filter(s => s.store !== "kroger" && s.store !== "aldi");
-    if (flippStores.length > 0) {
-      fetchPromises.push((async () => {
-        try {
-          const deals = await fetchFlippDeals(zip, null);
-          results.flipp = deals;
-          // Count deals per store
-          const storeCounts = {};
-          for (const d of deals) {
-            const sn = d.storeName || "Unknown";
-            storeCounts[sn] = (storeCounts[sn] || 0) + 1;
-          }
-          results.sources.push({
-            store: "flipp", banner: "All via Flipp", division: zip3,
-            deals: deals.length, cached: deals._fromCache || false,
-            storeBreakdown: storeCounts,
-          });
-          console.log(`  Flipp (${zip3}): ${deals.length} deals across ${Object.keys(storeCounts).length} stores`);
-        } catch (e) {
-          console.error(`  Flipp fetch error: ${e.message}`);
-          results.sources.push({ store: "flipp", deals: 0, error: e.message });
-        }
-      })());
-    }
-
     await Promise.all(fetchPromises);
+
+    // Also include any ad-extracted deals for this region
+    const adExtractPattern = `ad-extract:%:${zip3}`;
+    let adExtractDeals = [];
+    try {
+      const { data } = await supabase.from("deal_cache").select("deals").like("cache_key", adExtractPattern);
+      if (data) {
+        for (const row of data) {
+          if (row.deals) adExtractDeals.push(...row.deals);
+        }
+      }
+      if (adExtractDeals.length > 0) {
+        results.sources.push({ store: "ad-extract", deals: adExtractDeals.length, cached: true });
+        console.log(`  Ad-extracted deals: ${adExtractDeals.length} deals for region ${zip3}`);
+      }
+    } catch (e) {
+      console.log(`  No ad-extracted deals for region ${zip3}`);
+    }
 
     // Merge all deals into one array
     const allDeals = [
       ...(results.kroger || []),
       ...(results.aldi || []),
-      ...(results.flipp || []),
+      ...adExtractDeals,
     ];
 
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
@@ -1578,225 +1570,6 @@ app.get("/api/debug-recipes", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ══ FLIPP INTEGRATION ═════════════════════════════════════════════════════
-// Universal grocery deals from weekly ads — covers Publix, Albertsons,
-// Safeway, Target, Meijer, HEB, Food Lion, Sprouts, and hundreds more.
-// Queries backflipp.wishabi.com live, caches 1 hour per zip.
-// ══════════════════════════════════════════════════════════════════════════
-
-const FLIPP_API = "https://backflipp.wishabi.com/flipp";
-const flippCache = new Map();
-const FLIPP_CACHE_TTL = 60 * 60 * 1000; // 1 hour
-
-const FLIPP_SKIP_STORES = new Set([
-  "aldi", "kroger", "ralphs", "fred meyer", "king soopers",
-  "harris teeter", "smith's", "fry's", "qfc", "mariano's", "dillons",
-  "pick n save", "city market", "baker's",
-]);
-
-function shouldSkipFlippStore(name) {
-  const lower = (name || "").toLowerCase();
-  for (const skip of FLIPP_SKIP_STORES) {
-    if (lower.includes(skip)) return true;
-  }
-  return false;
-}
-
-const FLIPP_SEARCH_TERMS = [
-  "chicken", "beef", "pork", "ground beef", "steak", "salmon", "shrimp",
-  "turkey", "sausage", "bacon", "hot dogs", "tilapia", "tuna",
-  "apples", "bananas", "oranges", "strawberries", "grapes",
-  "avocado", "tomatoes", "potatoes", "onions", "broccoli", "carrots",
-  "lettuce", "spinach", "peppers", "mushrooms",
-  "milk", "eggs", "cheese", "butter", "yogurt", "cream cheese",
-  "pasta", "rice", "bread", "cereal", "oatmeal",
-  "canned tomatoes", "beans", "soup", "broth", "peanut butter",
-  "olive oil", "salsa", "tortillas",
-  "frozen pizza", "frozen vegetables", "ice cream",
-  "chips", "crackers", "nuts", "juice", "coffee",
-];
-
-function cleanFlippName(rawName) {
-  let name = rawName;
-  name = name
-    .replace(/,?\s*\d[\d.\s]*(oz|lb|lbs|fl oz|ct|count|pack|pk|each|gal|qt|pt|ml|l|kg|g)\b.*$/i, "")
-    .replace(/\s*-\s*\d[\d.\s]*(oz|lb|lbs|fl oz|ct|count|pack|pk|each|gal|qt|pt)\s*$/i, "")
-    .trim();
-  name = name.replace(/^[A-Z][a-zA-Z']+[®™]\s+/g, "").trim();
-  name = name
-    .replace(/^[,\s—–\-!]+/, "")
-    .replace(/[,\s—–\-!]+$/, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  return name || rawName;
-}
-
-function formatFlippPrice(price) {
-  if (!price && price !== 0) return "";
-  return `$${parseFloat(price).toFixed(2)}`;
-}
-
-async function fetchFlippDeals(zip, storeFilter) {
-  const region = zip.substring(0, 3); // 3-digit zip prefix = ad region
-  const cacheKey = `flipp:${region}`;
-
-  // Check in-memory cache first (fast)
-  const memCached = flippCache.get(cacheKey);
-  if (memCached && Date.now() - memCached.timestamp < FLIPP_CACHE_TTL) {
-    console.log(`  Flipp memory cache HIT for region ${region}`);
-    const deals = memCached.deals;
-    if (storeFilter) return deals.filter(d => (d.storeName || "").toLowerCase().includes(storeFilter.toLowerCase()));
-    return deals;
-  }
-
-  // Check Supabase cache (persists across restarts, 24hr TTL)
-  const dbCached = await getCachedDeals(cacheKey);
-  if (dbCached) {
-    console.log(`  Flipp Supabase cache HIT for region ${region} (${dbCached.length} deals)`);
-    flippCache.set(cacheKey, { deals: dbCached, timestamp: Date.now() }); // warm memory cache
-    if (storeFilter) return dbCached.filter(d => (d.storeName || "").toLowerCase().includes(storeFilter.toLowerCase()));
-    return dbCached;
-  }
-
-  console.log(`  Flipp cache MISS for region ${region} — fetching live...`);
-  const allDeals = [];
-
-  for (const term of FLIPP_SEARCH_TERMS) {
-    try {
-      const url = `${FLIPP_API}/items/search?q=${encodeURIComponent(term)}&postal_code=${zip}`;
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Accept": "application/json",
-        },
-      });
-      if (res.status === 429) { await new Promise(r => setTimeout(r, 3000)); continue; }
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      const items = (data.items || [])
-        .filter(item => !shouldSkipFlippStore(item.merchant_name))
-        .filter(item => !storeFilter || (item.merchant_name || "").toLowerCase().includes(storeFilter.toLowerCase()));
-
-      allDeals.push(...items.map(item => ({
-        flippId: item.id || item.flyer_item_id,
-        name: item.name || "",
-        merchant: item.merchant_name || "",
-        merchantId: item.merchant_id,
-        currentPrice: item.current_price,
-        originalPrice: item.original_price,
-        saleStory: item.sale_story || "",
-        postPriceText: item.post_price_text || "",
-        image: item.clean_image_url || item.clipping_image_url || "",
-        validFrom: item.valid_from || "",
-        validTo: item.valid_to || "",
-        category: term,
-      })));
-
-      await new Promise(r => setTimeout(r, 200));
-    } catch (e) { /* skip */ }
-  }
-
-  // Deduplicate
-  const seen = new Set();
-  const unique = allDeals.filter(d => {
-    if (seen.has(d.flippId)) return false;
-    seen.add(d.flippId);
-    return true;
-  });
-
-  const deals = unique.map(d => {
-    const cleaned = cleanFlippName(d.name);
-    const sale = parseFloat(d.currentPrice) || 0;
-    const reg = parseFloat(d.originalPrice) || 0;
-    const savings = reg > sale ? (reg - sale).toFixed(2) : "";
-    const pctOff = reg > sale ? Math.round(((reg - sale) / reg) * 100) : 0;
-    return {
-      id: `flipp-${d.flippId}`, upc: "", name: cleaned, brand: "", category: d.category,
-      regularPrice: formatFlippPrice(d.originalPrice), salePrice: formatFlippPrice(d.currentPrice),
-      savings: savings ? `$${savings}` : "", pctOff, size: "",
-      image: d.image || null, productUrl: null,
-      saleStory: d.saleStory, postPriceText: d.postPriceText,
-      storeName: d.merchant, storeId: String(d.merchantId),
-      weekStart: d.validFrom ? d.validFrom.split("T")[0] : "",
-      weekEnd: d.validTo ? d.validTo.split("T")[0] : "",
-      source: "flipp",
-    };
-  });
-
-  deals.sort((a, b) => b.pctOff - a.pctOff);
-
-  // Save to memory cache AND Supabase
-  flippCache.set(cacheKey, { deals, timestamp: Date.now() });
-  await setCachedDeals(cacheKey, deals);
-  console.log(`  Flipp: saved ${deals.length} deals for region ${region}`);
-
-  for (const [key, val] of flippCache.entries()) {
-    if (Date.now() - val.timestamp > FLIPP_CACHE_TTL) flippCache.delete(key);
-  }
-
-  if (storeFilter) return deals.filter(d => (d.storeName || "").toLowerCase().includes(storeFilter.toLowerCase()));
-  return deals;
-}
-
-app.get("/api/flipp/deals", async (req, res) => {
-  const { zip, store } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
-  try {
-    console.log(`Flipp: fetching deals for zip ${zip}${store ? ` store: ${store}` : ""}`);
-    const deals = await fetchFlippDeals(zip, store);
-    console.log(`Flipp: ${deals.length} deals found`);
-    res.json({ deals });
-  } catch (err) {
-    console.error("Flipp deals error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/flipp/stores", async (req, res) => {
-  const { zip } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
-  try {
-    // Get Flipp-discovered stores
-    const url = `${FLIPP_API}/items/search?q=chicken&postal_code=${zip}`;
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json",
-      },
-    });
-    if (!r.ok) throw new Error("Flipp API error");
-    const data = await r.json();
-    const storeMap = new Map();
-    for (const item of (data.items || [])) {
-      const name = item.merchant_name || "";
-      if (!name || shouldSkipFlippStore(name)) continue;
-      if (!storeMap.has(name)) {
-        storeMap.set(name, {
-          id: `flipp-${item.merchant_id}`,
-          name,
-          merchantId: item.merchant_id,
-          address: `Near ${zip}`,
-          source: "flipp",
-        });
-      }
-    }
-
-    // Enrich with ad_regions — show which chains SHOULD be in this area
-    const regions = await getAdRegions(zip);
-    const summary = summarizeRegions(regions);
-    const adRegionBanners = summary
-      .filter(s => s.store !== "kroger" && s.store !== "aldi") // these have their own APIs
-      .map(s => s.banner);
-
-    const stores = [...storeMap.values()].sort((a, b) => a.name.localeCompare(b.name));
-    res.json({ stores, adRegionChains: adRegionBanners });
-  } catch (err) {
-    console.error("Flipp stores error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ══ DEAL CACHE ADMIN ═════════════════════════════════════════════════════════
 
 // View cache status
@@ -1819,38 +1592,6 @@ app.get("/api/admin/cache-status", async (req, res) => {
     });
     res.json({ regions, totalCached: regions.length, freshCount: regions.filter(r => r.fresh).length });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Pre-populate Flipp deals for a list of regions
-// Usage: POST /api/admin/prepopulate with { "zips": ["10001","30301","60601","90001","43210"] }
-app.post("/api/admin/prepopulate", async (req, res) => {
-  const { zips } = req.body;
-  if (!zips?.length) return res.status(400).json({ error: "Provide a 'zips' array" });
-
-  const results = [];
-  for (const zip of zips) {
-    const region = zip.substring(0, 3);
-    const cacheKey = `flipp:${region}`;
-
-    // Skip if already fresh
-    const existing = await getCachedDeals(cacheKey);
-    if (existing) {
-      results.push({ zip, region, status: "already cached", deals: existing.length });
-      continue;
-    }
-
-    try {
-      console.log(`Pre-populating region ${region} (zip ${zip})...`);
-      const deals = await fetchFlippDeals(zip, null);
-      results.push({ zip, region, status: "fetched", deals: deals.length });
-      // Rate limit — wait between regions to be nice to Flipp
-      await new Promise(r => setTimeout(r, 5000));
-    } catch (e) {
-      results.push({ zip, region, status: "error", error: e.message });
-    }
-  }
-
-  res.json({ results, summary: `Populated ${results.filter(r => r.status === "fetched").length} new regions` });
 });
 
 // Clear expired cache entries
@@ -1880,9 +1621,7 @@ app.get("/api/admin/cache-cleanup", async (req, res) => {
     }
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    // Also clear in-memory caches
-    flippCache.clear();
-    res.json({ deleted: data?.length || 0, message: clearAll ? "Cleared ALL cache entries + memory" : "Removed entries older than 24 hours" });
+    res.json({ deleted: data?.length || 0, message: clearAll ? "Cleared ALL cache entries" : "Removed entries older than 24 hours" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1970,7 +1709,8 @@ app.get("/api/admin/cache-coverage", async (req, res) => {
       // Determine expected cache key
       let expectedKey;
       if (row.store === "aldi") expectedKey = "aldi:national";
-      else expectedKey = `flipp:${row.zip3}`;
+      else if (row.store === "kroger") expectedKey = `kroger:${row.zip3}`;
+      else expectedKey = `ad-extract:${row.store}:${row.zip3}`;
 
       if (freshKeys.has(expectedKey)) cached++;
       else if (cacheKeys.has(expectedKey)) stale++;

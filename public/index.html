@@ -4,30 +4,32 @@
   <meta name="impact-site-verification" value="393a6d31-d505-4215-98c2-dcbf7f466365">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deals to Meals</title>
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <meta name="description" content="Dishcount — Meals from Deals. AI-powered recipes based on your local grocery store's weekly sales. Save time and money on dinner." />
+  <title>Dishcount — Meals from Deals</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --green-dark: #2D5016; --green-mid: #4CAF50; --green-light: #F0FAF0;
-      --orange: #E65100; --orange-light: #FFF3E0;
-      --cream: #FFFBF0; --sand: #E8D5B0; --text: #1a1a1a; --muted: #6B6B6B;
+      --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc;
+      --orange: #d97706; --orange-light: #fef3c7;
+      --cream: #fffdf7; --sand: #e8e0d0; --text: #2d3a2e; --muted: #9ca38f;
       --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
+      --dark: #1a2e1f;
     }
-    body { font-family: 'DM Sans', sans-serif; background: linear-gradient(135deg, var(--cream) 0%, #F0FAF0 50%, #FFF8F0 100%); color: var(--text); min-height: 100vh; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
 
     /* ── Header ── */
-    header { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 2px solid var(--sand); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
-    .logo-mark { font-size: 28px; }
-    .logo-text h1 { font-family: 'Lora', serif; font-size: 19px; color: var(--green-dark); }
-    .logo-text p  { font-size: 11px; color: var(--muted); font-style: italic; }
+    header { background: var(--dark); border-bottom: none; padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo-mark { display: none; }
+    .logo-text h1 { font-family: 'Trebuchet MS', sans-serif; font-size: 19px; color: #e8f0ea; }
+    .logo-text p  { font-size: 10px; color: #9ca38f; letter-spacing: 1.5px; text-transform: uppercase; font-style: normal; }
     .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
     .progress-bar { display: flex; gap: 5px; align-items: center; }
-    .pip { height: 8px; border-radius: 4px; background: #D5D5D5; transition: all 0.35s ease; }
-    .profile-btn { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: var(--green-light); color: var(--green-dark); }
+    .pip { height: 8px; border-radius: 4px; background: #3a5a40; transition: all 0.35s ease; }
+    .profile-btn { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.1); color: #e8f0ea; }
     .profile-btn:hover { background: var(--green-mid); color: white; }
-    .profile-btn.logged-in { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+    .profile-btn.logged-in { background: var(--green-mid); color: white; border-color: var(--green-mid); }
     .profile-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--green-mid); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; }
 
     /* ── Layout ── */
@@ -37,16 +39,17 @@
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
     .back:hover { color: var(--green-dark); }
-    .screen-title { font-family: 'Lora', serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
-    .screen-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 15px; color: var(--muted); margin-bottom: 22px; }
+    .screen-title { font-family: 'Trebuchet MS', sans-serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
+    .screen-sub   { font-size: 15px; color: var(--muted); margin-bottom: 22px; }
 
     .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
     .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
     .btn:disabled { background: #C5C5C5 !important; cursor: not-allowed; transform: none !important; }
-    .btn-primary  { background: var(--green-dark); color: white; }
+    .btn-primary  { background: var(--orange); color: white; }
     .btn-gradient { background: linear-gradient(135deg, var(--green-dark), var(--green-mid)); color: white; }
     .btn-outline  { background: transparent; color: var(--green-dark); border: 2px solid var(--green-dark); }
     .btn-blue     { background: var(--blue); color: white; }
+    .btn-green    { background: var(--green-dark); color: white; }
 
     .card { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
     .card.clickable { cursor: pointer; }
@@ -55,12 +58,12 @@
 
     /* ── Screen 1 ── */
     .hero-emoji { font-size: 72px; display: block; text-align: center; margin-bottom: 14px; }
-    .hero-title { font-family: 'Lora', serif; font-size: 32px; text-align: center; color: var(--green-dark); margin-bottom: 8px; line-height: 1.2; }
-    .hero-sub   { font-family: 'Lora', serif; font-style: italic; font-size: 16px; color: var(--muted); text-align: center; margin-bottom: 36px; }
+    .hero-title { font-family: 'Trebuchet MS', sans-serif; font-size: 28px; text-align: center; color: var(--green-dark); margin-bottom: 8px; line-height: 1.2; }
+    .hero-sub   { font-size: 15px; color: var(--muted); text-align: center; margin-bottom: 36px; }
     .zip-box { background: white; border: 2px solid var(--sand); border-radius: 20px; padding: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
     .zip-label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
     .zip-row { display: flex; gap: 10px; }
-    #zipInput { flex: 1; padding: 13px 16px; font-size: 22px; border: 2px solid #D0C5A0; border-radius: 12px; outline: none; font-family: 'Lora', serif; letter-spacing: 5px; text-align: center; background: var(--cream); transition: border-color 0.2s; }
+    #zipInput { flex: 1; padding: 13px 16px; font-size: 22px; border: 2px solid #D0C5A0; border-radius: 12px; outline: none; font-family: 'Trebuchet MS', sans-serif; letter-spacing: 5px; text-align: center; background: var(--cream); transition: border-color 0.2s; }
     #zipInput:focus { border-color: var(--green-mid); }
     .zip-hint { margin-top: 10px; font-size: 12px; color: #AAA; text-align: center; font-style: italic; }
     .feature-row { display: flex; gap: 12px; margin-top: 28px; }
@@ -76,7 +79,7 @@
     .card.selected .store-check { background: var(--green-mid); }
 
     /* ── Screen 3: Meal + Filters ── */
-    .section-title { font-family: 'Lora', serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
+    .section-title { font-family: 'Trebuchet MS', sans-serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
     .meal-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 8px; }
     .meal-card { background: white; border: 2px solid var(--sand); border-radius: 14px; padding: 16px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
     .meal-card:hover { border-color: var(--green-mid); }
@@ -119,9 +122,9 @@
     .recipe-card-tile { background: white; border: 2px solid var(--sand); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
     .recipe-card-tile:hover { border-color: var(--green-mid); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
     .recipe-card-img { width: 100%; height: 140px; object-fit: cover; background: #F5F0E8; display: block; }
-    .recipe-card-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, #F0FAF0, #FFF8F0); display: flex; align-items: center; justify-content: center; font-size: 40px; }
+    .recipe-card-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 40px; }
     .recipe-card-body { padding: 12px; }
-    .recipe-card-title { font-family: 'Lora', serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
+    .recipe-card-title { font-family: 'Trebuchet MS', sans-serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
     .recipe-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
     .meta-chip { font-size: 11px; padding: 3px 7px; border-radius: 6px; font-weight: 600; }
     .meta-time     { background: #F5F0E8; color: #5A4A30; }
@@ -136,10 +139,10 @@
     .modal { background: white; border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease; }
     @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
     .modal-img { width: 100%; height: 220px; object-fit: cover; border-radius: 22px 22px 0 0; }
-    .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, #F0FAF0, #FFF8F0); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
+    .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
     .modal-body { padding: 24px; }
     .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-    .modal-title { font-family: 'Lora', serif; font-size: 22px; color: var(--green-dark); line-height: 1.3; }
+    .modal-title { font-family: 'Trebuchet MS', sans-serif; font-size: 22px; color: var(--green-dark); line-height: 1.3; }
     .modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--sand); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
     .modal-close:hover { background: #F5F0E8; }
     .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -147,7 +150,7 @@
     .stat-time    { background: #F5F0E8; color: #5A4A30; }
     .stat-savings { background: var(--orange-light); color: var(--orange); }
     .stat-cost    { background: var(--green-light); color: var(--green-dark); }
-    .stat-servings { background: #F3E5F5; color: #6A1B9A; }
+    .stat-servings { background: #f0fdf4; color: var(--green-dark); }
 
     .modal-section { margin-bottom: 20px; }
     .modal-section-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
@@ -184,7 +187,7 @@
     .loading-overlay.show { display: flex; }
     .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { font-family: 'Lora', serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
+    .loading-text { font-family: 'Trebuchet MS', sans-serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
     .loading-sub { font-size: 13px; color: var(--muted); }
     .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
     .toast.show { display: block; animation: fadeUp 0.3s ease; }
@@ -195,7 +198,7 @@
     .sale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .sale-card { background: white; border: 2px solid var(--sand); border-radius: 14px; overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
     .sale-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-    .sale-card.include { border-color: var(--green-mid); background: #F0FAF0; }
+    .sale-card.include { border-color: var(--green-mid); background: var(--green-light); }
     .sale-card.exclude { border-color: var(--red); background: #FFF0F0; opacity: 0.6; }
     .sale-card-badge { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; z-index: 2; }
     .sale-card.include .sale-card-badge { background: var(--green-mid); color: white; }
@@ -219,10 +222,25 @@
 <body>
 
 <header>
-  <span class="logo-mark">🥦</span>
-  <div class="logo-text">
-    <h1>Deals to Meals</h1>
-    <p>weekly sales → tonight's dinner</p>
+  <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
+    <g transform="translate(4, 2)">
+      <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+      <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+      <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+        <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+        <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+        <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+        <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+      </g>
+    </g>
+    <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+      <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+    </text>
+  </svg>
+  <div class="logo-text" style="margin-left:-4px">
+    <p>MEALS FROM DEALS</p>
   </div>
   <div class="header-right">
     <div class="progress-bar" id="progressBar"></div>
@@ -252,8 +270,8 @@
   <!-- SCREEN 1: ZIP -->
   <div class="screen active" id="screen1">
     <span class="hero-emoji">🛒</span>
-    <h2 class="hero-title">Turn this week's deals<br/>into tonight's dinner.</h2>
-    <p class="hero-sub">Find real sale prices at your local grocery store — turned into recipes by AI.</p>
+    <h2 class="hero-title">What's on sale near you?</h2>
+    <p class="hero-sub">Enter your zip to find deals & get recipe ideas based on this week's sales.</p>
     <div class="zip-box">
       <label class="zip-label" for="zipInput">Your Zip Code</label>
       <div class="zip-row">
@@ -326,7 +344,7 @@
   <div class="screen" id="screen5">
     <span class="back" onclick="goTo(4)">← Change Items</span>
     <h2 class="screen-title">What kind of meals?</h2>
-    <p class="screen-sub" id="dealsLoadedMsg">Pick a recipe style and we'll match your deals to meals</p>
+    <p class="screen-sub" id="dealsLoadedMsg">Pick a recipe style and we'll create meals from your deals</p>
 
     <div class="section-title" style="margin-top:0">Recipe Style</div>
     <div class="meal-grid" id="styleGrid"></div>
@@ -334,7 +352,7 @@
     <div class="section-title">Dietary Restrictions <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
     <div class="filter-grid" id="filterGrid"></div>
 
-    <button class="btn btn-gradient" id="findRecipesBtn" disabled onclick="searchRecipes()">🍽️ Generate Recipes with AI →</button>
+    <button class="btn btn-primary" id="findRecipesBtn" disabled onclick="searchRecipes()">🍽️ Generate Recipes with AI →</button>
   </div>
 
   <!-- SCREEN 6: RECIPE GRID -->
@@ -406,7 +424,7 @@ function goTo(step) {
 function renderProgress(step) {
   document.getElementById("progressBar").innerHTML = Array.from({length:6},(_,i) => {
     const a = i < step;
-    return `<div class="pip" style="width:${a?20:8}px;background:${a?"#4CAF50":"#D5D5D5"}"></div>`;
+    return `<div class="pip" style="width:${a?20:8}px;background:${a?"var(--green-mid)":"#D5D5D5"}"></div>`;
   }).join("");
 }
 function resetApp() {
@@ -699,7 +717,7 @@ function renderRecipeGrid(){
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${r.time}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="meta-chip meta-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
-        <span class="meta-chip" style="background:#E8F4E8;color:#2D5A27">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
+        <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
       </div></div></div>`;}).join("");
 }
 
@@ -738,8 +756,8 @@ function renderModal(r){
         const isAdditional=type==="ADDITIONAL";
         const icon=isOnSale?"🏷️":isOnHand?"🏠":isAdditional?"🛒":"🫙";
         const label=isOnSale?"ON SALE":isOnHand?"ON HAND":isAdditional?"TO BUY":"PANTRY";
-        const bg=isOnSale?"#E8F4E8":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
-        const color=isOnSale?"#2D5A27":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
+        const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
+        const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
         const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${ing.name}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
@@ -768,7 +786,7 @@ function showShoppingList(){
     const cost=i.isPerLb?`≈ $${costNum}`:`$${costNum}`;
     const pkgDetail=i.packageNote?`<div style="font-size:10px;color:#666">${i.packageNote}</div>`:"";
     const perLb=i.isPerLb?`<div style="font-size:10px;color:#999">${i.salePrice}</div>`:"";
-    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#4CAF50" /><span style="font-weight:600">${i.name}</span></div><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${i.storeName||""}</span></div></div>`;
+    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--green-mid)" /><span style="font-weight:600">${i.name}</span></div><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${i.storeName||""}</span></div></div>`;
   }).join("");
   const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${i.name}</span></div>`).join("");
   const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${i.name}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
@@ -779,7 +797,7 @@ function showShoppingList(){
     ${saleRows?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale Items</div>${saleRows}</div>`:""}
     ${additionalRows?`<div class="modal-section"><div class="modal-section-title">🛒 Items to Buy</div>${additionalRows}</div>`:""}
     ${pantryRows?`<div class="modal-section"><div class="modal-section-title">🫙 Pantry / On Hand</div>${pantryRows}</div>`:""}
-    <div style="background:var(--green-light);border:2px solid #4CAF50;border-radius:14px;padding:16px;margin-bottom:16px">
+    <div style="background:var(--green-light);border:2px solid var(--green-mid);border-radius:14px;padding:16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-weight:700;color:var(--green-dark)">With This Week's Deals</div>
         <div style="font-size:24px;font-weight:800;color:var(--green-dark)">${(r.usedSaleItems||[]).some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost?.toFixed(2)||"?"}</div>

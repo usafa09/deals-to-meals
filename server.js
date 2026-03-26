@@ -1988,6 +1988,103 @@ app.get("/api/admin/cache-coverage", async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+// AD IMAGE → DEALS EXTRACTION (Claude Vision)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.post("/api/extract-ad", async (req, res) => {
+  try {
+    const { image, storeName } = req.body;
+    if (!image) return res.status(400).json({ error: "No image provided" });
+
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_KEY) return res.status(500).json({ error: "Anthropic API key not configured" });
+
+    console.log(`Extracting deals from ad image for store: ${storeName || "unknown"}...`);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4000,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+            { type: "text", text: `You are extracting grocery deals from a weekly ad image for ${storeName || "a grocery store"}.
+
+For EVERY sale item visible in this image, return a JSON array.
+
+For each item return:
+{
+  "name": "Product Name",
+  "brand": "Brand if visible or empty string",
+  "salePrice": "2.49",
+  "unit": "/lb or /ea or empty string",
+  "regularPrice": "3.99 or empty string if not shown",
+  "dealType": "sale or bogo or percent_off",
+  "category": "meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other",
+  "size": "16 oz or 1 lb or empty string if not shown",
+  "notes": "any special conditions like must buy 2, limit 4, etc or empty string"
+}
+
+IMPORTANT:
+- Return ONLY a valid JSON array, no other text, no markdown backticks
+- Include every single deal item visible
+- For BOGO items, set dealType to "bogo" and salePrice to the price of one item
+- If you see "2 for $5" type deals, set salePrice to "2.50" and notes to "2 for $5"
+- Extract prices exactly as shown
+- If the item is priced per pound, set unit to "/lb"` }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.map(c => c.text || "").join("") || "";
+
+    // Parse JSON from response
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const deals = JSON.parse(cleaned);
+
+    // Add storeName and source to each deal
+    const enriched = deals.map((d, i) => ({
+      ...d,
+      id: `ad-${Date.now()}-${i}`,
+      storeName: storeName || "Unknown",
+      source: "ad-extract",
+      image: null,
+    }));
+
+    console.log(`Extracted ${enriched.length} deals from ad image`);
+    res.json({ deals: enriched, count: enriched.length });
+  } catch (err) {
+    console.error("Ad extraction error:", err);
+    res.status(500).json({ error: "Failed to extract deals from image", detail: err.message });
+  }
+});
+
+// Admin: manually import extracted deals into cache
+app.post("/api/admin/import-deals", async (req, res) => {
+  try {
+    const { deals, storeName, zip3 } = req.body;
+    if (!deals || !storeName || !zip3) return res.status(400).json({ error: "Missing deals, storeName, or zip3" });
+
+    const cacheKey = `ad-extract:${storeName.toLowerCase().replace(/\s+/g, "-")}:${zip3}`;
+    await setCachedDeals(cacheKey, deals);
+    console.log(`Imported ${deals.length} deals for ${storeName} (${zip3})`);
+    res.json({ success: true, cacheKey, count: deals.length });
+  } catch (err) {
+    console.error("Import error:", err);
+    res.status(500).json({ error: "Failed to import deals" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Deals to Meals running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Dishcount running on port ${PORT}`));

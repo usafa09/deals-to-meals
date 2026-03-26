@@ -663,10 +663,10 @@ app.get("/api/deals/regional", async (req, res) => {
     const adExtractPattern = `ad-extract:%:${zip3}`;
     let adExtractDeals = [];
     try {
-      const { data } = await supabase.from("deal_cache").select("deals").like("cache_key", adExtractPattern);
+      const { data } = await supabase.from("deal_cache").select("data").like("cache_key", adExtractPattern);
       if (data) {
         for (const row of data) {
-          if (row.deals) adExtractDeals.push(...row.deals);
+          if (row.data) adExtractDeals.push(...row.data);
         }
       }
       if (adExtractDeals.length > 0) {

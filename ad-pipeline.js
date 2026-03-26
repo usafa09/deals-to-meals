@@ -2,9 +2,8 @@
 // Run weekly: node ad-pipeline.js
 // Or for a specific store: node ad-pipeline.js --store publix
 
-require("dotenv").config();
-const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
-const { createClient } = require("@supabase/supabase-js");
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -59,7 +58,7 @@ const STORES = [
   {
     id: "giant-eagle",
     name: "Giant Eagle",
-    adPageUrl: "https://www.igroceryads.com/giant-eagle-weekly-ad-sales-flyer/",
+    adPageUrl: "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
     category: "giant-eagle-weekly-ad-sales-flyer",
     regions: ["ohio, pennsylvania, west virginia"],
     zip3s: ["430", "431", "432", "433", "434", "435", "436", "437", "438", "439", "440", "441", "442", "443", "444", "445", "446", "447", "448", "449", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161", "162", "163", "164", "165", "166", "260", "261", "262", "263", "264", "265", "266", "267", "268"],
@@ -79,54 +78,123 @@ async function fetchAdPageImages(store) {
   const html = await res.text();
 
   // Extract image URLs from the page (WordPress wp-content/uploads pattern)
-  const imgRegex = /https:\/\/www\.igroceryads\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s]+\.(?:webp|jpg|png)/g;
+  const imgRegex = /https:\/\/www\.igroceryads\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
   const allImages = [...new Set(html.match(imgRegex) || [])];
   
-  // Filter to only the actual ad page images (exclude thumbnails, logos, etc.)
-  // Ad pages typically follow pattern: page_N_level_4_XXXXXXX
-  const adPages = allImages
-    .filter(url => url.includes("page_") && url.includes("level_4"))
-    .filter(url => !url.includes("-150x150")) // exclude thumbnails
+  // Filter out thumbnails and duplicates
+  let adPages = allImages
+    .filter(url => !url.includes("-150x150"))
+    .filter(url => !url.includes("-300x"))
+    .filter(url => !url.includes("-100x"))
+    // Sort by page number — handles page_N, imgNNN, hash-NN-scaled patterns
     .sort((a, b) => {
-      const pageA = parseInt(a.match(/page_(\d+)/)?.[1] || 0);
-      const pageB = parseInt(b.match(/page_(\d+)/)?.[1] || 0);
-      return pageA - pageB;
+      const extractNum = (url) => {
+        const fname = url.split("/").pop();
+        const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
+        return parseInt(m?.[1] || "0");
+      };
+      return extractNum(a) - extractNum(b);
     });
 
-  // If no page_ pattern found, try getting all large images from uploads
-  if (adPages.length === 0) {
-    const fallback = allImages
-      .filter(url => !url.includes("-150x150") && !url.includes("-300x"))
-      .slice(0, 20); // max 20 pages
-    console.log(`  Found ${fallback.length} ad images (fallback pattern)`);
-    return fallback;
-  }
+  // Deduplicate
+  adPages = [...new Set(adPages)];
 
-  console.log(`  Found ${adPages.length} ad pages`);
-  return adPages;
+  // If we found very few images, try to detect a numbered pattern and generate missing URLs
+  // (handles lazy-loaded images that aren't in the raw HTML)
+  if (adPages.length <= 3 && adPages.length > 0) {
+    const sample = adPages[0];
+    // Try pattern: hash-N-scaled.ext (e.g. a6d10174-1-scaled.jpg)
+    const scaledMatch = sample.match(/^(.*-)(\d+)(-scaled\.\w+)$/);
+    // Try pattern: imgNNN.ext (e.g. img001.jpg)
+    const imgMatch = sample.match(/^(.*img)(\d+)(\.\w+)$/);
+    // Try pattern: page_N_level_4_HASH.ext
+    const pageMatch = sample.match(/^(.*page_)(\d+)(_level_4_\d+\.\w+)$/);
+
+    if (scaledMatch) {
+      const [, prefix, , suffix] = scaledMatch;
+      console.log(`  🔎 Detected numbered pattern, probing for more pages...`);
+      for (let n = 1; n <= 30; n++) {
+        const url = `${prefix}${n}${suffix}`;
+        if (!adPages.includes(url)) {
+          try {
+            const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
+            if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
+              adPages.push(url);
+            } else break; // stop when we hit a 404
+          } catch { break; }
+        }
+      }
+      adPages.sort((a, b) => {
+        const na = parseInt(a.match(/-(\d+)-scaled/)?.[1] || "0");
+        const nb = parseInt(b.match(/-(\d+)-scaled/)?.[1] || "0");
+        return na - nb;
+      });
+    } else if (imgMatch) {
+      const [, prefix, , suffix] = imgMatch;
+      const pad = imgMatch[2].length; // preserve zero-padding
+      console.log(`  🔎 Detected numbered pattern, probing for more pages...`);
+      for (let n = 1; n <= 30; n++) {
+        const url = `${prefix}${String(n).padStart(pad, "0")}${suffix}`;
+        if (!adPages.includes(url)) {
+          try {
+            const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
+            if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
+              adPages.push(url);
+            } else break;
+          } catch { break; }
+        }
+      }
+    }
+    console.log(`  Found ${adPages.length} ad pages (after probing)`);
+  } else {
+    console.log(`  Found ${adPages.length} ad pages`);
+  }
+  
+  return adPages.slice(0, 25); // cap at 25 pages
 }
 
 // ══════════════════════════════════════════════════════════════════════════
 // STEP 2: Download image and convert to base64
 // ══════════════════════════════════════════════════════════════════════════
 
+function getMediaType(url) {
+  if (url.endsWith(".webp")) return "image/webp";
+  if (url.endsWith(".png")) return "image/png";
+  return "image/jpeg"; // jpg, jpeg, or default
+}
+
 async function imageToBase64(imageUrl) {
   const res = await fetch(imageUrl, {
     headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
   });
+  if (!res.ok) {
+    console.log(`     ⚠ Failed to download image: ${res.status} ${res.statusText}`);
+    return null;
+  }
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.startsWith("image/")) {
+    console.log(`     ⚠ Not an image: ${contentType} — ${imageUrl.slice(-40)}`);
+    return null;
+  }
   const buffer = await res.arrayBuffer();
-  return Buffer.from(buffer).toString("base64");
+  const b64 = Buffer.from(buffer).toString("base64");
+  console.log(`     📷 Downloaded ${Math.round(buffer.byteLength / 1024)}KB — ${imageUrl.split("/").pop()}`);
+  return b64;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
 // STEP 3: Extract deals from image using Claude Vision
 // ══════════════════════════════════════════════════════════════════════════
 
-async function extractDealsFromImage(base64Image, storeName, pageNum) {
+async function extractDealsFromImage(base64Image, storeName, pageNum, mediaType) {
   console.log(`  🔍 Extracting deals from page ${pageNum}...`);
   
-  const mediaType = "image/webp"; // igroceryads uses webp
-  
+  // Validate we actually got image data
+  if (!base64Image || base64Image.length < 1000) {
+    console.log(`     ⚠ Skipping page ${pageNum} — image too small or empty`);
+    return [];
+  }
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -136,7 +204,7 @@ async function extractDealsFromImage(base64Image, storeName, pageNum) {
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 4000,
+      max_tokens: 8000,
       messages: [{
         role: "user",
         content: [
@@ -175,10 +243,27 @@ IMPORTANT:
   const text = data.content?.map(c => c.text || "").join("") || "";
   
   try {
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const deals = JSON.parse(cleaned);
-    console.log(`     → ${deals.length} deals extracted`);
-    return deals;
+    let cleaned = text.replace(/```json|```/g, "").trim();
+    
+    // Try parsing as-is first
+    try {
+      const deals = JSON.parse(cleaned);
+      console.log(`     → ${deals.length} deals extracted`);
+      return deals;
+    } catch {
+      // If truncated, try to recover by closing open JSON
+      // Find the last complete object (ends with })
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (lastBrace > 0) {
+        const recovered = cleaned.substring(0, lastBrace + 1) + "]";
+        try {
+          const deals = JSON.parse(recovered);
+          console.log(`     → ${deals.length} deals extracted (recovered from truncation)`);
+          return deals;
+        } catch { /* fall through to error */ }
+      }
+      throw new Error("Could not parse JSON");
+    }
   } catch (err) {
     console.error(`     ⚠ Failed to parse deals from page ${pageNum}: ${err.message}`);
     console.error(`     Raw response: ${text.substring(0, 200)}...`);
@@ -206,7 +291,7 @@ async function storeDealsBatch(storeName, storeId, allDeals, zip3s) {
   // Store one master copy
   const { error } = await supabase.from("deal_cache").upsert({
     cache_key: cacheKey,
-    deals: enriched,
+    data: enriched,
     fetched_at: new Date().toISOString(),
   }, { onConflict: "cache_key" });
 
@@ -220,7 +305,7 @@ async function storeDealsBatch(storeName, storeId, allDeals, zip3s) {
     const regionKey = `ad-extract:${storeId}:${zip3}`;
     await supabase.from("deal_cache").upsert({
       cache_key: regionKey,
-      deals: enriched,
+      data: enriched,
       fetched_at: new Date().toISOString(),
     }, { onConflict: "cache_key" });
   }
@@ -248,12 +333,14 @@ async function processStore(store) {
 
     // Step 2-3: Download each image and extract deals
     const allDeals = [];
-    const maxPages = Math.min(imageUrls.length, 15); // cap at 15 pages to control costs
+    const maxPages = Math.min(imageUrls.length, 25); // cap at 25 pages
     
     for (let i = 0; i < maxPages; i++) {
       try {
         const base64 = await imageToBase64(imageUrls[i]);
-        const deals = await extractDealsFromImage(base64, store.name, i + 1);
+        if (!base64) continue; // skip failed downloads
+        const mediaType = getMediaType(imageUrls[i]);
+        const deals = await extractDealsFromImage(base64, store.name, i + 1, mediaType);
         allDeals.push(...deals);
         
         // Small delay between pages to avoid rate limits

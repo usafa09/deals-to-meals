@@ -705,9 +705,9 @@ app.get("/api/nearby-stores", async (req, res) => {
     const location = await geocodeZip(zip);
     if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
 
-    // Search for grocery stores nearby (16km radius ≈ 10 miles)
-    const radius = 16000;
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&type=supermarket&key=${GOOGLE_MAPS_KEY}`;
+    // Search for grocery stores nearby (24km radius ≈ 15 miles)
+    const radius = 24000;
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&keyword=grocery+store+supermarket&key=${GOOGLE_MAPS_KEY}`;
     const placesRes = await fetch(placesUrl);
     const placesData = await placesRes.json();
 

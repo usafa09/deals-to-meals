@@ -599,6 +599,38 @@ const IGROCERYADS_STORES = {
   "99 ranch": "https://www.igroceryads.com/99-ranch-market-weekly-ad/",
   "cardenas": "https://www.igroceryads.com/cardenas-weekly-ad-cat/",
   "pavilions": "https://www.igroceryads.com/pavilions-weekly-ad/",
+  // ── iweeklyads.com (stores not on igroceryads) ──
+  "whole foods": "https://www.iweeklyads.com/whole-foods-ad-specials/",
+  "remke": "https://www.iweeklyads.com/remke-markets-weekly-sale-ad/",
+  "associated": "https://www.iweeklyads.com/associated-supermarkets-weekly-ad/",
+  "brookshire": "https://www.iweeklyads.com/brookshires-weekly-ad/",
+  "buehler": "https://www.iweeklyads.com/buehlers-weekly-ad/",
+  "country mart": "https://www.iweeklyads.com/country-mart-weekly-ad/",
+  "d&w fresh market": "https://www.iweeklyads.com/dw-fresh-market-weekly-ad/",
+  "dierbergs": "https://www.iweeklyads.com/dierbergs-weekly-ad/",
+  "festival foods": "https://www.iweeklyads.com/festival-foods-weekly-ad/",
+  "fresh thyme": "https://www.iweeklyads.com/fresh-thyme-weekly-ad/",
+  "grocery outlet": "https://www.iweeklyads.com/grocery-outlet-weekly-ad/",
+  "homeland": "https://www.iweeklyads.com/homeland-weekly-ad/",
+  "king kullen": "https://www.iweeklyads.com/king-kullen-weekly-circular/",
+  "lucky": "https://www.iweeklyads.com/lucky-supermarkets-weekly-ad/",
+  "martin's": "https://www.iweeklyads.com/martins-weekly-ad/",
+  "martins": "https://www.iweeklyads.com/martins-weekly-ad/",
+  "new seasons": "https://www.iweeklyads.com/new-seasons-market-weekly-ad/",
+  "price rite": "https://www.iweeklyads.com/price-rite-weekly-ad/",
+  "raley's": "https://www.iweeklyads.com/raleys-weekly-ad/",
+  "raleys": "https://www.iweeklyads.com/raleys-weekly-ad/",
+  "ruler foods": "https://www.iweeklyads.com/ruler-foods-weekly-ad/",
+  "schnucks": "https://www.iweeklyads.com/schnucks-weekly-ad/",
+  "shoppers": "https://www.iweeklyads.com/shoppers-weekly-ad/",
+  "weis": "https://www.iweeklyads.com/weis-markets-weekly-ad/",
+  "winco": "https://www.iweeklyads.com/winco-weekly-ad/",
+  "bi-lo": "https://www.iweeklyads.com/bilo-weekly-ad/",
+  "bilo": "https://www.iweeklyads.com/bilo-weekly-ad/",
+  "commissary": "https://www.iweeklyads.com/deca-commissary-weekly-ad/",
+  "deca": "https://www.iweeklyads.com/deca-commissary-weekly-ad/",
+  "hen house": "https://www.iweeklyads.com/hen-house-weekly-ad/",
+  "ranch market": "https://www.iweeklyads.com/99-ranch-market-weekly-sale-specials/",
 };
 
 function findIgroceryadsUrl(storeName) {
@@ -1011,8 +1043,8 @@ app.post("/api/extract-store", async (req, res) => {
     });
     const html = await pageRes.text();
 
-    // Extract image URLs
-    const imgRegex = /https:\/\/www\.igroceryads\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
+    // Extract image URLs (works for igroceryads.com and iweeklyads.com)
+    const imgRegex = /https:\/\/www\.(?:igroceryads|iweeklyads)\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
     let images = [...new Set(html.match(imgRegex) || [])]
       .filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("-100x"))
       .sort((a, b) => {

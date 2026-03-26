@@ -1155,12 +1155,95 @@ app.post("/api/extract-store", async (req, res) => {
 
     // Deduplicate and enrich
     const seen = new Set();
-    const unique = allDeals.filter(d => {
+    let unique = allDeals.filter(d => {
       const key = `${d.name}:${d.salePrice}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    }).map((d, i) => ({
+    });
+
+    // TEXT FALLBACK: If vision found fewer than 10 deals, try extracting from page text
+    if (unique.length < 10) {
+      console.log(`  Only ${unique.length} deals from images — trying text extraction fallback...`);
+      try {
+        // The HTML we already fetched (stored in 'html' variable above) may contain deal text
+        // Extract just the main content text (strip HTML tags)
+        const textContent = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .substring(0, 8000); // limit to ~8000 chars for the AI
+
+        if (textContent.length > 200) {
+          const textAiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": ANTHROPIC_KEY,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 8000,
+              messages: [{
+                role: "user",
+                content: `Extract grocery deals from this ${storeName} weekly ad text. The text was scraped from a weekly ad page.
+
+TEXT:
+${textContent}
+
+Return ONLY a valid JSON array of deals. For each item with a price mentioned:
+{"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+
+Rules:
+- Only include items that have a clear price
+- For "2/$5" deals, set salePrice to "2.50" and notes to "2 for $5"
+- For per-lb prices like "$3.99 lb", set unit to "/lb"
+- No markdown backticks, return ONLY the JSON array
+- If no deals found, return []`
+              }]
+            })
+          });
+          const textAiData = await textAiRes.json();
+          const textResult = textAiData.content?.map(c => c.text || "").join("") || "";
+          let textCleaned = textResult.replace(/```json|```/g, "").trim();
+          try {
+            const textDeals = JSON.parse(textCleaned);
+            if (textDeals.length > unique.length) {
+              console.log(`  Text fallback found ${textDeals.length} deals (vs ${unique.length} from images)`);
+              // Use text deals instead, deduplicating
+              const textSeen = new Set();
+              unique = textDeals.filter(d => {
+                const key = `${d.name}:${d.salePrice}`;
+                if (textSeen.has(key)) return false;
+                textSeen.add(key);
+                return true;
+              });
+            }
+          } catch {
+            const lastBrace = textCleaned.lastIndexOf("}");
+            if (lastBrace > 0) {
+              try {
+                const recovered = JSON.parse(textCleaned.substring(0, lastBrace + 1) + "]");
+                if (recovered.length > unique.length) {
+                  console.log(`  Text fallback found ${recovered.length} deals (recovered)`);
+                  unique = recovered;
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`  Text fallback error: ${e.message}`);
+      }
+    }
+
+    // Enrich with metadata
+    unique = unique.map((d, i) => ({
       ...d,
       id: `${storeId}-${Date.now()}-${i}`,
       storeName,

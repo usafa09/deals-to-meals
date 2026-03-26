@@ -19,49 +19,158 @@ const STORES = [
     id: "publix",
     name: "Publix",
     adPageUrl: "https://www.igroceryads.com/publix-weekly-specials/",
-    category: "publix-weekly-ads-weekly-bogo-sales",
-    regions: ["southeastern US"],
-    zip3s: ["300", "301", "302", "303", "320", "321", "322", "323", "324", "325", "326", "327", "328", "329", "330", "331", "332", "333", "334", "335", "336", "337", "338", "339", "340", "341", "342", "344", "346", "347", "349", "350", "351", "352", "354", "355", "356", "357", "358", "359", "360", "361", "362", "363", "364", "365", "366", "367", "368", "369", "370", "371", "372", "373", "374", "376", "377", "378", "379", "290", "291", "292", "293", "294", "295", "296", "297"],
   },
   {
     id: "meijer",
     name: "Meijer",
     adPageUrl: "https://www.igroceryads.com/meijer-weekly-ad-deals/",
-    category: "meijer-weekly-ad-meijer-ad",
-    regions: ["midwest US"],
-    zip3s: ["430", "431", "432", "433", "434", "435", "436", "437", "438", "439", "440", "441", "442", "443", "444", "445", "446", "447", "448", "449", "460", "461", "462", "463", "464", "465", "466", "467", "468", "469", "480", "481", "482", "483", "484", "485", "486", "487", "488", "489", "490", "491", "492", "493", "494", "495", "496", "497", "498", "499", "530", "531", "532", "534", "535", "537", "538", "539", "600", "601", "602", "603", "604", "605", "606"],
   },
   {
     id: "food-lion",
     name: "Food Lion",
     adPageUrl: "https://www.igroceryads.com/food-lion-circular/",
-    category: "food-lion-weekly-ad",
-    regions: ["mid-atlantic, southeast US"],
-    zip3s: ["270", "271", "272", "273", "274", "275", "276", "277", "278", "279", "280", "281", "282", "283", "284", "285", "286", "287", "288", "289", "220", "221", "222", "223", "224", "225", "226", "227", "228", "229", "230", "231", "232", "233", "234", "235", "236", "237", "238", "239", "240", "241", "242", "243", "244", "245", "246"],
   },
   {
     id: "hyvee",
     name: "Hy-Vee",
     adPageUrl: "https://www.igroceryads.com/hy-vee-weekly-ad/",
-    category: "hyvee-weekly-ads-grocery-sales",
-    regions: ["midwest US"],
-    zip3s: ["500", "501", "502", "503", "504", "505", "506", "507", "508", "509", "510", "511", "512", "513", "514", "515", "516", "520", "521", "522", "523", "524", "525", "527", "528", "550", "551", "553", "554", "556", "557", "558", "559", "560", "561", "562", "563", "564", "565", "566", "567", "570", "571", "572", "573", "574", "575", "576", "577"],
   },
   {
     id: "sprouts",
     name: "Sprouts",
     adPageUrl: "https://www.igroceryads.com/sprouts-weekly-ad-sales/",
-    category: "sprouts-specials",
-    regions: ["western, southern US"],
-    zip3s: ["850", "851", "852", "853", "856", "857", "900", "901", "902", "903", "904", "905", "906", "907", "908", "910", "911", "912", "913", "914", "915", "916", "917", "918", "919", "920", "921", "922", "923", "924", "925", "926", "927", "928", "930", "931", "932", "933", "934", "935", "936", "937", "939", "940", "941", "943", "944", "945", "946", "947", "948", "949", "950", "951", "952", "953", "954"],
   },
   {
     id: "giant-eagle",
     name: "Giant Eagle",
     adPageUrl: "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
-    category: "giant-eagle-weekly-ad-sales-flyer",
-    regions: ["ohio, pennsylvania, west virginia"],
-    zip3s: ["430", "431", "432", "433", "434", "435", "436", "437", "438", "439", "440", "441", "442", "443", "444", "445", "446", "447", "448", "449", "150", "151", "152", "153", "154", "155", "156", "157", "158", "159", "160", "161", "162", "163", "164", "165", "166", "260", "261", "262", "263", "264", "265", "266", "267", "268"],
+  },
+  {
+    id: "albertsons",
+    name: "Albertsons",
+    adPageUrl: "https://www.igroceryads.com/albertsons-weekly-ad-cat/",
+  },
+  {
+    id: "safeway",
+    name: "Safeway",
+    adPageUrl: "https://www.igroceryads.com/safeway-weekly-ad-cat/",
+  },
+  // ── FIXED URLs (were pointing to category pages) ──
+  {
+    id: "winn-dixie",
+    name: "Winn-Dixie",
+    adPageUrl: "https://www.igroceryads.com/winn-dixie-sales/",
+  },
+  {
+    id: "save-a-lot",
+    name: "Save-A-Lot",
+    adPageUrl: "https://www.igroceryads.com/save-a-lot-ad-specials/",
+  },
+  {
+    id: "shoprite",
+    name: "ShopRite",
+    adPageUrl: "https://www.igroceryads.com/shoprite-this-week-sale-circular/",
+  },
+  {
+    id: "lidl",
+    name: "Lidl",
+    adPageUrl: "https://www.igroceryads.com/lidl-promotions/",
+  },
+  {
+    id: "stop-and-shop",
+    name: "Stop & Shop",
+    adPageUrl: "https://www.igroceryads.com/stop-and-shop-weekly-circular/",
+  },
+  {
+    id: "acme",
+    name: "Acme",
+    adPageUrl: "https://www.igroceryads.com/acme-weekly-ad-acme-markets-circular/",
+  },
+  {
+    id: "piggly-wiggly",
+    name: "Piggly Wiggly",
+    adPageUrl: "https://www.igroceryads.com/piggly-wiggly-weekly-ad/",
+  },
+  {
+    id: "ingles",
+    name: "Ingles",
+    adPageUrl: "https://www.igroceryads.com/ingles-weekly-ad-ingles-markets-ad/",
+  },
+  {
+    id: "food-city",
+    name: "Food City",
+    adPageUrl: "https://www.igroceryads.com/food-city-weekly-ad-current-circulars/",
+  },
+  {
+    id: "giant-food",
+    name: "Giant Food",
+    adPageUrl: "https://www.igroceryads.com/giant-food-weekly-ad-deals/",
+  },
+  {
+    id: "hannaford",
+    name: "Hannaford",
+    adPageUrl: "https://www.igroceryads.com/hannaford-flyer/",
+  },
+  {
+    id: "big-y",
+    name: "Big Y",
+    adPageUrl: "https://www.igroceryads.com/big-y-flyer-big-y-circular/",
+  },
+  {
+    id: "key-food",
+    name: "Key Food",
+    adPageUrl: "https://www.igroceryads.com/key-food-circular/",
+  },
+  {
+    id: "rouses",
+    name: "Rouses",
+    adPageUrl: "https://www.igroceryads.com/rouses-ad/",
+  },
+  {
+    id: "bashas",
+    name: "Bashas'",
+    adPageUrl: "https://www.igroceryads.com/bashas-weekly-ad/",
+  },
+  // ── ladysavings.com stores (paginated, images on hotcouponworld.com) ──
+  {
+    id: "harris-teeter",
+    name: "Harris Teeter",
+    adPageUrl: "https://www.ladysavings.com/harristeeter-weekly-ad/",
+    paginated: true,
+  },
+  {
+    id: "fresh-thyme",
+    name: "Fresh Thyme",
+    adPageUrl: "https://www.ladysavings.com/freshthyme-weekly-ad/",
+    paginated: true,
+  },
+  {
+    id: "grocery-outlet",
+    name: "Grocery Outlet",
+    adPageUrl: "https://www.ladysavings.com/groceryoutlet-weekly-ad/",
+    paginated: true,
+  },
+  {
+    id: "winco",
+    name: "WinCo",
+    adPageUrl: "https://www.iweeklyads.com/winco-weekly-ad/",
+  },
+  {
+    id: "festival-foods",
+    name: "Festival Foods",
+    adPageUrl: "https://www.ladysavings.com/festivalfoods-weekly-ad/",
+    paginated: true,
+  },
+  // ── iweeklyads.com stores (text extraction) ──
+  {
+    id: "schnucks",
+    name: "Schnucks",
+    adPageUrl: "https://www.iweeklyads.com/schnucks-weekly-ad/",
+  },
+  {
+    id: "whole-foods",
+    name: "Whole Foods",
+    adPageUrl: "https://www.iweeklyads.com/whole-foods-ad-specials/",
   },
 ];
 
@@ -77,8 +186,39 @@ async function fetchAdPageImages(store) {
   });
   const html = await res.text();
 
+  // For paginated ladysavings stores, fetch each page and collect hotcouponworld images
+  if (store.paginated) {
+    const allImages = [];
+    // Extract image from first page
+    const hcwRegex = /https:\/\/www\.hotcouponworld\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:jpg|jpeg|png|webp)/gi;
+    const firstPageImages = (html.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
+    if (firstPageImages.length > 0) allImages.push(firstPageImages[0]);
+
+    // Detect total pages from "N of M" pattern
+    const pageMatch = html.match(/1\s+of\s+(\d+)/);
+    const totalPages = pageMatch ? parseInt(pageMatch[1]) : 1;
+    console.log(`  📄 Ladysavings paginated: ${totalPages} pages detected`);
+
+    // Fetch remaining pages
+    for (let p = 2; p <= Math.min(totalPages, 25); p++) {
+      try {
+        await new Promise(r => setTimeout(r, 500));
+        const pageRes = await fetch(`${store.adPageUrl}${p}/`, {
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+        });
+        const pageHtml = await pageRes.text();
+        const pageImages = (pageHtml.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
+        if (pageImages.length > 0) allImages.push(pageImages[0]);
+      } catch (e) { console.error(`  Page ${p} error: ${e.message}`); }
+    }
+    console.log(`  Found ${allImages.length} ad pages`);
+    return { images: allImages.slice(0, 25), html };
+  }
+
+  // Standard: extract image URLs from the page (igroceryads/iweeklyads)
+
   // Extract image URLs from the page (WordPress wp-content/uploads pattern)
-  const imgRegex = /https:\/\/www\.igroceryads\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
+  const imgRegex = /https:\/\/www\.(?:igroceryads|iweeklyads)\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
   const allImages = [...new Set(html.match(imgRegex) || [])];
   
   // Filter out thumbnails and duplicates
@@ -86,6 +226,7 @@ async function fetchAdPageImages(store) {
     .filter(url => !url.includes("-150x150"))
     .filter(url => !url.includes("-300x"))
     .filter(url => !url.includes("-100x"))
+    .filter(url => !url.includes("-200x200"))
     // Sort by page number — handles page_N, imgNNN, hash-NN-scaled patterns
     .sort((a, b) => {
       const extractNum = (url) => {
@@ -150,7 +291,7 @@ async function fetchAdPageImages(store) {
     console.log(`  Found ${adPages.length} ad pages`);
   }
   
-  return adPages.slice(0, 25); // cap at 25 pages
+  return { images: adPages.slice(0, 25), html }; // cap at 25 pages
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -275,7 +416,7 @@ IMPORTANT:
 // STEP 4: Store deals in Supabase cache
 // ══════════════════════════════════════════════════════════════════════════
 
-async function storeDealsBatch(storeName, storeId, allDeals, zip3s) {
+async function storeDealsBatch(storeName, storeId, allDeals) {
   // Add metadata to each deal
   const enriched = allDeals.map((d, i) => ({
     ...d,
@@ -285,10 +426,8 @@ async function storeDealsBatch(storeName, storeId, allDeals, zip3s) {
     image: null,
   }));
 
-  // Store for each zip3 in the store's region
+  // Store one master copy (served to all zip codes via fallback)
   const cacheKey = `ad-extract:${storeId}`;
-  
-  // Store one master copy
   const { error } = await supabase.from("deal_cache").upsert({
     cache_key: cacheKey,
     data: enriched,
@@ -300,17 +439,7 @@ async function storeDealsBatch(storeName, storeId, allDeals, zip3s) {
     return false;
   }
 
-  // Also store with zip3 keys so regional endpoint can find them
-  for (const zip3 of zip3s.slice(0, 10)) { // limit to first 10 zip3s to avoid too many writes
-    const regionKey = `ad-extract:${storeId}:${zip3}`;
-    await supabase.from("deal_cache").upsert({
-      cache_key: regionKey,
-      data: enriched,
-      fetched_at: new Date().toISOString(),
-    }, { onConflict: "cache_key" });
-  }
-
-  console.log(`  ✅ Stored ${enriched.length} deals for ${storeName} (${zip3s.length} regions)`);
+  console.log(`  ✅ Stored ${enriched.length} deals for ${storeName}`);
   return true;
 }
 
@@ -324,46 +453,110 @@ async function processStore(store) {
   console.log(`${"═".repeat(60)}`);
 
   try {
-    // Step 1: Get ad page image URLs
-    const imageUrls = await fetchAdPageImages(store);
-    if (imageUrls.length === 0) {
-      console.log(`  ⚠ No ad images found for ${store.name}`);
-      return { store: store.name, deals: 0, error: "No images found" };
-    }
+    // Step 1: Get ad page image URLs and raw HTML
+    const { images: imageUrls, html } = await fetchAdPageImages(store);
 
     // Step 2-3: Download each image and extract deals
     const allDeals = [];
     const maxPages = Math.min(imageUrls.length, 25); // cap at 25 pages
     
-    for (let i = 0; i < maxPages; i++) {
-      try {
-        const base64 = await imageToBase64(imageUrls[i]);
-        if (!base64) continue; // skip failed downloads
-        const mediaType = getMediaType(imageUrls[i]);
-        const deals = await extractDealsFromImage(base64, store.name, i + 1, mediaType);
-        allDeals.push(...deals);
-        
-        // Small delay between pages to avoid rate limits
-        if (i < maxPages - 1) await new Promise(r => setTimeout(r, 1000));
-      } catch (err) {
-        console.error(`  ⚠ Error on page ${i + 1}: ${err.message}`);
+    if (maxPages > 0) {
+      for (let i = 0; i < maxPages; i++) {
+        try {
+          const base64 = await imageToBase64(imageUrls[i]);
+          if (!base64) continue; // skip failed downloads
+          const mediaType = getMediaType(imageUrls[i]);
+          const deals = await extractDealsFromImage(base64, store.name, i + 1, mediaType);
+          allDeals.push(...deals);
+          
+          // Small delay between pages to avoid rate limits
+          if (i < maxPages - 1) await new Promise(r => setTimeout(r, 1000));
+        } catch (err) {
+          console.error(`  ⚠ Error on page ${i + 1}: ${err.message}`);
+        }
       }
     }
 
     // Deduplicate by name + price
     const seen = new Set();
-    const unique = allDeals.filter(d => {
+    let unique = allDeals.filter(d => {
       const key = `${d.name}:${d.salePrice}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    console.log(`\n  📊 ${store.name}: ${unique.length} unique deals from ${maxPages} pages`);
+    // TEXT FALLBACK: If images found fewer than 10 deals, try extracting from page text
+    if (unique.length < 10 && html) {
+      console.log(`  📝 Only ${unique.length} deals from images — trying text extraction...`);
+      try {
+        const textContent = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .substring(0, 8000);
+
+        if (textContent.length > 200) {
+          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": ANTHROPIC_KEY,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 8000,
+              messages: [{
+                role: "user",
+                content: `Extract grocery deals from this ${store.name} weekly ad text.
+
+TEXT:
+${textContent}
+
+Return ONLY a valid JSON array. For each item with a price:
+{"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+For "2/$5" deals, set salePrice to "2.50" and notes to "2 for $5". For per-lb prices, set unit to "/lb". No markdown. Return ONLY the JSON array.`
+              }]
+            })
+          });
+          const aiData = await aiRes.json();
+          const text = aiData.content?.map(c => c.text || "").join("") || "";
+          let cleaned = text.replace(/```json|```/g, "").trim();
+          try {
+            const textDeals = JSON.parse(cleaned);
+            if (textDeals.length > unique.length) {
+              console.log(`  📝 Text extraction found ${textDeals.length} deals (vs ${unique.length} from images)`);
+              const textSeen = new Set();
+              unique = textDeals.filter(d => {
+                const key = `${d.name}:${d.salePrice}`;
+                if (textSeen.has(key)) return false;
+                textSeen.add(key);
+                return true;
+              });
+            }
+          } catch {
+            const lastBrace = cleaned.lastIndexOf("}");
+            if (lastBrace > 0) {
+              try {
+                const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
+                if (recovered.length > unique.length) unique = recovered;
+              } catch {}
+            }
+          }
+        }
+      } catch (e) { console.error(`  Text fallback error: ${e.message}`); }
+    }
+
+    console.log(`\n  📊 ${store.name}: ${unique.length} unique deals`);
 
     // Step 4: Store in Supabase
     if (unique.length > 0) {
-      await storeDealsBatch(store.name, store.id, unique, store.zip3s);
+      await storeDealsBatch(store.name, store.id, unique);
     }
 
     return { store: store.name, deals: unique.length, pages: maxPages };

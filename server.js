@@ -563,7 +563,7 @@ const IGROCERYADS_STORES = {
   "giant eagle": "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
   "giant food": "https://www.igroceryads.com/giant-food-weekly-ad-deals/",
   "hannaford": "https://www.igroceryads.com/hannaford-flyer/",
-  "harris teeter": "https://www.igroceryads.com/harris-teeter-weekly-ad/",
+  "harris teeter": "https://www.ladysavings.com/harristeeter-weekly-ad/",
   "h-e-b": "https://www.igroceryads.com/heb-weekly-ad-cat/",
   "heb": "https://www.igroceryads.com/heb-weekly-ad-cat/",
   "hy-vee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
@@ -572,7 +572,7 @@ const IGROCERYADS_STORES = {
   "jewel-osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
   "jewel osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
   "key food": "https://www.igroceryads.com/key-food-circular/",
-  "lidl": "https://www.igroceryads.com/lidl-weekly-ad-cat/",
+  "lidl": "https://www.igroceryads.com/lidl-promotions/",
   "lowes foods": "https://www.igroceryads.com/lowes-foods/",
   "market basket": "https://www.igroceryads.com/market-basket-flyer/",
   "meijer": "https://www.igroceryads.com/meijer-weekly-ad-deals/",
@@ -582,20 +582,20 @@ const IGROCERYADS_STORES = {
   "ralphs": "https://www.igroceryads.com/ralphs-weekly-ad-ralphs-ads/",
   "rouses": "https://www.igroceryads.com/rouses-ad/",
   "safeway": "https://www.igroceryads.com/safeway-weekly-ad-cat/",
-  "save a lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
-  "save-a-lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
+  "save a lot": "https://www.igroceryads.com/save-a-lot-ad-specials/",
+  "save-a-lot": "https://www.igroceryads.com/save-a-lot-ad-specials/",
   "shaws": "https://www.igroceryads.com/shaws-circular/",
   "shaw's": "https://www.igroceryads.com/shaws-circular/",
-  "shoprite": "https://www.igroceryads.com/shoprite-weekly-ad-cat/",
+  "shoprite": "https://www.igroceryads.com/shoprite-this-week-sale-circular/",
   "smart & final": "https://www.igroceryads.com/smart-and-final-weekly-ad/",
   "sprouts": "https://www.igroceryads.com/sprouts-weekly-ad-sales/",
   "stater bros": "https://www.igroceryads.com/stater-bros-weekly-ad/",
-  "stop & shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
-  "stop and shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
+  "stop & shop": "https://www.igroceryads.com/stop-and-shop-weekly-circular/",
+  "stop and shop": "https://www.igroceryads.com/stop-and-shop-weekly-circular/",
   "tops": "https://www.igroceryads.com/tops-weekly-ad/",
   "vons": "https://www.igroceryads.com/vons-weekly-ad-cat/",
-  "winn-dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
-  "winn dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
+  "winn-dixie": "https://www.igroceryads.com/winn-dixie-sales/",
+  "winn dixie": "https://www.igroceryads.com/winn-dixie-sales/",
   "99 ranch": "https://www.igroceryads.com/99-ranch-market-weekly-ad/",
   "cardenas": "https://www.igroceryads.com/cardenas-weekly-ad-cat/",
   "pavilions": "https://www.igroceryads.com/pavilions-weekly-ad/",
@@ -608,9 +608,9 @@ const IGROCERYADS_STORES = {
   "country mart": "https://www.iweeklyads.com/country-mart-weekly-ad/",
   "d&w fresh market": "https://www.iweeklyads.com/dw-fresh-market-weekly-ad/",
   "dierbergs": "https://www.iweeklyads.com/dierbergs-weekly-ad/",
-  "festival foods": "https://www.iweeklyads.com/festival-foods-weekly-ad/",
-  "fresh thyme": "https://www.iweeklyads.com/fresh-thyme-weekly-ad/",
-  "grocery outlet": "https://www.iweeklyads.com/grocery-outlet-weekly-ad/",
+  "festival foods": "https://www.ladysavings.com/festivalfoods-weekly-ad/",
+  "fresh thyme": "https://www.ladysavings.com/freshthyme-weekly-ad/",
+  "grocery outlet": "https://www.ladysavings.com/groceryoutlet-weekly-ad/",
   "homeland": "https://www.iweeklyads.com/homeland-weekly-ad/",
   "king kullen": "https://www.iweeklyads.com/king-kullen-weekly-circular/",
   "lucky": "https://www.iweeklyads.com/lucky-supermarkets-weekly-ad/",
@@ -1065,39 +1065,66 @@ app.post("/api/extract-store", async (req, res) => {
     });
     const html = await pageRes.text();
 
-    // Extract image URLs (works for igroceryads.com and iweeklyads.com)
-    const imgRegex = /https:\/\/www\.(?:igroceryads|iweeklyads)\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
-    let images = [...new Set(html.match(imgRegex) || [])]
-      .filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("-100x"))
-      .sort((a, b) => {
-        const extractNum = (url) => {
-          const fname = url.split("/").pop();
-          const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
-          return parseInt(m?.[1] || "0");
-        };
-        return extractNum(a) - extractNum(b);
-      });
-    images = [...new Set(images)];
+    // Check if this is a ladysavings paginated store
+    const isLadySavings = adUrl.includes("ladysavings.com");
+    let images = [];
 
-    // Probe for more pages if few found (lazy-loaded images)
-    if (images.length <= 3 && images.length > 0) {
-      const sample = images[0];
-      const scaledMatch = sample.match(/^(.*-)(\d+)(-scaled\.\w+)$/);
-      if (scaledMatch) {
-        const [, prefix, , suffix] = scaledMatch;
-        for (let n = 1; n <= 30; n++) {
-          const url = `${prefix}${n}${suffix}`;
-          if (!images.includes(url)) {
-            try {
-              const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
-              if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
-                images.push(url);
-              } else break;
-            } catch { break; }
+    if (isLadySavings) {
+      // Paginated: images hosted on hotcouponworld.com
+      const hcwRegex = /https:\/\/www\.hotcouponworld\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:jpg|jpeg|png|webp)/gi;
+      const firstPageImages = (html.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
+      if (firstPageImages.length > 0) images.push(firstPageImages[0]);
+
+      const pageMatch = html.match(/1\s+of\s+(\d+)/);
+      const totalPages = pageMatch ? parseInt(pageMatch[1]) : 1;
+      console.log(`On-demand: ${storeName} — ladysavings paginated, ${totalPages} pages`);
+
+      for (let p = 2; p <= Math.min(totalPages, 20); p++) {
+        try {
+          await new Promise(r => setTimeout(r, 500));
+          const pRes = await fetch(`${adUrl}${p}/`, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+          });
+          const pHtml = await pRes.text();
+          const pImages = (pHtml.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
+          if (pImages.length > 0) images.push(pImages[0]);
+        } catch {}
+      }
+    } else {
+      // Standard: igroceryads/iweeklyads images
+      const imgRegex = /https:\/\/www\.(?:igroceryads|iweeklyads)\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
+      images = [...new Set(html.match(imgRegex) || [])]
+        .filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("-100x") && !url.includes("-200x200"))
+        .sort((a, b) => {
+          const extractNum = (url) => {
+            const fname = url.split("/").pop();
+            const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
+            return parseInt(m?.[1] || "0");
+          };
+          return extractNum(a) - extractNum(b);
+        });
+      images = [...new Set(images)];
+
+      // Probe for more pages if few found (lazy-loaded images)
+      if (images.length <= 3 && images.length > 0) {
+        const sample = images[0];
+        const scaledMatch = sample.match(/^(.*-)(\d+)(-scaled\.\w+)$/);
+        if (scaledMatch) {
+          const [, prefix, , suffix] = scaledMatch;
+          for (let n = 1; n <= 30; n++) {
+            const url = `${prefix}${n}${suffix}`;
+            if (!images.includes(url)) {
+              try {
+                const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
+                if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
+                  images.push(url);
+                } else break;
+              } catch { break; }
+            }
           }
         }
       }
-    }
+    } // end else (non-ladysavings)
 
     console.log(`On-demand extraction for ${storeName}: ${images.length} pages found`);
 

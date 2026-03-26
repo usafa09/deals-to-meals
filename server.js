@@ -2089,8 +2089,15 @@ app.post("/api/admin/cache-cleanup", async (req, res) => {
 app.get("/api/admin/cache-cleanup", async (req, res) => {
   try {
     const clearAll = req.query.all === "true";
+    const keyPattern = req.query.key; // delete specific key or pattern
     let query;
-    if (clearAll) {
+    if (keyPattern) {
+      if (keyPattern.includes("%")) {
+        query = supabase.from("deal_cache").delete().like("cache_key", keyPattern).select("cache_key");
+      } else {
+        query = supabase.from("deal_cache").delete().eq("cache_key", keyPattern).select("cache_key");
+      }
+    } else if (clearAll) {
       query = supabase.from("deal_cache").delete().neq("cache_key", "").select("cache_key");
     } else {
       const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
@@ -2098,7 +2105,7 @@ app.get("/api/admin/cache-cleanup", async (req, res) => {
     }
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    res.json({ deleted: data?.length || 0, message: clearAll ? "Cleared ALL cache entries" : "Removed entries older than 24 hours" });
+    res.json({ deleted: data?.length || 0, message: keyPattern ? `Cleared cache for: ${keyPattern}` : clearAll ? "Cleared ALL cache entries" : "Removed entries older than 24 hours" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

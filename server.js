@@ -714,15 +714,27 @@ app.get("/api/nearby-stores", async (req, res) => {
     const allPlaces = [];
     const seenIds = new Set();
     for (const url of searches) {
-      const placesRes = await fetch(url);
-      const placesData = await placesRes.json();
-      if (placesData.status === "OK" && placesData.results) {
-        for (const p of placesData.results) {
-          if (!seenIds.has(p.place_id)) {
-            seenIds.add(p.place_id);
-            allPlaces.push(p);
+      let nextUrl = url;
+      let pages = 0;
+      while (nextUrl && pages < 3) { // up to 3 pages (60 results) per search
+        const placesRes = await fetch(nextUrl);
+        const placesData = await placesRes.json();
+        if (placesData.status === "OK" && placesData.results) {
+          for (const p of placesData.results) {
+            if (!seenIds.has(p.place_id)) {
+              seenIds.add(p.place_id);
+              allPlaces.push(p);
+            }
           }
         }
+        // Google requires a short delay before requesting next page
+        if (placesData.next_page_token) {
+          await new Promise(r => setTimeout(r, 2000));
+          nextUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${placesData.next_page_token}&key=${GOOGLE_MAPS_KEY}`;
+        } else {
+          nextUrl = null;
+        }
+        pages++;
       }
     }
 

@@ -546,6 +546,70 @@ app.get("/api/stores", async (req, res) => {
 
 // ══ AD REGIONS — which stores serve a given zip ═══════════════════════════════
 
+// ── igroceryads.com store URL lookup (used by nearby-stores and on-demand extraction) ──
+const IGROCERYADS_STORES = {
+  "acme": "https://www.igroceryads.com/acme-weekly-ad-acme-markets-circular/",
+  "albertsons": "https://www.igroceryads.com/albertsons-weekly-ad-cat/",
+  "bashas": "https://www.igroceryads.com/bashas-weekly-ad/",
+  "big y": "https://www.igroceryads.com/big-y-flyer-big-y-circular/",
+  "cub foods": "https://www.igroceryads.com/cub-foods-ad-weekly-ad-specials/",
+  "el super": "https://www.igroceryads.com/el-super-weekly-ad-cat/",
+  "fareway": "https://www.igroceryads.com/fareway-ad-weekly-ad-specials/",
+  "food 4 less": "https://www.igroceryads.com/food4less-weekly-ad/",
+  "food city": "https://www.igroceryads.com/food-city-weekly-ad-current-circulars/",
+  "food lion": "https://www.igroceryads.com/food-lion-circular/",
+  "foodtown": "https://www.igroceryads.com/foodtown-ad/",
+  "fred meyer": "https://www.igroceryads.com/fred-meyer-weekly-ads/",
+  "giant eagle": "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
+  "giant food": "https://www.igroceryads.com/giant-food-weekly-ad-deals/",
+  "hannaford": "https://www.igroceryads.com/hannaford-flyer/",
+  "harris teeter": "https://www.igroceryads.com/harris-teeter-weekly-ad/",
+  "h-e-b": "https://www.igroceryads.com/heb-weekly-ad-cat/",
+  "heb": "https://www.igroceryads.com/heb-weekly-ad-cat/",
+  "hy-vee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
+  "hyvee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
+  "ingles": "https://www.igroceryads.com/ingles-weekly-ad-ingles-markets-ad/",
+  "jewel-osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
+  "jewel osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
+  "key food": "https://www.igroceryads.com/key-food-circular/",
+  "lidl": "https://www.igroceryads.com/lidl-weekly-ad-cat/",
+  "lowes foods": "https://www.igroceryads.com/lowes-foods/",
+  "market basket": "https://www.igroceryads.com/market-basket-flyer/",
+  "meijer": "https://www.igroceryads.com/meijer-weekly-ad-deals/",
+  "piggly wiggly": "https://www.igroceryads.com/piggly-wiggly-weekly-ad/",
+  "price chopper": "https://www.igroceryads.com/price-chopper-ad-price-chopper-flyer/",
+  "publix": "https://www.igroceryads.com/publix-weekly-specials/",
+  "ralphs": "https://www.igroceryads.com/ralphs-weekly-ad-ralphs-ads/",
+  "rouses": "https://www.igroceryads.com/rouses-ad/",
+  "safeway": "https://www.igroceryads.com/safeway-weekly-ad-cat/",
+  "save a lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
+  "save-a-lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
+  "shaws": "https://www.igroceryads.com/shaws-circular/",
+  "shaw's": "https://www.igroceryads.com/shaws-circular/",
+  "shoprite": "https://www.igroceryads.com/shoprite-weekly-ad-cat/",
+  "smart & final": "https://www.igroceryads.com/smart-and-final-weekly-ad/",
+  "sprouts": "https://www.igroceryads.com/sprouts-weekly-ad-sales/",
+  "stater bros": "https://www.igroceryads.com/stater-bros-weekly-ad/",
+  "stop & shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
+  "stop and shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
+  "tops": "https://www.igroceryads.com/tops-weekly-ad/",
+  "vons": "https://www.igroceryads.com/vons-weekly-ad-cat/",
+  "winn-dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
+  "winn dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
+  "99 ranch": "https://www.igroceryads.com/99-ranch-market-weekly-ad/",
+  "cardenas": "https://www.igroceryads.com/cardenas-weekly-ad-cat/",
+  "pavilions": "https://www.igroceryads.com/pavilions-weekly-ad/",
+};
+
+function findIgroceryadsUrl(storeName) {
+  const lower = storeName.toLowerCase().trim();
+  if (IGROCERYADS_STORES[lower]) return IGROCERYADS_STORES[lower];
+  for (const [key, url] of Object.entries(IGROCERYADS_STORES)) {
+    if (lower.includes(key) || key.includes(lower)) return url;
+  }
+  return null;
+}
+
 // ══ NEARBY GROCERY STORES (Google Places API with 30-day cache) ═══════════════
 
 const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY;
@@ -594,8 +658,10 @@ app.get("/api/nearby-stores", async (req, res) => {
     // Check cache first
     const cached = await getCachedStores(zip);
     if (cached) {
-      console.log(`Nearby stores for ${zip}: ${cached.length} stores [cached]`);
-      return res.json({ stores: cached, cached: true });
+      // Filter cached results to only stores we can extract ads for
+      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI");
+      console.log(`Nearby stores for ${zip}: ${filtered.length} stores [cached, filtered from ${cached.length}]`);
+      return res.json({ stores: filtered, cached: true });
     }
 
     if (!GOOGLE_MAPS_KEY) {
@@ -690,13 +756,16 @@ app.get("/api/nearby-stores", async (req, res) => {
         storesWithDeals.add(parts[1].toLowerCase().replace(/[-\s]/g, ""));
       }
     }
-    // Mark each store with deal availability
+    // Mark each store with deal availability and extractability
     const normalizeName = (n) => n.toLowerCase().replace(/['\s-]/g, "");
-    const enrichedStores = stores.map(s => ({
-      ...s,
-      hasDeals: storesWithDeals.has(normalizeName(s.name))
-        || s.name === "Kroger" || s.name === "ALDI",
-    }));
+    const enrichedStores = stores
+      .map(s => ({
+        ...s,
+        hasDeals: storesWithDeals.has(normalizeName(s.name))
+          || s.name === "Kroger" || s.name === "ALDI",
+        canExtract: !!findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI",
+      }))
+      .filter(s => s.hasDeals || s.canExtract); // only show stores we can get deals for
 
     // Cache for 30 days
     await setCachedStores(zip, enrichedStores);
@@ -900,72 +969,6 @@ app.get("/api/deals/regional", async (req, res) => {
 
 // ══ ON-DEMAND AD EXTRACTION ═══════════════════════════════════════════════════
 // When a user clicks a store without deals, search igroceryads and extract
-
-const IGROCERYADS_STORES = {
-  "acme": "https://www.igroceryads.com/acme-weekly-ad-acme-markets-circular/",
-  "albertsons": "https://www.igroceryads.com/albertsons-weekly-ad-cat/",
-  "bashas": "https://www.igroceryads.com/bashas-weekly-ad/",
-  "big y": "https://www.igroceryads.com/big-y-flyer-big-y-circular/",
-  "cub foods": "https://www.igroceryads.com/cub-foods-ad-weekly-ad-specials/",
-  "el super": "https://www.igroceryads.com/el-super-weekly-ad-cat/",
-  "fareway": "https://www.igroceryads.com/fareway-ad-weekly-ad-specials/",
-  "food 4 less": "https://www.igroceryads.com/food4less-weekly-ad/",
-  "food city": "https://www.igroceryads.com/food-city-weekly-ad-current-circulars/",
-  "food lion": "https://www.igroceryads.com/food-lion-circular/",
-  "foodtown": "https://www.igroceryads.com/foodtown-ad/",
-  "fred meyer": "https://www.igroceryads.com/fred-meyer-weekly-ads/",
-  "giant eagle": "https://www.igroceryads.com/giant-eagle-weekly-sale-ad/",
-  "giant food": "https://www.igroceryads.com/giant-food-weekly-ad-deals/",
-  "hannaford": "https://www.igroceryads.com/hannaford-flyer/",
-  "harris teeter": "https://www.igroceryads.com/harris-teeter-weekly-ad/",
-  "h-e-b": "https://www.igroceryads.com/heb-weekly-ad-cat/",
-  "heb": "https://www.igroceryads.com/heb-weekly-ad-cat/",
-  "hy-vee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
-  "hyvee": "https://www.igroceryads.com/hy-vee-weekly-ad/",
-  "ingles": "https://www.igroceryads.com/ingles-weekly-ad-ingles-markets-ad/",
-  "jewel-osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
-  "jewel osco": "https://www.igroceryads.com/jewel-osco-weekly-ad/",
-  "key food": "https://www.igroceryads.com/key-food-circular/",
-  "lidl": "https://www.igroceryads.com/lidl-weekly-ad-cat/",
-  "lowes foods": "https://www.igroceryads.com/lowes-foods/",
-  "market basket": "https://www.igroceryads.com/market-basket-flyer/",
-  "meijer": "https://www.igroceryads.com/meijer-weekly-ad-deals/",
-  "piggly wiggly": "https://www.igroceryads.com/piggly-wiggly-weekly-ad/",
-  "price chopper": "https://www.igroceryads.com/price-chopper-ad-price-chopper-flyer/",
-  "publix": "https://www.igroceryads.com/publix-weekly-specials/",
-  "ralphs": "https://www.igroceryads.com/ralphs-weekly-ad-ralphs-ads/",
-  "rouses": "https://www.igroceryads.com/rouses-ad/",
-  "safeway": "https://www.igroceryads.com/safeway-weekly-ad-cat/",
-  "save a lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
-  "save-a-lot": "https://www.igroceryads.com/save-a-lot-weekly-ad-save-a-lot-ad/",
-  "shaws": "https://www.igroceryads.com/shaws-circular/",
-  "shaw's": "https://www.igroceryads.com/shaws-circular/",
-  "shoprite": "https://www.igroceryads.com/shoprite-weekly-ad-cat/",
-  "smart & final": "https://www.igroceryads.com/smart-and-final-weekly-ad/",
-  "sprouts": "https://www.igroceryads.com/sprouts-weekly-ad-sales/",
-  "stater bros": "https://www.igroceryads.com/stater-bros-weekly-ad/",
-  "stop & shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
-  "stop and shop": "https://www.igroceryads.com/stop-shop-weekly-ad/",
-  "tops": "https://www.igroceryads.com/tops-weekly-ad/",
-  "vons": "https://www.igroceryads.com/vons-weekly-ad-cat/",
-  "winn-dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
-  "winn dixie": "https://www.igroceryads.com/winn-dixie-weekly-ad/",
-  "99 ranch": "https://www.igroceryads.com/99-ranch-market-weekly-ad/",
-  "cardenas": "https://www.igroceryads.com/cardenas-weekly-ad-cat/",
-  "pavilions": "https://www.igroceryads.com/pavilions-weekly-ad/",
-};
-
-// Find the igroceryads URL for a store, checking category page for latest ad link
-function findIgroceryadsUrl(storeName) {
-  const lower = storeName.toLowerCase().trim();
-  // Direct match
-  if (IGROCERYADS_STORES[lower]) return IGROCERYADS_STORES[lower];
-  // Partial match
-  for (const [key, url] of Object.entries(IGROCERYADS_STORES)) {
-    if (lower.includes(key) || key.includes(lower)) return url;
-  }
-  return null;
-}
 
 // In-memory set to track stores currently being extracted (prevent duplicate runs)
 const extractingStores = new Set();

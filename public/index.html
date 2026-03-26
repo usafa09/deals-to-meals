@@ -482,11 +482,13 @@ async function findStores() {
     if(nearbyRes.status==="fulfilled" && nearbyRes.value.stores) {
       const nearbyStores = nearbyRes.value.stores
         .filter(s => s.name !== "Kroger" && s.name !== "ALDI")
+        .filter(s => s.hasDeals || s.canExtract) // only show stores we can get ads for
         .map(s => ({
           name: s.name,
           address: s.count > 1 ? `${s.count} locations nearby` : (s.address || "Nearby"),
           source: "nearby",
           storeName: s.name,
+          hasDeals: s.hasDeals,
         }));
       allStores.push(...nearbyStores);
     }

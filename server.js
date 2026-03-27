@@ -1183,11 +1183,16 @@ app.post("/api/extract-store", async (req, res) => {
         let cleaned = text.replace(/```json|```/g, "").trim();
         try {
           const deals = JSON.parse(cleaned);
+          deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
           allDeals.push(...deals);
         } catch {
           const lastBrace = cleaned.lastIndexOf("}");
           if (lastBrace > 0) {
-            try { allDeals.push(...JSON.parse(cleaned.substring(0, lastBrace + 1) + "]")); } catch {}
+            try {
+              const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
+              recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
+              allDeals.push(...recovered);
+            } catch {}
           }
         }
         if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
@@ -1289,7 +1294,8 @@ Rules:
       id: `${storeId}-${Date.now()}-${i}`,
       storeName,
       source: "ad-extract",
-      image: null,
+      image: null,  // Pexels images added by pipeline, not on-demand
+      adSourceUrl: adUrl,
     }));
 
     // Cache as master key

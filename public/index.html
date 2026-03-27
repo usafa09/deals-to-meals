@@ -472,7 +472,7 @@ async function findStores() {
     const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
       fetch(`/api/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
       fetch(`/api/aldi/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
-      fetch(`/api/nearby-stores?zip=${zip}`).then(r=>r.json()),
+      fetch(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`).then(r=>r.json()),
     ]);
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
@@ -701,7 +701,7 @@ function renderSaleItems() {
         <div class="sale-card-name">${d.name}</div>
         <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}${unit}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}${unit}</span>`:""}</div>
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${d.saleStory}</div>`:""}
-        <div class="sale-card-store">${store}</div>
+        <div class="sale-card-store">${store}${d.adSourceUrl?` · <a href="${d.adSourceUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
       </div></div>`;}).join("");
 }
 function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}

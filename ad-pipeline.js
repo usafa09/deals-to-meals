@@ -6,9 +6,137 @@ import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const PEXELS_KEY = process.env.PEXELS_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════════════════════════════════════════
+// PEXELS IMAGE LOOKUP — find product photos for deal cards
+// ══════════════════════════════════════════════════════════════════════════
+
+// Simplify product name for better Pexels search results
+function simplifyProductName(name) {
+  return (name || "")
+    .replace(/\b(USDA|Choice|Select|Premium|All[- ]Natural|Organic|Fresh|Frozen|Family Pack|Bone-In|Boneless|Skinless|Extra Large|Large|Medium|Small)\b/gi, "")
+    .replace(/\b(lb|oz|ct|pk|pack|bag|box|can|jar|bottle|gallon|qt|pt)\b/gi, "")
+    .replace(/\b\d+[\.\d]*\s*(lb|oz|ct|pk|pack|bag|box|can|jar|bottle|gal|qt|pt|count|piece|slice|roll|sheet)\b/gi, "")
+    .replace(/\$[\d\.]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 50);
+}
+
+// Category fallback search terms
+const CATEGORY_SEARCH = {
+  meat: "raw meat grocery",
+  produce: "fresh vegetables fruit",
+  dairy: "milk cheese dairy",
+  bakery: "fresh bread bakery",
+  frozen: "frozen food grocery",
+  pantry: "canned goods pantry",
+  snacks: "snack chips cookies",
+  beverages: "drinks soda juice",
+  deli: "deli meat sandwich",
+  seafood: "fresh fish seafood",
+  household: "cleaning supplies household",
+  other: "grocery shopping food",
+};
+
+async function getCachedPexelsImage(productName) {
+  try {
+    const key = `pexels:${productName.toLowerCase().substring(0, 100)}`;
+    const { data, error } = await supabase.from("deal_cache")
+      .select("data")
+      .eq("cache_key", key)
+      .single();
+    if (error || !data) return null;
+    return data.data?.url || null;
+  } catch { return null; }
+}
+
+async function setCachedPexelsImage(productName, url) {
+  try {
+    const key = `pexels:${productName.toLowerCase().substring(0, 100)}`;
+    await supabase.from("deal_cache").upsert({
+      cache_key: key,
+      data: { url, fetchedAt: new Date().toISOString() },
+      fetched_at: new Date().toISOString(),
+    }, { onConflict: "cache_key" });
+  } catch {}
+}
+
+async function searchPexels(query) {
+  if (!PEXELS_KEY) return null;
+  try {
+    const res = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=square`, {
+      headers: { Authorization: PEXELS_KEY }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.photos?.[0]?.src?.small || data.photos?.[0]?.src?.medium || null;
+  } catch { return null; }
+}
+
+async function enrichDealsWithImages(deals) {
+  if (!PEXELS_KEY) {
+    console.log("  ⚠ PEXELS_API_KEY not set — skipping image enrichment");
+    return deals;
+  }
+
+  // Get unique product names
+  const uniqueNames = [...new Set(deals.map(d => simplifyProductName(d.name)).filter(n => n.length > 2))];
+  console.log(`  🖼️  Fetching images for ${uniqueNames.length} unique products...`);
+
+  // Check cache first
+  const imageMap = new Map();
+  let cached = 0, fetched = 0, failed = 0;
+
+  for (const name of uniqueNames) {
+    const cachedUrl = await getCachedPexelsImage(name);
+    if (cachedUrl) {
+      imageMap.set(name, cachedUrl);
+      cached++;
+    }
+  }
+  console.log(`    ${cached} already cached`);
+
+  // Fetch uncached images from Pexels (rate limited: 200/hour = 1 per 1.8s)
+  const uncached = uniqueNames.filter(n => !imageMap.has(n));
+  for (let i = 0; i < uncached.length; i++) {
+    const name = uncached[i];
+    // Try product-specific search first
+    let url = await searchPexels(name + " food");
+    if (!url) {
+      // Try just the first 2 words
+      const short = name.split(" ").slice(0, 2).join(" ");
+      url = await searchPexels(short + " food");
+    }
+    if (url) {
+      imageMap.set(name, url);
+      await setCachedPexelsImage(name, url);
+      fetched++;
+    } else {
+      failed++;
+    }
+
+    // Rate limit: 200/hour = 1 per 18 seconds
+    if (i < uncached.length - 1) await new Promise(r => setTimeout(r, 18500));
+
+    // Progress update every 10
+    if ((i + 1) % 10 === 0) console.log(`    ${i + 1}/${uncached.length} searched (${fetched} found, ${failed} failed)`);
+  }
+  console.log(`    ✅ Images: ${cached} cached + ${fetched} new + ${failed} not found`);
+
+  // Apply images to deals, with category fallback
+  return deals.map(d => {
+    const simplified = simplifyProductName(d.name);
+    let img = imageMap.get(simplified) || null;
+    // Category fallback — don't search, just leave null for now
+    return { ...d, image: img || d.image };
+  });
+}
+
 
 // ══════════════════════════════════════════════════════════════════════════
 // STORE CONFIGURATIONS — add new stores here
@@ -416,14 +544,15 @@ IMPORTANT:
 // STEP 4: Store deals in Supabase cache
 // ══════════════════════════════════════════════════════════════════════════
 
-async function storeDealsBatch(storeName, storeId, allDeals) {
+async function storeDealsBatch(storeName, storeId, allDeals, adSourceUrl) {
   // Add metadata to each deal
   const enriched = allDeals.map((d, i) => ({
     ...d,
     id: `${storeId}-${Date.now()}-${i}`,
     storeName: storeName,
     source: "ad-extract",
-    image: null,
+    image: d.image || null,       // Pexels product photo
+    adSourceUrl: adSourceUrl || null,
   }));
 
   // Store one master copy (served to all zip codes via fallback)
@@ -447,7 +576,7 @@ async function storeDealsBatch(storeName, storeId, allDeals) {
 // MAIN PIPELINE
 // ══════════════════════════════════════════════════════════════════════════
 
-async function processStore(store) {
+async function processStore(store, skipImages = false) {
   console.log(`\n${"═".repeat(60)}`);
   console.log(`Processing: ${store.name}`);
   console.log(`${"═".repeat(60)}`);
@@ -467,6 +596,8 @@ async function processStore(store) {
           if (!base64) continue; // skip failed downloads
           const mediaType = getMediaType(imageUrls[i]);
           const deals = await extractDealsFromImage(base64, store.name, i + 1, mediaType);
+          // Tag each deal with the source ad page image
+          deals.forEach(d => { d.adImage = imageUrls[i]; d.adPage = i + 1; });
           allDeals.push(...deals);
           
           // Small delay between pages to avoid rate limits
@@ -554,9 +685,14 @@ For "2/$5" deals, set salePrice to "2.50" and notes to "2 for $5". For per-lb pr
 
     console.log(`\n  📊 ${store.name}: ${unique.length} unique deals`);
 
-    // Step 4: Store in Supabase
+    // Step 4: Enrich with Pexels product images
+    if (unique.length > 0 && !skipImages) {
+      unique = await enrichDealsWithImages(unique);
+    }
+
+    // Step 5: Store in Supabase
     if (unique.length > 0) {
-      await storeDealsBatch(store.name, store.id, unique);
+      await storeDealsBatch(store.name, store.id, unique, store.adPageUrl);
     }
 
     return { store: store.name, deals: unique.length, pages: maxPages };
@@ -574,6 +710,10 @@ async function main() {
   if (!ANTHROPIC_KEY) { console.error("❌ ANTHROPIC_API_KEY not set"); process.exit(1); }
   if (!SUPABASE_URL) { console.error("❌ SUPABASE_URL not set"); process.exit(1); }
 
+  const skipImages = process.argv.includes("--skip-images");
+  if (skipImages) console.log("⏭️  Skipping Pexels image enrichment (--skip-images)\n");
+  if (!PEXELS_KEY && !skipImages) console.log("⚠️  PEXELS_API_KEY not set — images will be skipped\n");
+
   // Check if a specific store was requested
   const storeArg = process.argv.find(a => a.startsWith("--store="))?.split("=")[1] 
     || (process.argv.includes("--store") ? process.argv[process.argv.indexOf("--store") + 1] : null);
@@ -589,7 +729,7 @@ async function main() {
 
   const results = [];
   for (const store of storesToProcess) {
-    const result = await processStore(store);
+    const result = await processStore(store, skipImages);
     results.push(result);
   }
 

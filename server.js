@@ -824,6 +824,17 @@ app.get("/api/nearby-stores", async (req, res) => {
       }))
       .filter(s => s.hasDeals || s.canExtract); // only show stores we can get deals for
 
+    // Always include nationwide stores if not already in results
+    const existingNames = new Set(enrichedStores.map(s => s.name));
+    const alwaysInclude = [
+      { name: "Walmart", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
+      { name: "Kroger", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
+      { name: "ALDI", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
+    ];
+    for (const s of alwaysInclude) {
+      if (!existingNames.has(s.name)) enrichedStores.push(s);
+    }
+
     // Cache for 30 days
     await setCachedStores(zip, enrichedStores, cacheKey);
     console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);

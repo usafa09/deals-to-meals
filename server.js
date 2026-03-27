@@ -658,12 +658,13 @@ async function geocodeZip(zip) {
   return null;
 }
 
-async function getCachedStores(zip) {
+async function getCachedStores(zip, cacheKey) {
   try {
+    const key = cacheKey || `nearby-stores:${zip}`;
     const { data, error } = await supabase
       .from("deal_cache")
       .select("data, fetched_at")
-      .eq("cache_key", `nearby-stores:${zip}`)
+      .eq("cache_key", key)
       .single();
     if (error || !data) return null;
     const age = Date.now() - new Date(data.fetched_at).getTime();
@@ -672,10 +673,11 @@ async function getCachedStores(zip) {
   } catch { return null; }
 }
 
-async function setCachedStores(zip, stores) {
+async function setCachedStores(zip, stores, cacheKey) {
   try {
+    const key = cacheKey || `nearby-stores:${zip}`;
     await supabase.from("deal_cache").upsert({
-      cache_key: `nearby-stores:${zip}`,
+      cache_key: key,
       data: stores,
       fetched_at: new Date().toISOString(),
     }, { onConflict: "cache_key" });
@@ -683,16 +685,18 @@ async function setCachedStores(zip, stores) {
 }
 
 app.get("/api/nearby-stores", async (req, res) => {
-  const { zip } = req.query;
+  const { zip, radius: radiusMiles } = req.query;
   if (!zip) return res.status(400).json({ error: "zip is required" });
+  const miles = parseInt(radiusMiles) || 10;
+  const radiusMeters = Math.min(miles * 1609, 48000); // convert miles to meters, cap at ~30mi
+  const cacheKey = `nearby-stores:${zip}:${miles}mi`;
 
   try {
     // Check cache first
-    const cached = await getCachedStores(zip);
+    const cached = await getCachedStores(zip, cacheKey);
     if (cached) {
-      // Filter cached results to only stores we can extract ads for
       const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI");
-      console.log(`Nearby stores for ${zip}: ${filtered.length} stores [cached, filtered from ${cached.length}]`);
+      console.log(`Nearby stores for ${zip} (${miles}mi): ${filtered.length} stores [cached]`);
       return res.json({ stores: filtered, cached: true });
     }
 
@@ -706,10 +710,9 @@ app.get("/api/nearby-stores", async (req, res) => {
     if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
 
     // Search for grocery stores nearby — run two searches for better coverage
-    const radius = 24000;
     const searches = [
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&type=supermarket&key=${GOOGLE_MAPS_KEY}`,
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radius}&keyword=grocery+store&key=${GOOGLE_MAPS_KEY}`,
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&type=supermarket&key=${GOOGLE_MAPS_KEY}`,
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&keyword=grocery+store&key=${GOOGLE_MAPS_KEY}`,
     ];
     const allPlaces = [];
     const seenIds = new Set();
@@ -822,8 +825,8 @@ app.get("/api/nearby-stores", async (req, res) => {
       .filter(s => s.hasDeals || s.canExtract); // only show stores we can get deals for
 
     // Cache for 30 days
-    await setCachedStores(zip, enrichedStores);
-    console.log(`Nearby stores for ${zip}: ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);
+    await setCachedStores(zip, enrichedStores, cacheKey);
+    console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);
 
     res.json({ stores: enrichedStores, cached: false });
   } catch (err) {

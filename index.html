@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="impact-site-verification" value="393a6d31-d505-4215-98c2-dcbf7f466365">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Dishcount — Meals from Deals. AI-powered recipes based on your local grocery store's weekly sales. Save time and money on dinner." />
+  <title>Dishcount — Meals from Deals</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc;
+      --orange: #d97706; --orange-light: #fef3c7;
+      --cream: #fffdf7; --sand: #e8e0d0; --text: #2d3a2e; --muted: #9ca38f;
+      --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
+      --dark: #1a2e1f;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: var(--dark); border-bottom: none; padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .logo-mark { display: none; }
+    .logo-text h1 { font-family: 'Trebuchet MS', sans-serif; font-size: 19px; color: #e8f0ea; }
+    .logo-text p  { font-size: 10px; color: #9ca38f; letter-spacing: 1.5px; text-transform: uppercase; font-style: normal; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .progress-bar { display: flex; gap: 5px; align-items: center; }
+    .pip { height: 8px; border-radius: 4px; background: #3a5a40; transition: all 0.35s ease; }
+    .profile-btn { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.1); color: #e8f0ea; }
+    .profile-btn:hover { background: var(--green-mid); color: white; }
+    .profile-btn.logged-in { background: var(--green-mid); color: white; border-color: var(--green-mid); }
+    .profile-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--green-mid); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; }
+
+    /* ── Layout ── */
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeUp 0.4s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
+    .back:hover { color: var(--green-dark); }
+    .screen-title { font-family: 'Trebuchet MS', sans-serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
+    .screen-sub   { font-size: 15px; color: var(--muted); margin-bottom: 22px; }
+
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
+    .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn:disabled { background: #C5C5C5 !important; cursor: not-allowed; transform: none !important; }
+    .btn-primary  { background: var(--orange); color: white; }
+    .btn-gradient { background: linear-gradient(135deg, var(--green-dark), var(--green-mid)); color: white; }
+    .btn-outline  { background: transparent; color: var(--green-dark); border: 2px solid var(--green-dark); }
+    .btn-blue     { background: var(--blue); color: white; }
+    .btn-green    { background: var(--green-dark); color: white; }
+
+    .card { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
+    .card.clickable { cursor: pointer; }
+    .card.clickable:hover { border-color: var(--green-mid); transform: translateY(-1px); }
+    .card.selected  { border-color: var(--green-mid); background: var(--green-light); }
+
+    /* ── Screen 1 ── */
+    .hero-emoji { font-size: 72px; display: block; text-align: center; margin-bottom: 14px; }
+    .hero-title { font-family: 'Trebuchet MS', sans-serif; font-size: 28px; text-align: center; color: var(--green-dark); margin-bottom: 8px; line-height: 1.2; }
+    .hero-sub   { font-size: 15px; color: var(--muted); text-align: center; margin-bottom: 36px; }
+    .zip-box { background: white; border: 2px solid var(--sand); border-radius: 20px; padding: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+    .zip-label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .zip-row { display: flex; gap: 10px; }
+    #zipInput { flex: 1; padding: 13px 16px; font-size: 22px; border: 2px solid #D0C5A0; border-radius: 12px; outline: none; font-family: 'Trebuchet MS', sans-serif; letter-spacing: 5px; text-align: center; background: var(--cream); transition: border-color 0.2s; }
+    #zipInput:focus { border-color: var(--green-mid); }
+    .zip-hint { margin-top: 10px; font-size: 12px; color: #AAA; text-align: center; font-style: italic; }
+    .feature-row { display: flex; gap: 12px; margin-top: 28px; }
+    .feature-chip { flex: 1; background: rgba(255,255,255,0.75); border: 1px solid var(--sand); border-radius: 12px; padding: 14px 6px; text-align: center; }
+    .feature-chip .f-icon  { font-size: 22px; margin-bottom: 5px; }
+    .feature-chip .f-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+    /* ── Screen 2 ── */
+    .store-row { display: flex; align-items: center; gap: 14px; }
+    .store-name { font-weight: 700; font-size: 17px; }
+    .store-addr { font-size: 13px; color: #888; margin-top: 2px; }
+    .store-check { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; background: #E0D8C8; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
+    .card.selected .store-check { background: var(--green-mid); }
+
+    /* ── Screen 3: Meal + Filters ── */
+    .section-title { font-family: 'Trebuchet MS', sans-serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
+    .meal-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 8px; }
+    .meal-card { background: white; border: 2px solid var(--sand); border-radius: 14px; padding: 16px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .meal-card:hover { border-color: var(--green-mid); }
+    .meal-card.selected { background: var(--green-dark); border-color: var(--green-dark); color: white; }
+    .meal-icon  { font-size: 28px; margin-bottom: 6px; }
+    .meal-label { font-size: 14px; font-weight: 700; }
+
+    .filter-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .filter-chip { padding: 7px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .filter-chip:hover { border-color: var(--green-mid); }
+    .filter-chip.selected { background: var(--green-mid); border-color: var(--green-mid); color: white; }
+
+    /* ── Deals Picker ── */
+    .deals-picker { background: white; border: 2px solid var(--sand); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
+    .deals-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; user-select: none; }
+    .deals-picker-header:hover { background: var(--green-light); }
+    .deals-picker-toggle { font-size: 12px; color: var(--green-dark); font-weight: 700; }
+    .deals-picker-body { max-height: 350px; overflow-y: auto; border-top: 1px solid var(--sand); }
+    .deals-picker-body.collapsed { display: none; }
+    .deals-store-group { border-bottom: 1px solid #F0EDE6; }
+    .deals-store-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #FAFAF5; font-size: 13px; font-weight: 700; color: var(--green-dark); position: sticky; top: 0; z-index: 1; }
+    .deals-store-toggle { font-size: 11px; color: var(--blue); cursor: pointer; font-weight: 600; }
+    .deals-store-toggle:hover { text-decoration: underline; }
+    .deal-item { display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: 13px; border-bottom: 1px solid #F5F2EB; }
+    .deal-item:last-child { border-bottom: none; }
+    .deal-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green-mid); flex-shrink: 0; cursor: pointer; }
+    .deal-item-name { flex: 1; }
+    .deal-item-price { font-weight: 700; color: var(--green-dark); white-space: nowrap; }
+    .deal-item-was { font-size: 11px; color: #AAA; text-decoration: line-through; margin-left: 4px; }
+    .deal-item-pct { font-size: 11px; font-weight: 700; color: var(--orange); margin-left: 6px; }
+
+    /* ── Screen 4: Recipe Grid ── */
+    .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .results-count { font-size: 14px; color: var(--muted); font-style: italic; }
+    .sort-row { display: flex; gap: 8px; }
+    .sort-btn { padding: 6px 12px; border: 2px solid var(--sand); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: white; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .sort-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+
+    .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .recipe-card-tile { background: white; border: 2px solid var(--sand); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+    .recipe-card-tile:hover { border-color: var(--green-mid); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    .recipe-card-img { width: 100%; height: 140px; object-fit: cover; background: #F5F0E8; display: block; }
+    .recipe-card-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 40px; }
+    .recipe-card-body { padding: 12px; }
+    .recipe-card-title { font-family: 'Trebuchet MS', sans-serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
+    .recipe-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .meta-chip { font-size: 11px; padding: 3px 7px; border-radius: 6px; font-weight: 600; }
+    .meta-time     { background: #F5F0E8; color: #5A4A30; }
+    .meta-savings  { background: var(--orange-light); color: var(--orange); }
+    .meta-cost     { background: var(--green-light); color: var(--green-dark); }
+    .meta-coupon   { background: var(--blue-light); color: var(--blue); }
+
+    /* ── Recipe Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .modal { background: white; border-radius: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .modal-img { width: 100%; height: 220px; object-fit: cover; border-radius: 22px 22px 0 0; }
+    .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
+    .modal-body { padding: 24px; }
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .modal-title { font-family: 'Trebuchet MS', sans-serif; font-size: 22px; color: var(--green-dark); line-height: 1.3; }
+    .modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--sand); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+    .modal-close:hover { background: #F5F0E8; }
+    .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-pill { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .stat-time    { background: #F5F0E8; color: #5A4A30; }
+    .stat-savings { background: var(--orange-light); color: var(--orange); }
+    .stat-cost    { background: var(--green-light); color: var(--green-dark); }
+    .stat-servings { background: #f0fdf4; color: var(--green-dark); }
+
+    .modal-section { margin-bottom: 20px; }
+    .modal-section-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .ing-list { display: flex; flex-direction: column; gap: 6px; }
+    .ing-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; font-size: 13px; }
+    .ing-row.on-sale { background: var(--green-light); border: 1px solid #A5D6A7; }
+    .ing-row.pantry  { background: #FAFAFA; border: 1px solid #F0E8D0; color: #666; }
+    .ing-sale-price { font-weight: 800; color: var(--orange); }
+    .ing-reg-price  { font-size: 11px; color: #CCC; text-decoration: line-through; margin-left: 4px; }
+
+    .coupon-list { display: flex; flex-direction: column; gap: 6px; }
+    .coupon-row { background: var(--blue-light); border: 1px solid #90CAF9; border-radius: 10px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .coupon-row.clipped { background: var(--green-light); border-color: #A5D6A7; }
+    .coupon-save { font-weight: 800; color: var(--blue); white-space: nowrap; }
+    .coupon-row.clipped .coupon-save { color: var(--green-dark); }
+
+    .steps-list { display: flex; flex-direction: column; gap: 10px; }
+    .step-row { display: flex; gap: 12px; align-items: flex-start; }
+    .step-num { min-width: 26px; height: 26px; border-radius: 50%; background: var(--green-dark); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+    .step-text { font-size: 14px; color: #444; line-height: 1.6; padding-top: 3px; }
+
+    .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 16px; border-top: 2px solid #F5EFE0; }
+    .modal-btn { flex: 1; min-width: 140px; padding: 12px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
+    .modal-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .modal-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .modal-btn-save  { background: var(--orange-light); color: var(--orange); border: 2px solid #FFB74D; }
+    .modal-btn-save.saved { background: var(--orange); color: white; }
+    .modal-btn-list  { background: var(--green-light); color: var(--green-dark); border: 2px solid #A5D6A7; }
+    .modal-btn-cart  { background: var(--blue); color: white; }
+    .cart-success-msg { background: var(--green-light); border: 2px solid #A5D6A7; border-radius: 10px; padding: 10px; text-align: center; font-weight: 700; color: var(--green-dark); font-size: 13px; margin-top: 8px; display: none; }
+
+    /* ── Loading & Toast ── */
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(6px); z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: 'Trebuchet MS', sans-serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
+    .loading-sub { font-size: 13px; color: var(--muted); }
+    .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
+    .toast.show { display: block; animation: fadeUp 0.3s ease; }
+    .toast.error   { background: var(--red); color: white; }
+    .toast.success { background: var(--green-dark); color: white; }
+
+    /* ── Sale items browser ── */
+    .sale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .sale-card { background: white; border: 2px solid var(--sand); border-radius: 14px; overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
+    .sale-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .sale-card.include { border-color: var(--green-mid); background: var(--green-light); }
+    .sale-card.exclude { border-color: var(--red); background: #FFF0F0; opacity: 0.6; }
+    .sale-card-badge { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; z-index: 2; }
+    .sale-card.include .sale-card-badge { background: var(--green-mid); color: white; }
+    .sale-card.exclude .sale-card-badge { background: var(--red); color: white; }
+    .sale-card-img { width: 100%; height: 110px; object-fit: contain; background: #FAFAF5; display: block; padding: 6px; }
+    .sale-card-img-ph { width: 100%; height: 110px; background: #FAFAF5; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+    .sale-card-body { padding: 10px; }
+    .sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; height: 32px; overflow: hidden; margin-bottom: 6px; }
+    .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
+    .sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
+    .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
+    .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; }
+    .sale-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .sale-filter-btn { padding: 6px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .sale-filter-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }
+    .sale-summary { display: flex; gap: 12px; margin-bottom: 16px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
+    .sale-summary span { padding: 6px 12px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
+    <g transform="translate(4, 2)">
+      <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+      <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+      <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+        <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+        <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+        <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+        <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+        <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+      </g>
+    </g>
+    <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+      <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+    </text>
+  </svg>
+  <div class="logo-text" style="margin-left:-4px">
+    <p>MEALS FROM DEALS</p>
+  </div>
+  <div class="header-right">
+    <div class="progress-bar" id="progressBar"></div>
+    <a href="/profile.html" class="profile-btn" id="profileBtn">
+      <span id="profileBtnIcon">👤</span>
+      <span id="profileBtnText">Sign In</span>
+    </a>
+  </div>
+</header>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading…</div>
+  <div class="loading-sub" id="loadingSub"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Recipe Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal">
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<main>
+
+  <!-- SCREEN 1: ZIP -->
+  <div class="screen active" id="screen1">
+    <span class="hero-emoji">🛒</span>
+    <h2 class="hero-title">What's on sale near you?</h2>
+    <p class="hero-sub">Enter your zip to find deals & get recipe ideas based on this week's sales.</p>
+    <div class="zip-box">
+      <label class="zip-label" for="zipInput">Your Zip Code</label>
+      <div class="zip-row">
+        <input id="zipInput" type="text" maxlength="5" placeholder="e.g. 43210" inputmode="numeric" />
+        <button class="btn btn-primary" id="zipBtn" style="width:auto;padding:13px 22px" disabled>Find Stores →</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;justify-content:center">
+        <label style="font-size:13px;color:var(--muted);font-weight:600">Distance:</label>
+        <select id="radiusSelect" style="padding:8px 12px;border:2px solid #D0C5A0;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);cursor:pointer">
+          <option value="5">5 miles</option>
+          <option value="10" selected>10 miles</option>
+          <option value="15">15 miles</option>
+          <option value="25">25 miles</option>
+          <option value="50">50 miles</option>
+        </select>
+      </div>
+      <p class="zip-hint">We'll find every store with deals near you</p>
+    </div>
+    <div class="feature-row">
+      <div class="feature-chip"><div class="f-icon">🏪</div><div class="f-label">Real stores</div></div>
+      <div class="feature-chip"><div class="f-icon">🏷️</div><div class="f-label">Live deals</div></div>
+      <div class="feature-chip"><div class="f-icon">🍽️</div><div class="f-label">20-50 recipes</div></div>
+      <div class="feature-chip"><div class="f-icon">💰</div><div class="f-label">Max savings</div></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: PICK STORE BRANDS -->
+  <div class="screen" id="screen2">
+    <span class="back" onclick="goTo(1)">← Back</span>
+    <h2 class="screen-title" id="storesTitle">Stores near you</h2>
+    <p class="screen-sub">Select one or more stores to find deals</p>
+    <div id="storesList"></div>
+    <button class="btn btn-primary" id="storesBtn" disabled onclick="onStoresPicked()">View Deals →</button>
+  </div>
+
+  <!-- SCREEN 3: KROGER LOCATION (conditional) -->
+  <div class="screen" id="screen3">
+    <span class="back" onclick="goTo(2)">← Back</span>
+    <h2 class="screen-title">Choose your Kroger store</h2>
+    <p class="screen-sub">Select a specific location for the best deals</p>
+    <div id="krogerLocationsList"></div>
+    <button class="btn btn-primary" id="krogerBtn" disabled onclick="onKrogerPicked()">Continue →</button>
+  </div>
+
+  <!-- SCREEN 4: SALE ITEMS BROWSER -->
+  <div class="screen" id="screen4">
+    <span class="back" onclick="goBackFromDeals()">← Back</span>
+    <h2 class="screen-title" id="dealsTitle">This week's deals</h2>
+    <p class="screen-sub">Tap items: green ✓ = must include, red ✕ = exclude</p>
+
+    <div class="section-title" style="margin-top:8px">🛒 Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning…" style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+    <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy — these get added to your shopping list and recipe cost</p>
+
+    <div class="section-title" style="margin-top:12px">🏠 Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions…" style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+    <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have — these won't be added to cost</p>
+
+    <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
+    <div class="sale-filters" id="saleStoreFilters"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
+    <div class="sale-filters" id="saleCategoryFilters"></div>
+    <div class="sale-grid" id="saleGrid"></div>
+
+    <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes →</button>
+  </div>
+
+  <!-- SCREEN 5: RECIPE STYLE + FILTERS -->
+  <div class="screen" id="screen5">
+    <span class="back" onclick="goTo(4)">← Change Items</span>
+    <h2 class="screen-title">What kind of meals?</h2>
+    <p class="screen-sub" id="dealsLoadedMsg">Pick a recipe style and we'll create meals from your deals</p>
+
+    <div class="section-title" style="margin-top:0">Recipe Style</div>
+    <div class="meal-grid" id="styleGrid"></div>
+
+    <div class="section-title">Dietary Restrictions <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <div class="filter-grid" id="filterGrid"></div>
+
+    <button class="btn btn-primary" id="findRecipesBtn" disabled onclick="searchRecipes()">🍽️ Generate Recipes with AI →</button>
+  </div>
+
+  <!-- SCREEN 6: RECIPE GRID -->
+  <div class="screen" id="screen6">
+    <span class="back" onclick="goTo(5)">← Change Filters</span>
+    <div class="results-header">
+      <div>
+        <h2 class="screen-title" id="recipesTitle">Your Recipes</h2>
+        <div class="results-count" id="resultsCount"></div>
+      </div>
+      <div class="sort-row">
+        <button class="sort-btn active" id="sort-savings" onclick="sortRecipes('savings')">💰 Best Savings</button>
+        <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">⏱ Quickest</button>
+        <button class="sort-btn" id="sort-ingredients" onclick="sortRecipes('ingredients')">🏷️ Most Deals</button>
+      </div>
+    </div>
+    <div class="recipe-grid" id="recipeGrid"></div>
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-gradient" id="moreRecipesBtn" onclick="loadMoreRecipes()">🤖 Generate 8 More Recipes</button>
+      <button class="btn btn-outline" onclick="goTo(5)">← Change Style</button>
+      <button class="btn btn-outline" onclick="goTo(1); resetApp()">🔄 Start Over</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const SUPABASE_URL = "https://gkzlwzafnkqwxwiootah.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdremx3emFmbmtxd3h3aW9vdGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NzgyMTMsImV4cCI6MjA2MzM1NDIxM30.a3GFTA9UOS5I7Oy6U3tMc1JssYHxMcTm0Mq0RqXKJms";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function checkAuth() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) {
+      const { data } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
+      const name = data?.full_name || session.user.email?.split("@")[0] || "You";
+      document.getElementById("profileBtnIcon").innerHTML = `<span class="profile-avatar">${name[0].toUpperCase()}</span>`;
+      document.getElementById("profileBtnText").textContent = name.split(" ")[0];
+      document.getElementById("profileBtn").classList.add("logged-in");
+    }
+  } catch (e) {}
+}
+checkAuth();
+
+const RECIPE_STYLES = [
+  { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },
+  { id:"Family-Friendly", icon:"👨‍👩‍👧‍👦", label:"Family-Friendly", sub:"Kids will eat it" },
+  { id:"Comfort Food", icon:"🍲", label:"Comfort Food", sub:"Casseroles, soups, one-pot" },
+  { id:"Meal Prep", icon:"📦", label:"Meal Prep", sub:"Great leftovers" },
+  { id:"Healthy & Light", icon:"🥗", label:"Healthy & Light", sub:"Under 500 cal/serving" },
+  { id:"Slow Cooker", icon:"🫕", label:"Slow Cooker", sub:"Set it and forget it" },
+];
+const DIET_FILTERS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Paleo","Low Calorie","High Fiber","Pescetarian","Mediterranean","Halal","Kosher"];
+
+let state = {
+  zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
+  deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
+  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(),
+};
+
+function goTo(step) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(`screen${step}`).classList.add("active");
+  renderProgress(step);
+  window.scrollTo({ top:0, behavior:"smooth" });
+  if (step === 5) { renderStyleGrid(); renderFilterGrid(); }
+}
+function renderProgress(step) {
+  document.getElementById("progressBar").innerHTML = Array.from({length:6},(_,i) => {
+    const a = i < step;
+    return `<div class="pip" style="width:${a?20:8}px;background:${a?"var(--green-mid)":"#D5D5D5"}"></div>`;
+  }).join("");
+}
+function resetApp() {
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set() };
+  document.getElementById("zipInput").value = "";
+  document.getElementById("zipBtn").disabled = true;
+}
+function showLoading(text, sub="") { document.getElementById("loadingText").textContent=text; document.getElementById("loadingSub").textContent=sub; document.getElementById("loadingOverlay").classList.add("show"); }
+function hideLoading() { document.getElementById("loadingOverlay").classList.remove("show"); }
+function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
+
+// ── Screen 1 ──────────────────────────────────────────────────────────────────
+document.getElementById("zipInput").addEventListener("input", function() { this.value=this.value.replace(/\D/g,"").slice(0,5); document.getElementById("zipBtn").disabled=this.value.length<5; });
+document.getElementById("zipInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("zipBtn").click(); });
+document.getElementById("zipBtn").addEventListener("click", findStores);
+
+const BANNER_INFO = {
+  "kroger":{emoji:"🛒",color:"#003DA5"},"ralphs":{emoji:"🌴",color:"#E31837"},"fred meyer":{emoji:"🏔️",color:"#003DA5"},
+  "king soopers":{emoji:"👑",color:"#E31837"},"harris teeter":{emoji:"🌿",color:"#007A33"},"smith's":{emoji:"🏜️",color:"#003DA5"},
+  "fry's":{emoji:"☀️",color:"#E31837"},"qfc":{emoji:"🏪",color:"#003DA5"},"dillons":{emoji:"🌾",color:"#003DA5"},
+  "mariano":{emoji:"🛒",color:"#003DA5"},"pick n save":{emoji:"🛒",color:"#003DA5"},
+  "aldi":{emoji:"🟥",color:"#CC0000"},"walmart":{emoji:"🔵",color:"#0071CE"},
+  "publix":{emoji:"🟢",color:"#3B8736"},"target":{emoji:"🎯",color:"#CC0000"},"meijer":{emoji:"🔴",color:"#D11242"},
+  "giant eagle":{emoji:"🦅",color:"#003DA5"},"albertsons":{emoji:"🔷",color:"#0071CE"},"safeway":{emoji:"🔴",color:"#E21836"},
+  "h-e-b":{emoji:"🌟",color:"#E21836"},"food lion":{emoji:"🦁",color:"#FF6600"},"sprouts":{emoji:"🌱",color:"#5B8C2A"},
+  "fresh thyme":{emoji:"🌿",color:"#4A7C2E"},"grocery outlet":{emoji:"💰",color:"#E31837"},"dollar general":{emoji:"💵",color:"#FDB71A"},
+  "costco":{emoji:"🏬",color:"#005DAA"},"marc's":{emoji:"🏷️",color:"#E31837"},"wegman":{emoji:"🏪",color:"#003DA5"},
+  "lidl":{emoji:"🟡",color:"#0050AA"},"family dollar":{emoji:"💵",color:"#FF6600"},"save a lot":{emoji:"💰",color:"#E31837"},
+  "hy-vee":{emoji:"🔴",color:"#E31837"},"hyvee":{emoji:"🔴",color:"#E31837"},"winn-dixie":{emoji:"🏪",color:"#D6001C"},
+  "shoprite":{emoji:"🛒",color:"#D4001A"},"piggly wiggly":{emoji:"🐷",color:"#E31837"},"winco":{emoji:"💰",color:"#005A33"},
+  "trader joe":{emoji:"🌺",color:"#CC0000"},"acme":{emoji:"🔴",color:"#E21836"},"jewel":{emoji:"💎",color:"#E31837"},
+  "shaw":{emoji:"🏪",color:"#E31837"},"tom thumb":{emoji:"🏪",color:"#E31837"},"randall":{emoji:"🏪",color:"#E31837"},
+  "vons":{emoji:"🔴",color:"#E21836"},"carrs":{emoji:"🏪",color:"#E21836"},
+};
+function getBanner(name) { const k=(name||"").toLowerCase(); for(const[b,info]of Object.entries(BANNER_INFO)){if(k.includes(b))return info;} return{emoji:"🏪",color:"#666"}; }
+
+const KROGER_BANNERS=["kroger","ralphs","fred meyer","king soopers","harris teeter","smith's","fry's","qfc","mariano's","dillons","pick n save","city market","baker's"];
+function isKrogerFamily(name){const k=(name||"").toLowerCase();return KROGER_BANNERS.some(b=>k.includes(b));}
+
+async function findStores() {
+  const zip=document.getElementById("zipInput").value; if(zip.length<5)return;
+  state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
+  showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
+  try {
+    const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
+      fetch(`/api/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
+      fetch(`/api/aldi/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
+      fetch(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`).then(r=>r.json()),
+    ]);
+    const allStores=[];
+    if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
+    if(aldiRes.status==="fulfilled")allStores.push(...aldiRes.value);
+
+    // Add nearby stores from Google Places (excluding Kroger/ALDI which are already handled)
+    if(nearbyRes.status==="fulfilled" && nearbyRes.value.stores) {
+      const nearbyStores = nearbyRes.value.stores
+        .filter(s => s.name !== "Kroger" && s.name !== "ALDI")
+        .filter(s => s.hasDeals || s.canExtract) // only show stores we can get ads for
+        .map(s => ({
+          name: s.name,
+          address: s.count > 1 ? `${s.count} locations nearby` : (s.address || "Nearby"),
+          source: "nearby",
+          storeName: s.name,
+          hasDeals: s.hasDeals,
+        }));
+      allStores.push(...nearbyStores);
+    }
+
+    const brandMap=new Map();
+    for(const s of allStores){
+      let brandName;
+      if(isKrogerFamily(s.name))brandName="Kroger";
+      else if(s.name.toLowerCase().includes("aldi"))brandName="ALDI";
+      else brandName=s.name.trim();
+      if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[],hasDeals:s.hasDeals||s.source==="kroger"||s.source==="aldi"});}
+      const brand=brandMap.get(brandName);
+      brand.stores.push(s);
+      if(s.hasDeals)brand.hasDeals=true;
+    }
+    state.storeBrands=[...brandMap.values()].sort((a,b)=>{
+      // Sort: stores with deals first, then alphabetical
+      if(a.hasDeals && !b.hasDeals) return -1;
+      if(!a.hasDeals && b.hasDeals) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    if(!state.storeBrands.length)throw new Error("No stores found near that zip code.");
+    renderStoreBrands(); goTo(2);
+  } catch(err){showToast(err.message);} finally{hideLoading();}
+}
+
+// ── Screen 2: Store Brands ────────────────────────────────────────────────────
+function renderStoreBrands() {
+  document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
+  document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
+    <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${b.name.replace(/'/g,"\\'")}')">
+      <div class="store-row">
+        <div style="width:44px;height:44px;border-radius:12px;background:${b.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${b.emoji}</div>
+        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
+        <div class="store-check">✓</div>
+      </div>
+    </div>`).join("");
+}
+async function toggleBrand(name) {
+  const brand=state.storeBrands.find(b=>b.name===name);
+  const elId=`brand-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const addrId=`addr-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;
+
+  // If store has no deals, trigger on-demand extraction
+  if(brand && !brand.hasDeals) {
+    const addrEl=document.getElementById(addrId);
+    if(addrEl)addrEl.innerHTML=`<span style="color:var(--orange);font-size:11px">🔍 Searching for deals...</span>`;
+
+    try {
+      const res=await fetch("/api/extract-store",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({storeName:name})});
+      const data=await res.json();
+
+      if(data.status==="ready") {
+        brand.hasDeals=true;
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${data.deals} deals found! Tap again to select</span>`;
+      } else if(data.status==="extracting") {
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--orange);font-size:11px">⏳ Extracting deals (~2 min)...</span>`;
+        // Poll for completion
+        const poll=setInterval(async()=>{
+          try {
+            const s=await fetch(`/api/extract-status?store=${encodeURIComponent(name)}`).then(r=>r.json());
+            if(s.status==="ready"){
+              clearInterval(poll);
+              brand.hasDeals=true;
+              if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
+            }
+          } catch{}
+        },10000); // check every 10 seconds
+        // Stop polling after 5 minutes
+        setTimeout(()=>clearInterval(poll),300000);
+      } else if(data.status==="not-found") {
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--muted);font-size:11px">No weekly ad found</span>`;
+      }
+    } catch(e) {
+      const addrEl2=document.getElementById(addrId);
+      if(addrEl2)addrEl2.innerHTML=`<span style="color:var(--muted);font-size:11px">Could not find deals</span>`;
+    }
+    return; // don't toggle selection yet — wait for deals
+  }
+
+  // Normal toggle for stores with deals
+  const idx=state.selectedBrands.indexOf(name);
+  if(idx>-1)state.selectedBrands.splice(idx,1); else state.selectedBrands.push(name);
+  const el=document.getElementById(elId);
+  if(el)el.classList.toggle("selected",state.selectedBrands.includes(name));
+  const n=state.selectedBrands.length; const btn=document.getElementById("storesBtn");
+  btn.disabled=n===0; btn.textContent=n>0?`View Deals from ${n} Store${n>1?"s":""} →`:"View Deals →";
+}
+
+// ── Screen 2 → 3 or 4 ────────────────────────────────────────────────────────
+function onStoresPicked() {
+  if(state.selectedBrands.includes("Kroger")){
+    const kb=state.storeBrands.find(b=>b.name==="Kroger");
+    state.krogerLocations=kb?kb.stores:[];
+    if(state.krogerLocations.length>1){renderKrogerLocations();goTo(3);return;}
+    else if(state.krogerLocations.length===1)state.selectedKrogerId=state.krogerLocations[0].id;
+  }
+  loadDealsAndShow();
+}
+
+// ── Screen 3: Kroger Location ─────────────────────────────────────────────────
+function renderKrogerLocations() {
+  document.getElementById("krogerLocationsList").innerHTML=state.krogerLocations.map(s=>{
+    const info=getBanner(s.name);
+    return `<div class="card clickable" id="kloc-${s.id}" onclick="pickKrogerLocation('${s.id}')">
+      <div class="store-row">
+        <div style="width:44px;height:44px;border-radius:12px;background:${info.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${info.emoji}</div>
+        <div style="flex:1"><div class="store-name">${s.name}</div><div class="store-addr">${s.address}${s.hours?" · "+s.hours:""}</div></div>
+        <div class="store-check">✓</div>
+      </div>
+    </div>`;}).join("");
+}
+function pickKrogerLocation(id) {
+  state.selectedKrogerId=id;
+  document.querySelectorAll("[id^='kloc-']").forEach(el=>el.classList.remove("selected"));
+  document.getElementById(`kloc-${id}`).classList.add("selected");
+  document.getElementById("krogerBtn").disabled=false;
+}
+function onKrogerPicked(){loadDealsAndShow();}
+function goBackFromDeals(){if(state.selectedBrands.includes("Kroger")&&state.krogerLocations.length>1)goTo(3);else goTo(2);}
+
+// ── Load Deals → Screen 4 ────────────────────────────────────────────────────
+async function loadDealsAndShow() {
+  showLoading("Loading this week's deals…","Fetching sale items from your stores");
+  try {
+    // Use the regional deals endpoint — fetches Kroger + ALDI + ad-extracted deals
+    const params = new URLSearchParams({ zip: state.zip });
+    if (state.selectedKrogerId) params.set("locationId", state.selectedKrogerId);
+    const res = await fetch(`/api/deals/regional?${params}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to fetch deals");
+
+    let allDeals = data.deals || [];
+
+    // Filter to only selected brands
+    const selectedLower = state.selectedBrands.map(b => b.toLowerCase());
+    allDeals = allDeals.filter(d => {
+      const store = (d.storeName || d.source || "").toLowerCase();
+      // Kroger family: if user selected "Kroger", include all kroger-source deals
+      if (d.source === "kroger" && selectedLower.some(b => b === "kroger" || store.includes(b))) return true;
+      // ALDI
+      if (d.source === "aldi" && selectedLower.includes("aldi")) return true;
+      // Ad-extracted deals: match by storeName
+      if (d.source === "ad-extract") return selectedLower.some(b => store.includes(b));
+      // Fallback
+      return selectedLower.some(b => store.includes(b));
+    });
+
+    // Log sources for debugging
+    if (data.sources) {
+      console.log("Deal sources:", data.sources);
+      console.log("Available chains:", data.availableChains);
+    }
+
+    state.coupons=[];state.boostDeals=[];
+    if(state.selectedBrands.includes("Kroger")){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];}}}catch(e){}}
+    const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
+    state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
+    state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
+    renderSaleItems(); goTo(4);
+  }catch(err){showToast(err.message);}finally{hideLoading();}
+}
+
+// ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
+function renderSaleItems() {
+  const CATEGORY_GROUPS = {
+    "🥩 Meat":["chicken","beef","pork","ground beef","steak","salmon","shrimp","turkey","sausage","bacon","hot dogs","tilapia","tuna","lamb","ribs","roast","meatballs","chicken breast","chicken thighs","cod","seafood"],
+    "🥬 Produce":["apples","bananas","oranges","strawberries","grapes","avocado","tomatoes","potatoes","onions","broccoli","carrots","lettuce","spinach","peppers","mushrooms","celery","corn","cucumber","lemons","limes","blueberries","fruit","vegetables"],
+    "🧀 Dairy":["milk","eggs","cheese","butter","yogurt","cream cheese","sour cream","shredded cheese","cottage cheese","dairy"],
+    "🥫 Pantry":["pasta","rice","bread","cereal","oatmeal","flour","sugar","canned tomatoes","beans","soup","broth","peanut butter","olive oil","salsa","tortillas","ketchup","mustard","mayonnaise","vegetable oil","vinegar","soy sauce","condiments","sauce","oil","dressing","spices","seasoning","noodles","grains","tortilla"],
+    "🧊 Frozen":["frozen pizza","frozen vegetables","ice cream","frozen fruit","frozen meals","frozen chicken","frozen shrimp","frozen seafood"],
+    "🍿 Snacks":["chips","crackers","nuts","juice","coffee","tea","snacks","popcorn","beverages","soda","water"],
+  };
+  function getCatGroup(cat){const c=(cat||"").toLowerCase();for(const[g,terms]of Object.entries(CATEGORY_GROUPS)){if(terms.some(t=>c.includes(t)||t.includes(c)))return g;}return"Other";}
+
+  let deals=state.deals;
+  if(state.saleStoreFilter!=="all")deals=deals.filter(d=>(d.storeName||d.source||"").toLowerCase().includes(state.saleStoreFilter.toLowerCase()));
+  if(state.saleCategoryFilter!=="all")deals=deals.filter(d=>getCatGroup(d.category)===state.saleCategoryFilter);
+
+  const ic=Object.values(state.dealStates).filter(v=>v==="include").length;
+  const ec=Object.values(state.dealStates).filter(v=>v==="exclude").length;
+  document.getElementById("saleSummary").innerHTML=`
+    <span style="background:var(--green-light);color:var(--green-dark)">✓ ${ic} must-include</span>
+    <span style="background:#FFF0F0;color:var(--red)">✕ ${ec} excluded</span>
+    <span style="background:#F5F0E8;color:#5A4A30">${state.deals.length} total</span>`;
+
+  const storeNames=[...new Set(state.deals.map(d=>d.storeName||d.source||"Other"))].sort();
+  document.getElementById("saleStoreFilters").innerHTML=`
+    <button class="sale-filter-btn ${state.saleStoreFilter==='all'?'active':''}" onclick="filterSaleStore('all')">All</button>
+    ${storeNames.map(s=>`<button class="sale-filter-btn ${state.saleStoreFilter===s?'active':''}" onclick="filterSaleStore('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("")}`;
+
+  const catGroups=[...new Set(state.deals.map(d=>getCatGroup(d.category)))].sort();
+  document.getElementById("saleCategoryFilters").innerHTML=`
+    <button class="sale-filter-btn ${state.saleCategoryFilter==='all'?'active':''}" onclick="filterSaleCategory('all')">All</button>
+    ${catGroups.map(c=>`<button class="sale-filter-btn ${state.saleCategoryFilter===c?'active':''}" onclick="filterSaleCategory('${c}')">${c}</button>`).join("")}`;
+
+  document.getElementById("dealsTitle").textContent=`This week's deals (${deals.length})`;
+  document.getElementById("saleGrid").innerHTML=deals.map(d=>{
+    const ds=state.dealStates[d.id]||"";
+    const cls=ds==="include"?"include":ds==="exclude"?"exclude":"";
+    const badge=ds==="include"?"✓":ds==="exclude"?"✕":"";
+    const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
+    const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
+    const unit=d.priceUnit||"";
+    return `<div class="sale-card ${cls}" onclick="cycleDealState('${d.id}')">
+      ${pct?`<div class="sale-card-pct">${pct} off</div>`:""}
+      ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
+      ${d.image?`<img class="sale-card-img" src="${d.image}" alt="${d.name}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
+      <div class="sale-card-body">
+        <div class="sale-card-name">${d.name}</div>
+        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}${unit}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}${unit}</span>`:""}</div>
+        ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${d.saleStory}</div>`:""}
+        <div class="sale-card-store">${store}</div>
+      </div></div>`;}).join("");
+}
+function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}
+function filterSaleStore(s){state.saleStoreFilter=s;renderSaleItems();}
+function filterSaleCategory(c){state.saleCategoryFilter=c;renderSaleItems();}
+
+// ── Screen 5: Meal + Filters ──────────────────────────────────────────────────
+function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${m.id.replace(/'/g,"\\'")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${m.label}</div><div style="font-size:11px;color:#999;margin-top:2px">${m.sub}</div></div>`).join("");document.getElementById("findRecipesBtn").disabled=!state.selectedStyle;}
+function selectStyle(id){state.selectedStyle=id;document.querySelectorAll(".meal-card").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");document.getElementById("findRecipesBtn").disabled=false;}
+function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${f}')">${f}</div>`).join("");}
+function toggleFilter(el,f){el.classList.toggle("selected");const i=state.selectedDiets.indexOf(f);if(i>-1)state.selectedDiets.splice(i,1);else state.selectedDiets.push(f);}
+
+// ── Screen 5 → 6: Search Recipes ─────────────────────────────────────────────
+function getRecipePayload(offset) {
+  const excluded=new Set(Object.entries(state.dealStates).filter(([,v])=>v==="exclude").map(([k])=>k));
+  const mustInclude=new Set(Object.entries(state.dealStates).filter(([,v])=>v==="include").map(([k])=>k));
+  const selectedDeals=state.deals.filter(d=>!excluded.has(d.id));
+  if(!selectedDeals.length) return null;
+  const mustFirst=[...selectedDeals.filter(d=>mustInclude.has(d.id)).map(d=>({...d,mustInclude:true})),...selectedDeals.filter(d=>!mustInclude.has(d.id))];
+  const wantItems=(document.getElementById("wantItems")?.value||"").trim();
+  const haveItems=(document.getElementById("haveItems")?.value||"").trim();
+  return {
+    ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
+    style:state.selectedStyle, diets:state.selectedDiets, wantItems, haveItems, offset:offset||0
+  };
+}
+
+async function searchRecipes() {
+  const payload=getRecipePayload(0);
+  if(!payload){showToast("All deals excluded — unmark some items");return;}
+  state.recipeOffset=0;
+  showLoading("🤖 AI is cooking up recipes…",`Matching sale items to ${state.selectedStyle} meals`);
+  try {
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||"Could not generate recipes");
+    if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
+    state.recipes=data.recipes;
+    state.recipeOffset=8;
+    renderRecipeGrid(); goTo(6);
+  }catch(err){showToast(err.message);}finally{hideLoading();}
+}
+
+async function loadMoreRecipes() {
+  const payload=getRecipePayload(state.recipeOffset);
+  if(!payload){showToast("Error loading more recipes");return;}
+  const btn=document.getElementById("moreRecipesBtn");
+  btn.disabled=true; btn.textContent="🤖 Generating…";
+  showLoading("🤖 Cooking up more recipes…",`Batch ${Math.floor(state.recipeOffset/8)+1} — finding new ideas`);
+  try {
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||"Could not generate recipes");
+    if(data.recipes?.length){
+      state.recipes.push(...data.recipes);
+      state.recipeOffset+=8;
+      renderRecipeGrid();
+      showToast(`${data.recipes.length} more recipes added!`,"success");
+    } else { showToast("No more recipes found. Try a different style."); }
+  }catch(err){showToast(err.message);}finally{
+    hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 8 More Recipes";
+  }
+}
+function sortRecipes(by){document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="savings")state.recipes.sort((a,b)=>b.totalSavings-a.totalSavings);if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
+
+function renderRecipeGrid(){
+  const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Recipes"};
+  const diets=state.selectedDiets.length?` · ${state.selectedDiets.join(", ")}`:"";
+  document.getElementById("recipesTitle").textContent=`${styleInfo.icon} ${styleInfo.label} Recipes`;
+  document.getElementById("resultsCount").textContent=`${state.recipes.length} AI-generated recipes${diets}`;
+  document.getElementById("recipeGrid").innerHTML=state.recipes.map((r,i)=>{
+    const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
+    return `<div class="recipe-card-tile" onclick="openModal(${i})">
+      ${r.image?`<img class="recipe-card-img" src="${r.image}" alt="${r.title}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder" style="font-size:48px;padding:30px 0">${emoji}</div>`}
+      <div class="recipe-card-body"><div class="recipe-card-title">${r.title}</div><div class="recipe-card-meta">
+        ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${r.time}</span>`:""}
+        ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
+        ${r.totalSavings>0?`<span class="meta-chip meta-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
+        <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
+      </div></div></div>`;}).join("");
+}
+
+// ── Recipe Modal ──────────────────────────────────────────────────────────────
+function getCartLabel(){if(state.selectedBrands.includes("Kroger"))return"🛒 Add to Kroger Cart";if(state.selectedBrands.includes("Walmart"))return"🔵 Shop at Walmart";if(state.selectedBrands.includes("ALDI"))return"🟥 Shop at ALDI";return"🛒 Shop Ingredients";}
+function openModal(i){state.currentRecipe={...state.recipes[i],index:i};renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
+function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
+function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
+
+function renderModal(r){
+  const isSaved=state.savedRecipeIds.has(r.title);const cartLabel=getCartLabel();
+  document.getElementById("modalContent").innerHTML=`
+    ${r.image?`<img class="modal-img" src="${r.image}" alt="${r.title}" />${r.photoCredit?`<div style="text-align:center;font-size:10px;color:#999;padding:4px 0">Photo by ${r.photoCredit} on <a href="${r.photoUrl||'https://pexels.com'}" target="_blank" style="color:#999">Pexels</a></div>`:""}`:`<div class="modal-img-placeholder">🍽️</div>`}
+    <div class="modal-body">
+      <div class="modal-header"><div class="modal-title">${r.title}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-stats">
+        ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${r.time}</span>`:""}
+        <span class="stat-pill stat-servings">👥 ${r.servings} servings</span>
+        ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.regularPriceTotal>r.estimatedCost?` <s style="opacity:0.5">$${r.regularPriceTotal.toFixed(2)}</s>`:""}</span>`:""}
+        ${r.totalSavings>0?`<span class="stat-pill stat-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
+        ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
+      </div>
+      ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
+        const costNum=ing.actualCost||String(ing.salePrice).replace(/[^0-9.]/g,"");
+        const cost=ing.isPerLb?`≈ $${costNum}`:`$${costNum}`;
+        const pkgNote=ing.packageNote?`<div style="font-size:10px;color:#666">${ing.packageNote}</div>`:"";
+        const perLbLine=ing.isPerLb?`<div style="font-size:10px;color:#999">${ing.salePrice} <s style="opacity:0.5">${ing.regularPrice}</s></div>`:"";
+        const regPrice=!ing.isPerLb&&ing.regularPrice&&ing.regularPrice!=="—"?`<span class="ing-reg-price">$${String(ing.regularPrice).replace(/[^0-9.]/g,"")}</span>`:"";
+        return `<div class="ing-row on-sale"><span>✅ ${ing.name}${ing.storeName?` <span style="font-size:9px;color:#999">(${ing.storeName})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
+      }).join("")}</div></div>`:""}
+      ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">✂️ Clip These Coupons</div><div class="coupon-list">${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}"><span>${c.clipped?"✅":"✂️"} ${c.description}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}</div></div>`:""}
+      <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map(ing=>{
+        const type=ing.type||"PANTRY";
+        const isOnSale=type==="SALE"&&ing.onSale;
+        const isOnHand=type==="ON_HAND";
+        const isAdditional=type==="ADDITIONAL";
+        const icon=isOnSale?"🏷️":isOnHand?"🏠":isAdditional?"🛒":"🫙";
+        const label=isOnSale?"ON SALE":isOnHand?"ON HAND":isAdditional?"TO BUY":"PANTRY";
+        const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
+        const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
+        const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${ing.name}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
+      }).join("")}</div></div>
+      ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${step}</div></div>`).join("")}</div></div>`:""}
+      <div class="cart-success-msg" id="cartSuccessMsg">✅ Items added to your cart!</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
+        <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>
+        <button class="modal-btn modal-btn-cart" id="cartBtn" onclick="addToCart()">${cartLabel}</button>
+      </div></div>`;
+}
+
+async function saveRecipe(){
+  const{data:{session}}=await sb.auth.getSession();if(!session){showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
+  const r=state.currentRecipe;if(state.savedRecipeIds.has(r.title)){showToast("Already saved!","success");return;}
+  try{const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},
+    body:JSON.stringify({title:r.title,emoji:"🍽️",time:r.time,servings:r.servings,difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""})});
+    if(res.ok){state.savedRecipeIds.add(r.title);document.getElementById("saveBtn").textContent="❤️ Saved!";document.getElementById("saveBtn").classList.add("saved");showToast("Recipe saved!","success");}
+  }catch(e){showToast("Could not save recipe");}
+}
+
+function showShoppingList(){
+  const r=state.currentRecipe;const cartLabel=getCartLabel();
+  const saleRows=(r.usedSaleItems||[]).map(i=>{
+    const costNum=i.actualCost||String(i.salePrice).replace(/[^0-9.]/g,"");
+    const cost=i.isPerLb?`≈ $${costNum}`:`$${costNum}`;
+    const pkgDetail=i.packageNote?`<div style="font-size:10px;color:#666">${i.packageNote}</div>`:"";
+    const perLb=i.isPerLb?`<div style="font-size:10px;color:#999">${i.salePrice}</div>`:"";
+    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--green-mid)" /><span style="font-weight:600">${i.name}</span></div><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${i.storeName||""}</span></div></div>`;
+  }).join("");
+  const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${i.name}</span></div>`).join("");
+  const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${i.name}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
+  const perServing=r.estimatedCost>0&&r.servings?`$${(r.estimatedCost/r.servings).toFixed(2)}/serving`:"";
+  document.getElementById("modalContent").innerHTML=`<div class="modal-body">
+    <div class="modal-header"><div class="modal-title">📋 Shopping List</div><button class="modal-close" onclick="renderModal(state.currentRecipe)">✕</button></div>
+    <p style="font-style:italic;color:var(--muted);font-size:14px;margin-bottom:16px">For: ${r.title} (${r.servings} servings)</p>
+    ${saleRows?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale Items</div>${saleRows}</div>`:""}
+    ${additionalRows?`<div class="modal-section"><div class="modal-section-title">🛒 Items to Buy</div>${additionalRows}</div>`:""}
+    ${pantryRows?`<div class="modal-section"><div class="modal-section-title">🫙 Pantry / On Hand</div>${pantryRows}</div>`:""}
+    <div style="background:var(--green-light);border:2px solid var(--green-mid);border-radius:14px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:700;color:var(--green-dark)">With This Week's Deals</div>
+        <div style="font-size:24px;font-weight:800;color:var(--green-dark)">${(r.usedSaleItems||[]).some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost?.toFixed(2)||"?"}</div>
+      </div>
+      ${(r.usedSaleItems||[]).some(i=>i.isPerLb)?`<div style="font-size:10px;color:#666;margin-bottom:6px">* Per-lb items are estimated based on typical package sizes</div>`:""}
+      ${r.regularPriceTotal>r.estimatedCost?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:12px;color:#999">Without deals</div>
+        <div style="font-size:14px;color:#999;text-decoration:line-through">$${r.regularPriceTotal.toFixed(2)}</div>
+      </div>`:""}
+      ${r.totalSavings>0?`<div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:12px;color:var(--orange);font-weight:700">You save</div>
+        <div style="font-size:16px;color:var(--orange);font-weight:800">≈ $${r.totalSavings.toFixed(2)}</div>
+      </div>`:""}
+      ${perServing?`<div style="text-align:right;font-size:11px;color:var(--green-dark);margin-top:6px">${perServing}</div>`:""}
+    </div>
+    <div class="modal-actions"><button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">← Back</button><button class="modal-btn modal-btn-cart" onclick="addToCart()">${cartLabel}</button></div></div>`;
+}
+
+async function addToCart(){
+  if(!state.selectedBrands.includes("Kroger")){
+    const r=state.currentRecipe;const q=encodeURIComponent((r.title||"grocery").split(" ").slice(0,3).join(" "));
+    if(state.selectedBrands.includes("Walmart")){window.open(`https://www.walmart.com/search?q=${q}`,"_blank");showToast("Opening Walmart!","success");}
+    else if(state.selectedBrands.includes("ALDI")){window.open(`https://www.aldi.us/search?query=${q}`,"_blank");showToast("Opening ALDI!","success");}
+    else{window.open(`https://www.google.com/search?q=${q}+grocery`,"_blank");showToast("Opening search!","success");}
+    return;
+  }
+  const{data:{session}}=await sb.auth.getSession();if(!session){showToast("Sign in to add to cart");window.location.href="/profile.html";return;}
+  const items=(state.currentRecipe.usedSaleItems||[]).filter(i=>i.upc).map(i=>({upc:i.upc,quantity:1}));
+  if(!items.length){showToast("No UPC items to add");return;}
+  try{const res=await fetch("/api/cart",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({items})});
+    if(res.ok){document.getElementById("cartSuccessMsg").style.display="block";showToast("Added to Kroger cart!","success");}else throw new Error("Cart error");
+  }catch(e){showToast("Could not add to cart — connect Kroger in profile");}
+}
+</script>
+</body>
+</html>

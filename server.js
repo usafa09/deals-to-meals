@@ -695,7 +695,7 @@ app.get("/api/nearby-stores", async (req, res) => {
     // Check cache first
     const cached = await getCachedStores(zip, cacheKey);
     if (cached) {
-      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI");
+      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart");
       console.log(`Nearby stores for ${zip} (${miles}mi): ${filtered.length} stores [cached]`);
       return res.json({ stores: filtered, cached: true });
     }
@@ -819,8 +819,8 @@ app.get("/api/nearby-stores", async (req, res) => {
       .map(s => ({
         ...s,
         hasDeals: storesWithDeals.has(normalizeName(s.name))
-          || s.name === "Kroger" || s.name === "ALDI",
-        canExtract: !!findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI",
+          || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart",
+        canExtract: !!findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart",
       }))
       .filter(s => s.hasDeals || s.canExtract); // only show stores we can get deals for
 

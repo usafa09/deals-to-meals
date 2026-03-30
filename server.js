@@ -29,7 +29,10 @@ function generateSessionToken() {
 function isValidSession(cookieValue) {
   if (!cookieValue || !process.env.SITE_PASSWORD) return false;
   const expected = generateSessionToken();
-  return crypto.timingSafeEqual(Buffer.from(cookieValue), Buffer.from(expected));
+  const a = Buffer.from(cookieValue);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 app.get("/login.html", (req, res) => {

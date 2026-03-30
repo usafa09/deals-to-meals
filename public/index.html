@@ -191,6 +191,8 @@
     .loading-sub { font-size: 13px; color: var(--muted); }
     .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
     .toast.show { display: block; animation: fadeUp 0.3s ease; }
+    .extract-spinner { display:inline-block; width:18px; height:18px; border:3px solid var(--sand); border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
     .toast.error   { background: var(--red); color: white; }
     .toast.success { background: var(--green-dark); color: white; }
 
@@ -391,7 +393,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function checkAuth() {
   try {
-    const { data: { session } } = await sb.auth.getSession();
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) { showToast("Could not check login status"); return; }
     if (session?.user) {
       const { data } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
       const name = data?.full_name || session.user.email?.split("@")[0] || "You";
@@ -399,7 +402,7 @@ async function checkAuth() {
       document.getElementById("profileBtnText").textContent = name.split(" ")[0];
       document.getElementById("profileBtn").classList.add("logged-in");
     }
-  } catch (e) {}
+  } catch (e) { showToast("Could not check login status"); }
 }
 checkAuth();
 
@@ -550,7 +553,10 @@ async function toggleBrand(name) {
         brand.hasDeals=true;
         if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${data.deals} deals found! Tap again to select</span>`;
       } else if(data.status==="extracting") {
-        if(addrEl)addrEl.innerHTML=`<span style="color:var(--orange);font-size:11px">⏳ Extracting deals (~2 min)...</span>`;
+        if(addrEl)addrEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0">
+          <span class="extract-spinner"></span>
+          <div><div style="color:var(--orange);font-size:13px;font-weight:700">Extracting deals from weekly ad...</div>
+          <div style="color:var(--muted);font-size:11px">This usually takes 1-2 minutes</div></div></div>`;
         // Poll for completion
         const poll=setInterval(async()=>{
           try {
@@ -558,12 +564,13 @@ async function toggleBrand(name) {
             if(s.status==="ready"){
               clearInterval(poll);
               brand.hasDeals=true;
-              if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
+              const el=document.getElementById(addrId);
+              if(el)el.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
             }
           } catch{}
         },10000); // check every 10 seconds
         // Stop polling after 5 minutes
-        setTimeout(()=>clearInterval(poll),300000);
+        setTimeout(()=>{clearInterval(poll);const el=document.getElementById(addrId);if(el&&!brand.hasDeals)el.innerHTML=`<span style="color:var(--muted);font-size:11px">Extraction timed out — try again</span>`;},300000);
       } else if(data.status==="not-found") {
         if(addrEl)addrEl.innerHTML=`<span style="color:var(--muted);font-size:11px">No weekly ad found</span>`;
       }
@@ -653,6 +660,11 @@ async function loadDealsAndShow() {
     const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
     state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
+    if(state.deals.length===0){
+      hideLoading();
+      showToast("No deals found for your selected stores. Try selecting different stores or expanding your search radius.");
+      return;
+    }
     renderSaleItems(); goTo(4);
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
@@ -839,7 +851,8 @@ function renderModal(r){
 }
 
 async function saveRecipe(){
-  const{data:{session}}=await sb.auth.getSession();if(!session){showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
+  let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){showToast("Could not check login status");return;}
+  if(!session){showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
   const r=state.currentRecipe;if(state.savedRecipeIds.has(r.title)){showToast("Already saved!","success");return;}
   try{const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},
     body:JSON.stringify({title:r.title,emoji:"🍽️",time:r.time,servings:r.servings,difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""})});
@@ -892,7 +905,8 @@ async function addToCart(){
     else{window.open(`https://www.google.com/search?q=${q}+grocery`,"_blank");showToast("Opening search!","success");}
     return;
   }
-  const{data:{session}}=await sb.auth.getSession();if(!session){showToast("Sign in to add to cart");window.location.href="/profile.html";return;}
+  let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){showToast("Could not check login status");return;}
+  if(!session){showToast("Sign in to add to cart");window.location.href="/profile.html";return;}
   const items=(state.currentRecipe.usedSaleItems||[]).filter(i=>i.upc).map(i=>({upc:i.upc,quantity:1}));
   if(!items.length){showToast("No UPC items to add");return;}
   try{const res=await fetch("/api/cart",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({items})});

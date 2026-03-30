@@ -40,13 +40,19 @@ app.get("/login.html", (req, res) => {
 });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api/") || req.path === "/login.html" ||
+  // Always allow login endpoint, OAuth callbacks, and static assets
+  if (req.path === "/api/site-login" || req.path === "/login.html" ||
+      req.path.startsWith("/auth/kroger") ||
       req.path.endsWith(".css") || req.path.endsWith(".woff") ||
       req.path.endsWith(".woff2") || req.path.endsWith(".js")) {
     return next();
   }
   if (isValidSession(req.cookies?.site_auth)) {
     return next();
+  }
+  // API routes get a 401 JSON response; pages get redirected
+  if (req.path.startsWith("/api/")) {
+    return res.status(401).json({ error: "Login required" });
   }
   res.redirect("/login.html");
 });
@@ -73,6 +79,7 @@ const supabase = createClient(
 );
 
 const krogerTokens = new Map();
+const oauthStates = new Map(); // state token → { userId, createdAt }
 
 // ── Ad Regions — maps zip → which stores serve that area ────────────────────
 
@@ -315,14 +322,27 @@ app.post("/api/site-login", (req, res) => {
 app.get("/auth/kroger", (req, res) => {
   const { userId } = req.query;
   const scope = encodeURIComponent("cart.basic:write product.compact");
-  const state = userId || "anonymous";
-  const url = `${KROGER_AUTH_URL}?client_id=${process.env.KROGER_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scope}&state=${state}`;
+  const state = crypto.randomUUID();
+  oauthStates.set(state, { userId: userId || "anonymous", createdAt: Date.now() });
+  // Clean up expired states (older than 10 minutes)
+  for (const [key, val] of oauthStates) {
+    if (Date.now() - val.createdAt > 600000) oauthStates.delete(key);
+  }
+  const url = `${KROGER_AUTH_URL}?client_id=${process.env.KROGER_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
   res.redirect(url);
 });
 
 app.get("/auth/kroger/callback", async (req, res) => {
-  const { code, state: userId, error } = req.query;
+  const { code, state, error } = req.query;
   if (error || !code) return res.redirect(`${APP_URL}/profile.html?kroger=error`);
+  // Validate OAuth state parameter
+  const stateData = oauthStates.get(state);
+  if (!stateData) {
+    console.error("Kroger OAuth callback: invalid or expired state parameter");
+    return res.redirect(`${APP_URL}/profile.html?kroger=error`);
+  }
+  oauthStates.delete(state);
+  const userId = stateData.userId;
   try {
     const credentials = Buffer.from(
       `${process.env.KROGER_CLIENT_ID}:${process.env.KROGER_CLIENT_SECRET}`
@@ -2203,7 +2223,7 @@ app.get("/api/points", (req, res) => {
 
 // ══ DEBUG ══════════════════════════════════════════════════════════════════════
 
-app.get("/api/debug-kroger-prices", async (req, res) => {
+app.get("/api/debug-kroger-prices", requireAdmin, async (req, res) => {
   try {
     const locationId = req.query.locationId;
     const term = req.query.term || "chicken";
@@ -2227,7 +2247,7 @@ app.get("/api/debug-kroger-prices", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get("/api/debug-walmart", async (req, res) => {
+app.get("/api/debug-walmart", requireAdmin, async (req, res) => {
   try {
     const headers = getWalmartHeaders();
     const zip = req.query.zip || "10001";
@@ -2237,7 +2257,7 @@ app.get("/api/debug-walmart", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get("/api/debug-recipes", async (req, res) => {
+app.get("/api/debug-recipes", requireAdmin, async (req, res) => {
   try {
     const apiKey = process.env.SPOONACULAR_API_KEY;
     const query = req.query.q || "chicken";

@@ -983,28 +983,38 @@ app.get("/api/deals/regional", async (req, res) => {
     await Promise.all(fetchPromises);
 
     // Also include any ad-extracted deals
-    // Check zip3-specific keys first, then fall back to master keys (ads are mostly national)
+    // Merge both zip3-specific AND master keys (some stores have zip3 keys, some only master)
     let adExtractDeals = [];
     try {
+      // Get zip3-specific deals
       const { data: zip3Data } = await supabase.from("deal_cache").select("data, cache_key").like("cache_key", `ad-extract:%:${zip3}`);
+      const zip3StoreIds = new Set();
       if (zip3Data) {
         for (const row of zip3Data) {
-          if (row.data) adExtractDeals.push(...row.data);
-        }
-      }
-      // If no zip3-specific deals, check master keys (ad-extract:storename without zip3)
-      if (adExtractDeals.length === 0) {
-        const { data: masterData } = await supabase
-          .from("deal_cache")
-          .select("data, cache_key")
-          .like("cache_key", "ad-extract:%")
-          .not("cache_key", "like", "ad-extract:%:%");
-        if (masterData) {
-          for (const row of masterData) {
-            if (row.data) adExtractDeals.push(...row.data);
+          if (row.data) {
+            adExtractDeals.push(...row.data);
+            // Track which stores have zip3-specific data
+            const parts = row.cache_key.split(":");
+            if (parts[1]) zip3StoreIds.add(parts[1]);
           }
         }
       }
+
+      // Also get master keys (ad-extract:storename) for stores NOT already found via zip3
+      const { data: masterData } = await supabase
+        .from("deal_cache")
+        .select("data, cache_key")
+        .like("cache_key", "ad-extract:%")
+        .not("cache_key", "like", "ad-extract:%:%");
+      if (masterData) {
+        for (const row of masterData) {
+          const storeId = row.cache_key.split(":")[1];
+          if (!zip3StoreIds.has(storeId) && row.data) {
+            adExtractDeals.push(...row.data);
+          }
+        }
+      }
+
       if (adExtractDeals.length > 0) {
         results.sources.push({ store: "ad-extract", deals: adExtractDeals.length, cached: true });
         console.log(`  Ad-extracted deals: ${adExtractDeals.length} deals`);

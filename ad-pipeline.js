@@ -129,12 +129,14 @@ async function enrichDealsWithImages(deals) {
   console.log(`    ✅ Images: ${cached} cached + ${fetched} new + ${failed} not found`);
 
   // Apply images to deals, with category fallback
-  return deals.map(d => {
+  const result = deals.map(d => {
     const simplified = simplifyProductName(d.name);
     let img = imageMap.get(simplified) || null;
-    // Category fallback — don't search, just leave null for now
-    return { ...d, image: img || d.image };
+    return { ...d, image: img || d.image || null };
   });
+  const withImages = result.filter(d => d.image);
+  console.log(`    🖼️  ${withImages.length}/${result.length} deals now have images`);
+  return result;
 }
 
 
@@ -568,7 +570,8 @@ async function storeDealsBatch(storeName, storeId, allDeals, adSourceUrl) {
     return false;
   }
 
-  console.log(`  ✅ Stored ${enriched.length} deals for ${storeName}`);
+  const withImg = enriched.filter(d => d.image);
+  console.log(`  ✅ Stored ${enriched.length} deals for ${storeName} (${withImg.length} with images)`);
   return true;
 }
 

@@ -46,7 +46,7 @@ router.get("/api/nearby-stores", async (req, res) => {
     for (const url of searches) {
       let nextUrl = url;
       let pages = 0;
-      while (nextUrl && pages < 3) {
+      while (nextUrl && pages < 2) {
         const placesRes = await fetch(nextUrl);
         const placesData = await placesRes.json();
         if (placesData.status === "OK" && placesData.results) {

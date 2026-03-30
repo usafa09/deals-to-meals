@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { detectPerLb, getCategoryImage, validateZip, validateStoreName, CATEGORY_IMAGES } from "../lib/utils.js";
+import { detectPerLb, getCategoryImage, validateZip, validateStoreName, findDeal, CATEGORY_IMAGES } from "../lib/utils.js";
 
 let passed = 0;
 let failed = 0;
@@ -133,6 +133,36 @@ test("returns 'other' for null or unrecognized", () => {
   assert.strictEqual(getCategoryImage(null), CATEGORY_IMAGES.other);
   assert.strictEqual(getCategoryImage(""), CATEGORY_IMAGES.other);
   assert.strictEqual(getCategoryImage("random stuff"), CATEGORY_IMAGES.other);
+});
+
+// ── findDeal ────────────────────────────────────────────────────────────────
+
+console.log("\nfindDeal:");
+
+const sampleIngredients = [
+  { name: "Boneless Chicken Breast", salePrice: "3.99", source: "kroger" },
+  { name: "Simply Nature Organic Pasta", salePrice: "1.99", source: "aldi" },
+  { name: "Ground Beef 80/20", salePrice: "4.49", source: "kroger" },
+];
+
+test("matches recipe ingredient to sale item", () => {
+  const deal = findDeal("chicken breast", sampleIngredients);
+  assert.ok(deal);
+  assert.strictEqual(deal.name, "Boneless Chicken Breast");
+});
+
+test("matches ALDI brand-stripped ingredient", () => {
+  const deal = findDeal("pasta", sampleIngredients);
+  assert.ok(deal);
+  assert.strictEqual(deal.name, "Simply Nature Organic Pasta");
+});
+
+test("returns null for no match", () => {
+  assert.strictEqual(findDeal("salmon fillet", sampleIngredients), null);
+});
+
+test("returns null for empty ingredient name", () => {
+  assert.strictEqual(findDeal("", sampleIngredients), null);
 });
 
 // ── Summary ─────────────────────────────────────────────────────────────────

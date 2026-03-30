@@ -6,7 +6,7 @@ import {
   SPOONACULAR_BASE, CACHE_TTL,
   DAILY_POINT_LIMIT, POINTS_PER_SEARCH,
   getDailyPoints, addDailyPoints, checkAndResetPoints,
-  getCacheKey, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
+  getCacheKey, findDeal, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
 } from "../lib/utils.js";
 
 const router = Router();
@@ -120,39 +120,6 @@ router.post("/api/recipes/search", async (req, res) => {
     const searchData = await searchRes.json();
     const recipes = searchData.results || [];
 
-    function findDeal(recipeIngName) {
-      const skipWords = new Set([
-        "the","and","with","for","from","fresh","frozen","organic","natural","premium",
-        "classic","original","style","grade","boneless","skinless","extra","large","small",
-        "medium","value","family","pack","brand","whole","fat","reduced","low","lite","light",
-        "sliced","diced","chopped","shredded","roasted","grilled","baked","seasoned",
-      ]);
-      const recipeWords = recipeIngName.toLowerCase()
-        .replace(/[^a-z\s]/g, "")
-        .split(" ")
-        .filter(w => w.length > 2 && !skipWords.has(w));
-      if (!recipeWords.length) return null;
-      let bestDeal = null;
-      let bestScore = 0;
-      for (const ing of ingredients) {
-        const dealName = ing.name.toLowerCase()
-          .replace(/[^a-z\s]/g, " ")
-          .replace(/\b(aldi|appleton farms|happy farms|never any|fremont fish|simply nature|carlini|cattlemens ranch|southern grove|stonemill|bakers corner|baker s corner|specially selected|park street deli|casa mamita|mama cozzis|millville|brookdale|chef s cupboard|reggano|savoritz|emporium selection|friendly farms|barissimo|choceur|clancy s|moser roth|elevation|health ade|northern catch|poppi|bremer)\b/g, "")
-          .trim();
-        let score = 0;
-        for (const word of recipeWords) {
-          if (dealName.includes(word)) score++;
-        }
-        const isAldi = ing.source === "aldi";
-        const minScore = isAldi ? 1 : (recipeWords.length === 1 ? 1 : 2);
-        if (score >= minScore && score > bestScore) {
-          bestScore = score;
-          bestDeal = ing;
-        }
-      }
-      return bestDeal;
-    }
-
     const enriched = recipes.map(recipe => {
       const usedSaleItems = [];
       let totalSavings = 0;
@@ -162,7 +129,7 @@ router.post("/api/recipes/search", async (req, res) => {
         ...(recipe.missedIngredients || []),
       ];
       for (const ing of allRecipeIngs) {
-        const deal = findDeal(ing.name);
+        const deal = findDeal(ing.name, ingredients);
         if (deal) {
           const salePrice = parseFloat(deal.salePrice?.replace(/[^0-9.]/g, "")) || 0;
           const regularPrice = parseFloat(deal.regularPrice?.replace(/[^0-9.]/g, "")) || 0;
@@ -207,8 +174,8 @@ router.post("/api/recipes/search", async (req, res) => {
         cuisines: recipe.cuisines || [],
         instructions: recipe.analyzedInstructions?.[0]?.steps?.map(s => s.step) || [],
         allIngredients: [
-          ...(recipe.usedIngredients || []).map(i => ({ name: i.name, onSale: !!findDeal(i.name) })),
-          ...(recipe.missedIngredients || []).filter(i => !findDeal(i.name)).map(i => ({ name: i.name, onSale: false })),
+          ...(recipe.usedIngredients || []).map(i => ({ name: i.name, onSale: !!findDeal(i.name, ingredients) })),
+          ...(recipe.missedIngredients || []).filter(i => !findDeal(i.name, ingredients)).map(i => ({ name: i.name, onSale: false })),
         ],
       };
     });
@@ -634,39 +601,6 @@ IMPORTANT ingredient type rules:
 
     recipes.sort((a, b) => b.totalSavings - a.totalSavings);
 
-    const pexelsKey = process.env.PEXELS_API_KEY;
-    if (pexelsKey) {
-      console.log("Fetching recipe images from Pexels...");
-      const imageResults = await Promise.allSettled(recipes.map(async (r) => {
-        const query = r.title.replace(/[^\w\s]/g, "").trim();
-        try {
-          const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " food")}&per_page=1&orientation=landscape`, {
-            headers: { Authorization: pexelsKey },
-          });
-          if (!pRes.ok) return null;
-          const pData = await pRes.json();
-          const photo = pData.photos?.[0];
-          return photo ? {
-            url: photo.src?.medium || photo.src?.small || null,
-            photographer: photo.photographer || "",
-            pexelsUrl: photo.url || "",
-          } : null;
-        } catch (e) { console.error("Pexels image fetch error:", e.message); return null; }
-      }));
-      for (let i = 0; i < recipes.length; i++) {
-        const result = imageResults[i];
-        if (result?.status === "fulfilled" && result.value?.url) {
-          recipes[i].image = result.value.url;
-          recipes[i].photoCredit = result.value.photographer;
-          recipes[i].photoUrl = result.value.pexelsUrl;
-        }
-      }
-      const found = recipes.filter(r => r.image).length;
-      console.log(`Pexels images: ${found}/${recipes.length} recipes have photos`);
-    } else {
-      console.log("No PEXELS_API_KEY configured — skipping recipe images");
-    }
-
     aiRecipeCache.set(cacheKey, { recipes, timestamp: Date.now() });
     for (const [key, val] of aiRecipeCache.entries()) {
       if (Date.now() - val.timestamp > 1800000) aiRecipeCache.delete(key);
@@ -681,6 +615,30 @@ IMPORTANT ingredient type rules:
   } catch (err) {
     console.error("AI recipe error:", err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ══ RECIPE IMAGE (lazy Pexels lookup) ═════════════════════════════════════════
+
+router.get("/api/recipe-image", async (req, res) => {
+  const { title } = req.query;
+  if (!title) return res.status(400).json({ error: "title required" });
+  const pexelsKey = process.env.PEXELS_API_KEY;
+  if (!pexelsKey) return res.json({ url: null });
+  try {
+    const query = title.replace(/[^\w\s]/g, "").trim();
+    const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " food")}&per_page=1&orientation=landscape`, {
+      headers: { Authorization: pexelsKey },
+    });
+    if (!pRes.ok) return res.json({ url: null });
+    const pData = await pRes.json();
+    const photo = pData.photos?.[0];
+    res.json({
+      url: photo?.src?.medium || photo?.src?.small || null,
+      photographer: photo?.photographer || "",
+    });
+  } catch (e) {
+    res.json({ url: null });
   }
 });
 

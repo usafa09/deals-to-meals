@@ -57,8 +57,9 @@ router.post("/api/recipes/search", async (req, res) => {
       return res.json({ recipes: cached.recipes, cached: true });
     }
 
-    checkAndResetPoints();
-    if (getDailyPoints() + POINTS_PER_SEARCH > DAILY_POINT_LIMIT) {
+    await checkAndResetPoints();
+    const currentPoints = await getDailyPoints();
+    if (currentPoints + POINTS_PER_SEARCH > DAILY_POINT_LIMIT) {
       return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow." });
     }
 
@@ -110,8 +111,9 @@ router.post("/api/recipes/search", async (req, res) => {
       if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     }
 
-    addDailyPoints(POINTS_PER_SEARCH);
-    console.log(`Spoonacular points used today: ${getDailyPoints()}/${DAILY_POINT_LIMIT}`);
+    await addDailyPoints(POINTS_PER_SEARCH);
+    const updatedPoints = await getDailyPoints();
+    console.log(`Spoonacular points used today: ${updatedPoints}/${DAILY_POINT_LIMIT}`);
 
     const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
     if (!searchRes.ok) throw new Error(await searchRes.text());
@@ -218,7 +220,8 @@ router.post("/api/recipes/search", async (req, res) => {
       if (Date.now() - val.timestamp > CACHE_TTL) recipeCache.delete(key);
     }
 
-    res.json({ recipes: enriched, cached: false, pointsUsedToday: getDailyPoints(), pointsRemaining: DAILY_POINT_LIMIT - getDailyPoints() });
+    const finalPoints = await getDailyPoints();
+    res.json({ recipes: enriched, cached: false, pointsUsedToday: finalPoints, pointsRemaining: DAILY_POINT_LIMIT - finalPoints });
   } catch (err) {
     console.error("Recipe search error:", err.message);
     res.status(500).json({ error: err.message });
@@ -683,9 +686,10 @@ IMPORTANT ingredient type rules:
 
 // ══ POINTS STATUS ═════════════════════════════════════════════════════════════
 
-router.get("/api/points", (req, res) => {
-  checkAndResetPoints();
-  res.json({ used: getDailyPoints(), limit: DAILY_POINT_LIMIT, remaining: DAILY_POINT_LIMIT - getDailyPoints(), resetsAt: "midnight" });
+router.get("/api/points", async (req, res) => {
+  await checkAndResetPoints();
+  const points = await getDailyPoints();
+  res.json({ used: points, limit: DAILY_POINT_LIMIT, remaining: DAILY_POINT_LIMIT - points, resetsAt: "midnight" });
 });
 
 export default router;

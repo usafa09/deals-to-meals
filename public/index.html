@@ -208,7 +208,7 @@
     .sale-card-img { width: 100%; height: 110px; object-fit: contain; background: #FAFAF5; display: block; padding: 6px; }
     .sale-card-img-ph { width: 100%; height: 110px; background: #FAFAF5; display: flex; align-items: center; justify-content: center; font-size: 32px; }
     .sale-card-body { padding: 10px; }
-    .sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; height: 32px; overflow: hidden; margin-bottom: 6px; }
+    .sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; }
     .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
     .sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
     .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
@@ -796,7 +796,9 @@ async function loadMoreRecipes() {
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||"Could not generate recipes");
     if(data.recipes?.length){
-      state.recipes.push(...data.recipes);
+      const existingTitles=new Set(state.recipes.map(r=>r.title));
+      const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
+      state.recipes.push(...newRecipes);
       state.recipeOffset+=8;
       renderRecipeGrid();
       showToast(`${data.recipes.length} more recipes added!`,"success");
@@ -829,6 +831,7 @@ function getCartLabel(){if(state.selectedBrands.includes("Kroger"))return"🛒 A
 function openModal(i){state.currentRecipe={...state.recipes[i],index:i};renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
 function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("modalOverlay").classList.contains("show"))closeModal();});
 
 function renderModal(r){
   const isSaved=state.savedRecipeIds.has(r.title);const cartLabel=getCartLabel();

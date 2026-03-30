@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "node tests/utils.test.js",
     "scrape:aldi": "node scrapers/aldi.js"
   },
   "dependencies": {

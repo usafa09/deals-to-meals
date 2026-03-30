@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Dishcount — Meals from Deals</title>
+  <meta name="description" content="Learn how Dishcount helps families eat better for less by turning weekly grocery deals into delicious recipes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #0d1f12;
+      color: #e8f0ea;
+      line-height: 1.6;
+    }
+
+    /* Nav */
+    .landing-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: rgba(26, 46, 31, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(82, 183, 136, 0.15);
+    }
+    .landing-nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .landing-nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .landing-nav-tagline {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      color: #74c69d;
+      opacity: 0.8;
+    }
+    .landing-nav-links {
+      display: flex;
+      gap: 28px;
+    }
+    .landing-nav-links a {
+      color: #b7d4be;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .landing-nav-links a:hover { color: #fff; }
+    .landing-nav-signin {
+      background: rgba(82, 183, 136, 0.15);
+      color: #74c69d;
+      border: 1px solid rgba(82, 183, 136, 0.3);
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .landing-nav-signin:hover {
+      background: rgba(82, 183, 136, 0.25);
+      color: #fff;
+    }
+
+    /* Page header */
+    .page-header {
+      background: #1a2e1f;
+      padding: 140px 24px 60px;
+      text-align: center;
+    }
+    .page-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .page-header .subtitle {
+      font-size: 18px;
+      color: #8fb89a;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    /* Sections */
+    .section {
+      padding: 60px 24px;
+    }
+    .section-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .section h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    .section p {
+      font-size: 16px;
+      color: #b7d4be;
+      line-height: 1.75;
+      margin-bottom: 16px;
+    }
+
+    /* Mission card */
+    .mission-card {
+      background: var(--green-mid, #52b788);
+      color: #fff;
+      border-radius: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+      text-align: center;
+    }
+    .mission-card .label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.8;
+      margin-bottom: 16px;
+    }
+    .mission-card blockquote {
+      font-size: 22px;
+      font-style: italic;
+      line-height: 1.6;
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      gap: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .stat-card {
+      flex: 1;
+      background: #1a2e1f;
+      border-radius: 16px;
+      padding: 32px 20px;
+      text-align: center;
+    }
+    .stat-card .stat-number {
+      font-family: 'Outfit', sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      color: #fbbf24;
+      margin-bottom: 6px;
+    }
+    .stat-card .stat-label {
+      font-size: 14px;
+      color: #b7d4be;
+      font-weight: 500;
+    }
+
+    /* How it works steps */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .step-number {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      background: var(--green-mid, #52b788);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .step-text {
+      font-size: 16px;
+      color: #b7d4be;
+      line-height: 1.7;
+      padding-top: 8px;
+    }
+    .step-text strong {
+      color: #e8f0ea;
+    }
+
+    /* Commitment */
+    .commitment-section {
+      background: #1a2e1f;
+    }
+
+    /* CTA */
+    .cta-section {
+      text-align: center;
+      padding: 80px 24px;
+    }
+    .cta-section h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+    .cta-button {
+      display: inline-block;
+      background: #fbbf24;
+      color: #1a2e1f;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 14px 36px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .cta-button:hover {
+      background: #f59e0b;
+      transform: translateY(-2px);
+    }
+
+    /* Footer */
+    .about-footer {
+      background: #1a2e1f;
+      border-top: 1px solid rgba(82, 183, 136, 0.15);
+      padding: 40px 24px;
+      text-align: center;
+    }
+    .about-footer .footer-brand {
+      font-size: 14px;
+      color: #8fb89a;
+      margin-bottom: 12px;
+    }
+    .about-footer .footer-links {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .about-footer .footer-links a {
+      color: #74c69d;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .about-footer .footer-links a:hover { color: #fff; }
+    .about-footer .footer-copy {
+      font-size: 12px;
+      color: #5a7a61;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 500px) {
+      .page-header { padding: 120px 16px 40px; }
+      .page-header h1 { font-size: 30px; }
+      .page-header .subtitle { font-size: 16px; }
+
+      .section { padding: 40px 16px; }
+      .section h2 { font-size: 22px; }
+
+      .mission-card {
+        padding: 28px 20px;
+        border-radius: 14px;
+      }
+      .mission-card blockquote { font-size: 17px; }
+
+      .stats-row {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .stat-card { padding: 24px 16px; }
+      .stat-card .stat-number { font-size: 32px; }
+
+      .step { gap: 14px; }
+      .step-number { width: 36px; height: 36px; font-size: 15px; }
+
+      .landing-nav-tagline { display: none; }
+      .landing-nav-links { gap: 16px; }
+      .landing-nav-links a { font-size: 12px; }
+      .landing-nav-signin { padding: 6px 14px; font-size: 12px; }
+
+      .cta-section h2 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="landing-nav">
+    <div class="landing-nav-inner">
+      <a href="/" class="landing-nav-logo">
+        <svg width="140" height="36" viewBox="0 0 200 50" style="flex-shrink:0">
+          <g transform="translate(4, 2)">
+            <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+            <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          </g>
+          <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+            <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+          </text>
+        </svg>
+        <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+      </a>
+      <div class="landing-nav-links">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/about.html">About</a>
+        <a href="/contact.html">Contact</a>
+      </div>
+      <a href="/profile.html" class="landing-nav-signin">Sign In</a>
+    </div>
+  </nav>
+
+  <!-- Page header -->
+  <header class="page-header">
+    <h1>About Dishcount</h1>
+    <p class="subtitle">We believe eating well shouldn't mean spending more.</p>
+  </header>
+
+  <!-- Mission -->
+  <section class="section">
+    <div class="mission-card">
+      <div class="label">Our Mission</div>
+      <blockquote>
+        To help every family eat delicious, home-cooked meals while spending less on groceries &mdash; by turning this week's sales into tonight's dinner.
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- The problem we solve -->
+  <section class="section">
+    <div class="section-inner">
+      <h2>The Problem We Solve</h2>
+      <p>
+        The average American family spends $270 per week on groceries &mdash; and throws away nearly 30% of what they buy. Meanwhile, every grocery store runs weekly sales that most shoppers never fully take advantage of.
+      </p>
+      <p>
+        Dishcount bridges that gap. We scan the weekly ads from 80+ grocery chains, find what's actually on sale at YOUR local stores, and use AI to generate delicious recipes that maximize those deals.
+      </p>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="section">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-number">80+</div>
+        <div class="stat-label">Grocery chains</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">6,000+</div>
+        <div class="stat-label">Weekly deals tracked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">$30–50</div>
+        <div class="stat-label">Avg weekly savings</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section">
+    <div class="section-inner">
+      <h2>How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-text">
+            <strong>Enter your zip code</strong> and we'll find every grocery store near you &mdash; along with their current weekly sales.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-text">
+            <strong>Browse this week's deals</strong> across all your favorite stores. Tap items you want to cook with, and mark any you'd rather skip.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-text">
+            <strong>Our AI generates 8+ recipes</strong> tailored to the items on sale, your dietary preferences, and your chosen cooking style &mdash; so you eat great and save money.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Our commitment -->
+  <section class="section commitment-section">
+    <div class="section-inner">
+      <h2>Our Commitment</h2>
+      <p>
+        Dishcount is free to use. We don't sell your data, we don't take a cut of your grocery bill, and we never will. Our goal is simple: help families eat better for less.
+      </p>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>Ready to start saving?</h2>
+    <a href="/" class="cta-button">Find Deals Near You</a>
+  </section>
+
+  <!-- Footer -->
+  <footer class="about-footer">
+    <div class="footer-brand">Dishcount &mdash; Meals from Deals &middot; Built in Dayton, Ohio</div>
+    <div class="footer-links">
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <div class="footer-copy">&copy; 2025 Dishcount. All rights reserved.</div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://gkzlwzafnkqwxwiootah.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdremx3emFmbmtxd3h3aW9vdGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1MTY1MDYsImV4cCI6MjA2MDA5MjUwNn0.bN0AHnq_rnJFaTB7R7q3-MiK58MDaxCoeqxYJShqnQM';
+
+    async function checkAuth() {
+      try {
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data: { session } } = await sb.auth.getSession();
+        const signInEl = document.querySelector('.landing-nav-signin');
+        if (session && signInEl) {
+          signInEl.textContent = 'My Account';
+        }
+      } catch (e) {
+        // Silently ignore auth check failures
+      }
+    }
+    checkAuth();
+  </script>
+
+</body>
+</html>

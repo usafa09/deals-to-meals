@@ -6,14 +6,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Dishcount — Meals from Deals. AI-powered recipes based on your local grocery store's weekly sales. Save time and money on dinner." />
   <title>Dishcount — Meals from Deals</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- CSS extracted to /styles.css -->
 </head>
 <body>
 
-<header>
+<!-- ══ LANDING NAV ══ -->
+<nav class="landing-nav" id="landingNav">
+  <div class="landing-nav-inner">
+    <a href="/" class="landing-nav-logo">
+      <svg width="140" height="36" viewBox="0 0 200 50" style="flex-shrink:0">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+            <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+            <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          </g>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+        </text>
+      </svg>
+      <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="#how-it-works">How It Works</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <a href="/profile.html#saved" class="landing-nav-saved" id="landingSavedBtn">&#10084;&#65039; Saved</a>
+    <a href="/profile.html" class="landing-nav-signin" id="landingSigninBtn">Sign In</a>
+  </div>
+</nav>
+
+<!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->
+<header id="appHeader">
   <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
     <g transform="translate(4, 2)">
       <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
@@ -38,7 +71,7 @@
     <div class="progress-bar" id="progressBar"></div>
     <a href="/profile.html#saved" class="saved-recipes-btn" id="savedRecipesBtn">&#10084;&#65039; Saved</a>
     <a href="/profile.html" class="profile-btn" id="profileBtn">
-      <span id="profileBtnIcon">👤</span>
+      <span id="profileBtnIcon">&#128100;</span>
       <span id="profileBtnText">Sign In</span>
     </a>
   </div>
@@ -46,7 +79,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text" id="loadingText">Loading…</div>
+  <div class="loading-text" id="loadingText">Loading...</div>
   <div class="loading-sub" id="loadingSub"></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -58,70 +91,144 @@
   </div>
 </div>
 
-<main>
+<!-- ══ SCREEN 1: LANDING PAGE ══ -->
+<div class="screen active" id="screen1">
 
-  <!-- SCREEN 1: ZIP -->
-  <div class="screen active" id="screen1">
-    <span class="hero-emoji">🛒</span>
-    <h2 class="hero-title">What's on sale near you?</h2>
-    <p class="hero-sub">Enter your zip to find deals & get recipe ideas based on this week's sales.</p>
-    <div class="zip-box">
-      <label class="zip-label" for="zipInput">Your Zip Code</label>
-      <div class="zip-row">
-        <input id="zipInput" type="text" maxlength="5" placeholder="e.g. 43210" inputmode="numeric" />
-        <button class="btn btn-primary" id="zipBtn" style="width:auto;padding:13px 22px" disabled>Find Stores →</button>
+  <!-- Hero -->
+  <section class="landing-hero">
+    <div class="landing-hero-content">
+      <div class="landing-badge">&#128293; Families save $30-50/week on groceries</div>
+      <h1 class="landing-headline">Turn this week's <span class="highlight">deals</span> into tonight's dinner</h1>
+      <p class="landing-subtitle">Enter your zip to find what's on sale at nearby stores and get AI-powered recipe ideas that maximize your savings.</p>
+      <div class="landing-search">
+        <input id="zipInput" type="text" maxlength="5" placeholder="Enter zip code" inputmode="numeric" />
+        <button id="zipBtn" disabled>Find Stores &#8594;</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;justify-content:center">
-        <label style="font-size:13px;color:var(--muted);font-weight:600">Distance:</label>
-        <select id="radiusSelect" style="padding:8px 12px;border:2px solid #D0C5A0;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);cursor:pointer">
-          <option value="5">5 miles</option>
-          <option value="10" selected>10 miles</option>
-          <option value="15">15 miles</option>
-          <option value="25">25 miles</option>
-          <option value="50">50 miles</option>
+      <div class="landing-distance">
+        <label for="radiusSelect">Distance:</label>
+        <select id="radiusSelect">
+          <option value="5">5 mi</option>
+          <option value="10" selected>10 mi</option>
+          <option value="15">15 mi</option>
+          <option value="25">25 mi</option>
+          <option value="50">50 mi</option>
         </select>
       </div>
-      <p class="zip-hint">We'll find every store with deals near you</p>
+      <p class="landing-hint">Works with Kroger, Walmart, ALDI, Publix, Meijer, and 80+ more</p>
     </div>
-    <div class="feature-row">
-      <div class="feature-chip"><div class="f-icon">🏪</div><div class="f-label">Real stores</div></div>
-      <div class="feature-chip"><div class="f-icon">🏷️</div><div class="f-label">Live deals</div></div>
-      <div class="feature-chip"><div class="f-icon">🍽️</div><div class="f-label">20-50 recipes</div></div>
-      <div class="feature-chip"><div class="f-icon">💰</div><div class="f-label">Max savings</div></div>
+  </section>
+
+  <!-- Trust Bar -->
+  <section class="trust-bar">
+    <div class="trust-bar-inner">
+      <div class="trust-stat"><div class="num">80+</div><div class="lbl">Grocery chains</div></div>
+      <div class="trust-stat"><div class="num">6,000+</div><div class="lbl">Weekly deals</div></div>
+      <div class="trust-stat"><div class="num">50+</div><div class="lbl">Recipes per search</div></div>
+      <div class="trust-stat"><div class="num">100%</div><div class="lbl">Free to use</div></div>
     </div>
-  </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-section" id="how-it-works">
+    <div class="how-section-inner">
+      <h2 class="how-title">How It Works</h2>
+      <div class="how-grid">
+        <div class="how-card">
+          <div class="how-num">1</div>
+          <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400&h=250&fit=crop" alt="Find your stores" loading="lazy" />
+          <h3>Find your stores</h3>
+          <p>Enter your zip code and we'll discover every grocery store near you that has deals this week.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-num">2</div>
+          <img src="https://images.pexels.com/photos/16211537/pexels-photo-16211537.jpeg?w=400&h=250&fit=crop" alt="Browse the deals" loading="lazy" />
+          <h3>Browse the deals</h3>
+          <p>See all the sale items across your selected stores. Mark the ones you want and exclude what you don't.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-num">3</div>
+          <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&h=250&fit=crop" alt="Get recipes" loading="lazy" />
+          <h3>Get AI recipes</h3>
+          <p>Our AI generates delicious recipes that use what's on sale, saving you money on every meal.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-section">
+    <div class="features-inner">
+      <h2 class="features-title">Everything you need to save</h2>
+      <div class="features-grid">
+        <div class="feature-card"><div class="fc-icon">&#128205;</div><div class="fc-title">Real local stores</div></div>
+        <div class="feature-card"><div class="fc-icon">&#127991;&#65039;</div><div class="fc-title">Live weekly deals</div></div>
+        <div class="feature-card"><div class="fc-icon">&#129302;</div><div class="fc-title">AI-powered recipes</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128176;</div><div class="fc-title">Maximum savings</div></div>
+        <div class="feature-card"><div class="fc-icon">&#129367;</div><div class="fc-title">Dietary filters</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128722;</div><div class="fc-title">Kroger cart sync</div></div>
+        <div class="feature-card"><div class="fc-icon">&#10084;&#65039;</div><div class="fc-title">Save favorites</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128203;</div><div class="fc-title">Shopping lists</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported Stores -->
+  <section class="stores-section">
+    <h2 class="stores-title">Works with your favorite stores</h2>
+    <div class="stores-logos">
+      <span>KROGER</span><span>WALMART</span><span>ALDI</span><span>PUBLIX</span><span>MEIJER</span>
+      <span>H-E-B</span><span>SAFEWAY</span><span>SPROUTS</span><span>FOOD LION</span><span>GIANT EAGLE</span>
+    </div>
+    <p class="stores-more">...and 70+ more regional and national chains</p>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="bottom-cta">
+    <h2>Start saving on groceries today</h2>
+    <button class="cta-btn" onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'})">Find Deals Near Me &#8594;</button>
+  </section>
+
+  <!-- Footer -->
+  <footer class="landing-footer">
+    <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/contact.html">Contact</a></p>
+    <p>&copy; 2025 Dishcount. All rights reserved.</p>
+  </footer>
+
+</div>
+
+<main>
 
   <!-- SCREEN 2: PICK STORE BRANDS -->
   <div class="screen" id="screen2">
-    <span class="back" onclick="goTo(1)">← Back</span>
+    <span class="back" onclick="goTo(1)">&#8592; Back</span>
     <h2 class="screen-title" id="storesTitle">Stores near you</h2>
     <p class="screen-sub">Select one or more stores to find deals</p>
     <div id="storesList"></div>
-    <button class="btn btn-primary" id="storesBtn" disabled onclick="onStoresPicked()">View Deals →</button>
+    <button class="btn btn-primary" id="storesBtn" disabled onclick="onStoresPicked()">View Deals &#8594;</button>
   </div>
 
   <!-- SCREEN 3: KROGER LOCATION (conditional) -->
   <div class="screen" id="screen3">
-    <span class="back" onclick="goTo(2)">← Back</span>
+    <span class="back" onclick="goTo(2)">&#8592; Back</span>
     <h2 class="screen-title">Choose your Kroger store</h2>
     <p class="screen-sub">Select a specific location for the best deals</p>
     <div id="krogerLocationsList"></div>
-    <button class="btn btn-primary" id="krogerBtn" disabled onclick="onKrogerPicked()">Continue →</button>
+    <button class="btn btn-primary" id="krogerBtn" disabled onclick="onKrogerPicked()">Continue &#8594;</button>
   </div>
 
   <!-- SCREEN 4: SALE ITEMS BROWSER -->
   <div class="screen" id="screen4">
-    <span class="back" onclick="goBackFromDeals()">← Back</span>
+    <span class="back" onclick="goBackFromDeals()">&#8592; Back</span>
     <h2 class="screen-title" id="dealsTitle">This week's deals</h2>
-    <p class="screen-sub">Tap items: green ✓ = must include, red ✕ = exclude</p>
+    <p class="screen-sub">Tap items: green &#10003; = must include, red &#10005; = exclude</p>
 
-    <div class="section-title" style="margin-top:8px">🛒 Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
-    <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning…" style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-    <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy — these get added to your shopping list and recipe cost</p>
+    <div class="section-title" style="margin-top:8px">&#128722; Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+    <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy</p>
 
-    <div class="section-title" style="margin-top:12px">🏠 Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
-    <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions…" style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-    <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have — these won't be added to cost</p>
+    <div class="section-title" style="margin-top:12px">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+    <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have</p>
 
     <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
     <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
@@ -130,12 +237,12 @@
     <div class="sale-filters" id="saleCategoryFilters"></div>
     <div class="sale-grid" id="saleGrid"></div>
 
-    <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes →</button>
+    <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes &#8594;</button>
   </div>
 
   <!-- SCREEN 5: RECIPE STYLE + FILTERS -->
   <div class="screen" id="screen5">
-    <span class="back" onclick="goTo(4)">← Change Items</span>
+    <span class="back" onclick="goTo(4)">&#8592; Change Items</span>
     <h2 class="screen-title">What kind of meals?</h2>
     <p class="screen-sub" id="dealsLoadedMsg">Pick a recipe style and we'll create meals from your deals</p>
 
@@ -145,28 +252,28 @@
     <div class="section-title">Dietary Restrictions <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
     <div class="filter-grid" id="filterGrid"></div>
 
-    <button class="btn btn-primary" id="findRecipesBtn" disabled onclick="searchRecipes()">🍽️ Generate Recipes with AI →</button>
+    <button class="btn btn-primary" id="findRecipesBtn" disabled onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
   </div>
 
   <!-- SCREEN 6: RECIPE GRID -->
   <div class="screen" id="screen6">
-    <span class="back" onclick="goTo(5)">← Change Filters</span>
+    <span class="back" onclick="goTo(5)">&#8592; Change Filters</span>
     <div class="results-header">
       <div>
         <h2 class="screen-title" id="recipesTitle">Your Recipes</h2>
         <div class="results-count" id="resultsCount"></div>
       </div>
       <div class="sort-row">
-        <button class="sort-btn active" id="sort-savings" onclick="sortRecipes('savings')">💰 Best Savings</button>
-        <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">⏱ Quickest</button>
-        <button class="sort-btn" id="sort-ingredients" onclick="sortRecipes('ingredients')">🏷️ Most Deals</button>
+        <button class="sort-btn active" id="sort-savings" onclick="sortRecipes('savings')">&#128176; Best Savings</button>
+        <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">&#9201; Quickest</button>
+        <button class="sort-btn" id="sort-ingredients" onclick="sortRecipes('ingredients')">&#127991;&#65039; Most Deals</button>
       </div>
     </div>
     <div class="recipe-grid" id="recipeGrid"></div>
     <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
-      <button class="btn btn-gradient" id="moreRecipesBtn" onclick="loadMoreRecipes()">🤖 Generate 8 More Recipes</button>
-      <button class="btn btn-outline" onclick="goTo(5)">← Change Style</button>
-      <button class="btn btn-outline" onclick="goTo(1); resetApp()">🔄 Start Over</button>
+      <button class="btn btn-gradient" id="moreRecipesBtn" onclick="loadMoreRecipes()">&#129302; Generate 8 More Recipes</button>
+      <button class="btn btn-outline" onclick="goTo(5)">&#8592; Change Style</button>
+      <button class="btn btn-outline" onclick="goTo(1); resetApp()">&#128260; Start Over</button>
     </div>
   </div>
 

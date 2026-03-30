@@ -19,6 +19,8 @@ async function checkAuth() {
       document.getElementById("profileBtn").classList.add("logged-in");
       const savedBtn = document.getElementById("savedRecipesBtn");
       if (savedBtn) savedBtn.style.display = "flex";
+      const landingSavedBtn = document.getElementById("landingSavedBtn");
+      if (landingSavedBtn) landingSavedBtn.style.display = "flex";
     }
   } catch (e) { showToast("Could not check login status"); }
 }
@@ -43,6 +45,16 @@ let state = {
 function goTo(step) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(`screen${step}`).classList.add("active");
+  // Toggle landing nav vs app header
+  const landingNav = document.getElementById("landingNav");
+  const appHeader = document.getElementById("appHeader");
+  if (step === 1) {
+    if (landingNav) landingNav.style.display = "";
+    if (appHeader) appHeader.style.display = "none";
+  } else {
+    if (landingNav) landingNav.style.display = "none";
+    if (appHeader) appHeader.style.display = "flex";
+  }
   renderProgress(step);
   window.scrollTo({ top:0, behavior:"smooth" });
   if (step === 5) { renderStyleGrid(); renderFilterGrid(); }

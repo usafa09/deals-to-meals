@@ -10,7 +10,7 @@ Dishcount (dealstomeals.co) helps grocery shoppers save money by finding recipes
 
 - **Frontend:** Single-page app in `public/index.html` (~900 lines). Vanilla JS, no framework. DM Sans font. Supabase JS SDK loaded via CDN for auth.
 - **Backend:** `server.js` (~2,500 lines). Node.js + Express. ESM modules (import/export).
-- **Database:** Supabase (PostgreSQL). Project URL: `https://gkzlwzafnkqwwiootah.supabase.co`
+- **Database:** Supabase (PostgreSQL). Project URL: `https://gkzlwzafnkqwxwiootah.supabase.co`
 - **Hosting:** Render (auto-deploys from GitHub on push). Port 10000 in production.
 - **Domain:** dealstomeals.co
 

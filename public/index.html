@@ -380,6 +380,11 @@
 </main>
 
 <script>
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
 const SUPABASE_URL = "https://gkzlwzafnkqwxwiootah.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdremx3emFmbmtxd3h3aW9vdGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NzgyMTMsImV4cCI6MjA2MzM1NDIxM30.a3GFTA9UOS5I7Oy6U3tMc1JssYHxMcTm0Mq0RqXKJms";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -519,10 +524,10 @@ async function findStores() {
 function renderStoreBrands() {
   document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
   document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
-    <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${b.name.replace(/'/g,"\\'")}')">
+    <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
       <div class="store-row">
-        <div style="width:44px;height:44px;border-radius:12px;background:${b.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${b.emoji}</div>
-        <div style="flex:1"><div class="store-name">${b.name}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":b.stores[0]?.address||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
+        <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(b.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(b.emoji)}</div>
+        <div style="flex:1"><div class="store-name">${escapeHtml(b.name)}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":escapeHtml(b.stores[0]?.address)||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`).join("");
@@ -593,10 +598,10 @@ function onStoresPicked() {
 function renderKrogerLocations() {
   document.getElementById("krogerLocationsList").innerHTML=state.krogerLocations.map(s=>{
     const info=getBanner(s.name);
-    return `<div class="card clickable" id="kloc-${s.id}" onclick="pickKrogerLocation('${s.id}')">
+    return `<div class="card clickable" id="kloc-${escapeHtml(s.id)}" onclick="pickKrogerLocation('${escapeHtml(s.id)}')">
       <div class="store-row">
-        <div style="width:44px;height:44px;border-radius:12px;background:${info.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${info.emoji}</div>
-        <div style="flex:1"><div class="store-name">${s.name}</div><div class="store-addr">${s.address}${s.hours?" · "+s.hours:""}</div></div>
+        <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(info.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(info.emoji)}</div>
+        <div style="flex:1"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-addr">${escapeHtml(s.address)}${s.hours?" · "+escapeHtml(s.hours):""}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`;}).join("");
@@ -693,15 +698,15 @@ function renderSaleItems() {
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
     const unit=d.priceUnit||"";
-    return `<div class="sale-card ${cls}" onclick="cycleDealState('${d.id}')">
-      ${pct?`<div class="sale-card-pct">${pct} off</div>`:""}
+    return `<div class="sale-card ${cls}" onclick="cycleDealState('${escapeHtml(d.id)}')">
+      ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
-      ${d.image?`<img class="sale-card-img" src="${d.image}" alt="${d.name}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
+      ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
       <div class="sale-card-body">
-        <div class="sale-card-name">${d.name}</div>
-        <div class="sale-card-price">${price?`<span class="sale-card-sale">${price.startsWith("$")?price:"$"+price}${unit}</span>`:""} ${reg?`<span class="sale-card-reg">${reg.startsWith("$")?reg:"$"+reg}${unit}</span>`:""}</div>
-        ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${d.saleStory}</div>`:""}
-        <div class="sale-card-store">${store}${d.adSourceUrl?` · <a href="${d.adSourceUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
+        <div class="sale-card-name">${escapeHtml(d.name)}</div>
+        <div class="sale-card-price">${price?`<span class="sale-card-sale">${escapeHtml(price.startsWith("$")?price:"$"+price)}${escapeHtml(unit)}</span>`:""} ${reg?`<span class="sale-card-reg">${escapeHtml(reg.startsWith("$")?reg:"$"+reg)}${escapeHtml(unit)}</span>`:""}</div>
+        ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
+        <div class="sale-card-store">${escapeHtml(store)}${d.adSourceUrl?` · <a href="${escapeHtml(d.adSourceUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
       </div></div>`;}).join("");
 }
 function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}
@@ -775,9 +780,9 @@ function renderRecipeGrid(){
   document.getElementById("recipeGrid").innerHTML=state.recipes.map((r,i)=>{
     const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
     return `<div class="recipe-card-tile" onclick="openModal(${i})">
-      ${r.image?`<img class="recipe-card-img" src="${r.image}" alt="${r.title}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder" style="font-size:48px;padding:30px 0">${emoji}</div>`}
-      <div class="recipe-card-body"><div class="recipe-card-title">${r.title}</div><div class="recipe-card-meta">
-        ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${r.time}</span>`:""}
+      ${r.image?`<img class="recipe-card-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder" style="font-size:48px;padding:30px 0">${emoji}</div>`}
+      <div class="recipe-card-body"><div class="recipe-card-title">${escapeHtml(r.title)}</div><div class="recipe-card-meta">
+        ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="meta-chip meta-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
         <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
@@ -793,12 +798,12 @@ function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOver
 function renderModal(r){
   const isSaved=state.savedRecipeIds.has(r.title);const cartLabel=getCartLabel();
   document.getElementById("modalContent").innerHTML=`
-    ${r.image?`<img class="modal-img" src="${r.image}" alt="${r.title}" />${r.photoCredit?`<div style="text-align:center;font-size:10px;color:#999;padding:4px 0">Photo by ${r.photoCredit} on <a href="${r.photoUrl||'https://pexels.com'}" target="_blank" style="color:#999">Pexels</a></div>`:""}`:`<div class="modal-img-placeholder">🍽️</div>`}
+    ${r.image?`<img class="modal-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" />${r.photoCredit?`<div style="text-align:center;font-size:10px;color:#999;padding:4px 0">Photo by ${escapeHtml(r.photoCredit)} on <a href="${escapeHtml(r.photoUrl||'https://pexels.com')}" target="_blank" style="color:#999">Pexels</a></div>`:""}`:`<div class="modal-img-placeholder">🍽️</div>`}
     <div class="modal-body">
-      <div class="modal-header"><div class="modal-title">${r.title}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><div class="modal-title">${escapeHtml(r.title)}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
       <div class="modal-stats">
-        ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${r.time}</span>`:""}
-        <span class="stat-pill stat-servings">👥 ${r.servings} servings</span>
+        ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${escapeHtml(r.time)}</span>`:""}
+        <span class="stat-pill stat-servings">👥 ${escapeHtml(r.servings)} servings</span>
         ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.regularPriceTotal>r.estimatedCost?` <s style="opacity:0.5">$${r.regularPriceTotal.toFixed(2)}</s>`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="stat-pill stat-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
         ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
@@ -806,12 +811,12 @@ function renderModal(r){
       ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
         const costNum=ing.actualCost||String(ing.salePrice).replace(/[^0-9.]/g,"");
         const cost=ing.isPerLb?`≈ $${costNum}`:`$${costNum}`;
-        const pkgNote=ing.packageNote?`<div style="font-size:10px;color:#666">${ing.packageNote}</div>`:"";
-        const perLbLine=ing.isPerLb?`<div style="font-size:10px;color:#999">${ing.salePrice} <s style="opacity:0.5">${ing.regularPrice}</s></div>`:"";
+        const pkgNote=ing.packageNote?`<div style="font-size:10px;color:#666">${escapeHtml(ing.packageNote)}</div>`:"";
+        const perLbLine=ing.isPerLb?`<div style="font-size:10px;color:#999">${escapeHtml(ing.salePrice)} <s style="opacity:0.5">${escapeHtml(ing.regularPrice)}</s></div>`:"";
         const regPrice=!ing.isPerLb&&ing.regularPrice&&ing.regularPrice!=="—"?`<span class="ing-reg-price">$${String(ing.regularPrice).replace(/[^0-9.]/g,"")}</span>`:"";
-        return `<div class="ing-row on-sale"><span>✅ ${ing.name}${ing.storeName?` <span style="font-size:9px;color:#999">(${ing.storeName})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
+        return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
-      ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">✂️ Clip These Coupons</div><div class="coupon-list">${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}"><span>${c.clipped?"✅":"✂️"} ${c.description}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}</div></div>`:""}
+      ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">✂️ Clip These Coupons</div><div class="coupon-list">${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}"><span>${c.clipped?"✅":"✂️"} ${escapeHtml(c.description)}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}</div></div>`:""}
       <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map(ing=>{
         const type=ing.type||"PANTRY";
         const isOnSale=type==="SALE"&&ing.onSale;
@@ -822,9 +827,9 @@ function renderModal(r){
         const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
         const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
         const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
-        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${ing.name}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${escapeHtml(ing.name)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
-      ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${step}</div></div>`).join("")}</div></div>`:""}
+      ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
       <div class="cart-success-msg" id="cartSuccessMsg">✅ Items added to your cart!</div>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
@@ -847,16 +852,16 @@ function showShoppingList(){
   const saleRows=(r.usedSaleItems||[]).map(i=>{
     const costNum=i.actualCost||String(i.salePrice).replace(/[^0-9.]/g,"");
     const cost=i.isPerLb?`≈ $${costNum}`:`$${costNum}`;
-    const pkgDetail=i.packageNote?`<div style="font-size:10px;color:#666">${i.packageNote}</div>`:"";
-    const perLb=i.isPerLb?`<div style="font-size:10px;color:#999">${i.salePrice}</div>`:"";
-    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--green-mid)" /><span style="font-weight:600">${i.name}</span></div><div style="text-align:right"><span class="ing-sale-price">${cost}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${i.storeName||""}</span></div></div>`;
+    const pkgDetail=i.packageNote?`<div style="font-size:10px;color:#666">${escapeHtml(i.packageNote)}</div>`:"";
+    const perLb=i.isPerLb?`<div style="font-size:10px;color:#999">${escapeHtml(i.salePrice)}</div>`:"";
+    return `<div class="ing-row on-sale" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--green-mid)" /><span style="font-weight:600">${escapeHtml(i.name)}</span></div><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${perLb}${pkgDetail}<span style="font-size:9px;color:#999">${escapeHtml(i.storeName||"")}</span></div></div>`;
   }).join("");
-  const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${i.name}</span></div>`).join("");
-  const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${i.name}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
+  const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${escapeHtml(i.name)}</span></div>`).join("");
+  const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${escapeHtml(i.name)}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
   const perServing=r.estimatedCost>0&&r.servings?`$${(r.estimatedCost/r.servings).toFixed(2)}/serving`:"";
   document.getElementById("modalContent").innerHTML=`<div class="modal-body">
     <div class="modal-header"><div class="modal-title">📋 Shopping List</div><button class="modal-close" onclick="renderModal(state.currentRecipe)">✕</button></div>
-    <p style="font-style:italic;color:var(--muted);font-size:14px;margin-bottom:16px">For: ${r.title} (${r.servings} servings)</p>
+    <p style="font-style:italic;color:var(--muted);font-size:14px;margin-bottom:16px">For: ${escapeHtml(r.title)} (${escapeHtml(r.servings)} servings)</p>
     ${saleRows?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale Items</div>${saleRows}</div>`:""}
     ${additionalRows?`<div class="modal-section"><div class="modal-section-title">🛒 Items to Buy</div>${additionalRows}</div>`:""}
     ${pantryRows?`<div class="modal-section"><div class="modal-section-title">🫙 Pantry / On Hand</div>${pantryRows}</div>`:""}

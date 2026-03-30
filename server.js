@@ -18,6 +18,20 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ══ PASSWORD GATE — blocks all pages until password entered ══════════════════
+
+// Generate a stable session token from the site password using HMAC
+function generateSessionToken() {
+  return crypto.createHmac("sha256", "dishcount-session-secret")
+    .update(process.env.SITE_PASSWORD || "")
+    .digest("hex");
+}
+
+function isValidSession(cookieValue) {
+  if (!cookieValue || !process.env.SITE_PASSWORD) return false;
+  const expected = generateSessionToken();
+  return crypto.timingSafeEqual(Buffer.from(cookieValue), Buffer.from(expected));
+}
+
 app.get("/login.html", (req, res) => {
   res.sendFile(join(__dirname, "public", "login.html"));
 });
@@ -28,8 +42,7 @@ app.use((req, res, next) => {
       req.path.endsWith(".woff2") || req.path.endsWith(".js")) {
     return next();
   }
-  console.log(`[AUTH] path="${req.path}" cookie="${req.cookies?.site_auth}" env="${process.env.SITE_PASSWORD}" match=${req.cookies?.site_auth === process.env.SITE_PASSWORD}`);
-  if (req.cookies?.site_auth === process.env.SITE_PASSWORD) {
+  if (isValidSession(req.cookies?.site_auth)) {
     return next();
   }
   res.redirect("/login.html");
@@ -279,7 +292,9 @@ async function refreshKrogerToken(refreshToken) {
 app.post("/api/site-login", (req, res) => {
   const { password } = req.body;
   if (password === process.env.SITE_PASSWORD) {
-    res.setHeader("Set-Cookie", `site_auth=${process.env.SITE_PASSWORD}; Path=/; HttpOnly; Max-Age=86400`);
+    const token = generateSessionToken();
+    const isProduction = process.env.NODE_ENV === "production" || process.env.PORT === "10000";
+    res.setHeader("Set-Cookie", `site_auth=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${isProduction ? "; Secure" : ""}`);
     res.json({ success: true });
   } else {
     res.status(401).json({ error: "Incorrect password" });
@@ -2258,8 +2273,16 @@ app.get("/api/debug-recipes", async (req, res) => {
 
 // ══ DEAL CACHE ADMIN ═════════════════════════════════════════════════════════
 
+// Admin auth middleware — requires valid site password session
+function requireAdmin(req, res, next) {
+  if (!isValidSession(req.cookies?.site_auth)) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+}
+
 // View cache status
-app.get("/api/admin/cache-status", async (req, res) => {
+app.get("/api/admin/cache-status", requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("deal_cache")
@@ -2281,7 +2304,7 @@ app.get("/api/admin/cache-status", async (req, res) => {
 });
 
 // Clear expired cache entries
-app.post("/api/admin/cache-cleanup", async (req, res) => {
+app.post("/api/admin/cache-cleanup", requireAdmin, async (req, res) => {
   try {
     const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
     const { data, error } = await supabase
@@ -2294,32 +2317,10 @@ app.post("/api/admin/cache-cleanup", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET version — also supports ?all=true to clear entire cache
-app.get("/api/admin/cache-cleanup", async (req, res) => {
-  try {
-    const clearAll = req.query.all === "true";
-    const keyPattern = req.query.key; // delete specific key or pattern
-    let query;
-    if (keyPattern) {
-      if (keyPattern.includes("%")) {
-        query = supabase.from("deal_cache").delete().like("cache_key", keyPattern).select("cache_key");
-      } else {
-        query = supabase.from("deal_cache").delete().eq("cache_key", keyPattern).select("cache_key");
-      }
-    } else if (clearAll) {
-      query = supabase.from("deal_cache").delete().neq("cache_key", "").select("cache_key");
-    } else {
-      const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
-      query = supabase.from("deal_cache").delete().lt("fetched_at", cutoff).select("cache_key");
-    }
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    res.json({ deleted: data?.length || 0, message: keyPattern ? `Cleared cache for: ${keyPattern}` : clearAll ? "Cleared ALL cache entries" : "Removed entries older than 24 hours" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
+// GET cache-cleanup removed — destructive operations must use POST
 
 // Ad regions stats
-app.get("/api/admin/ad-regions-stats", async (req, res) => {
+app.get("/api/admin/ad-regions-stats", requireAdmin, async (req, res) => {
   try {
     // Paginate to get ALL rows (Supabase defaults to 1000 max)
     let allData = [];
@@ -2364,7 +2365,7 @@ app.get("/api/admin/ad-regions-stats", async (req, res) => {
 });
 
 // Check which ad_regions zips have cached deals vs need fetching
-app.get("/api/admin/cache-coverage", async (req, res) => {
+app.get("/api/admin/cache-coverage", requireAdmin, async (req, res) => {
   const { store } = req.query; // optional filter
   try {
     // Get distinct zip3s from ad_regions (paginated)
@@ -2424,7 +2425,7 @@ app.get("/api/admin/cache-coverage", async (req, res) => {
 // AD IMAGE → DEALS EXTRACTION (Claude Vision)
 // ══════════════════════════════════════════════════════════════════════════
 
-app.post("/api/extract-ad", async (req, res) => {
+app.post("/api/extract-ad", requireAdmin, async (req, res) => {
   try {
     const { image, storeName } = req.body;
     if (!image) return res.status(400).json({ error: "No image provided" });
@@ -2502,7 +2503,7 @@ IMPORTANT:
 });
 
 // Admin: manually import extracted deals into cache
-app.post("/api/admin/import-deals", async (req, res) => {
+app.post("/api/admin/import-deals", requireAdmin, async (req, res) => {
   try {
     const { deals, storeName, zip3 } = req.body;
     if (!deals || !storeName || !zip3) return res.status(400).json({ error: "Missing deals, storeName, or zip3" });

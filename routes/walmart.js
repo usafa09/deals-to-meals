@@ -4,6 +4,46 @@ import { validateZip, getWalmartHeaders, WALMART_API_BASE } from "../lib/utils.j
 
 const router = Router();
 
+export async function fetchWalmartDeals() {
+  const headers = getWalmartHeaders();
+  const allProducts = [];
+  const searchTerms = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
+  await Promise.all(searchTerms.map(async (term) => {
+    try {
+      const r = await fetch(
+        `${WALMART_API_BASE}/search?query=${encodeURIComponent(term)}&categoryId=976759&specialOffer=rollback&numItems=25&responseGroup=full`,
+        { headers }
+      );
+      if (!r.ok) return;
+      const data = await r.json();
+      const items = (data.items || [])
+        .filter(p => {
+          const sale = p.salePrice;
+          const regular = p.regularPrice || p.msrp;
+          return sale && regular && sale < regular && regular <= 50;
+        })
+        .map(p => {
+          const regular = p.regularPrice || p.msrp;
+          const savings = (regular - p.salePrice).toFixed(2);
+          const pctOff = Math.round(((regular - p.salePrice) / regular) * 100);
+          return {
+            id: String(p.itemId), upc: p.upc || "", name: p.name, brand: p.brandName || "",
+            category: term, regularPrice: regular.toFixed(2), salePrice: p.salePrice.toFixed(2),
+            savings, pctOff, size: p.size || "",
+            image: p.thumbnailImage || p.mediumImage || null,
+            productUrl: p.productUrl || null, source: "walmart", storeName: "Walmart",
+          };
+        });
+      allProducts.push(...items);
+    } catch (e) { console.error(`Walmart search "${term}" error:`, e.message); }
+  }));
+  const seen = new Set();
+  return allProducts
+    .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+    .sort((a, b) => b.pctOff - a.pctOff)
+    .slice(0, 200);
+}
+
 router.get("/api/walmart/stores", async (req, res) => {
   const { zip } = req.query;
   if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
@@ -29,44 +69,8 @@ router.get("/api/walmart/stores", async (req, res) => {
 
 router.get("/api/walmart/deals", async (req, res) => {
   try {
-    const headers = getWalmartHeaders();
-    const allProducts = [];
-    const searchTerms = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
-    await Promise.all(searchTerms.map(async (term) => {
-      try {
-        const r = await fetch(
-          `${WALMART_API_BASE}/search?query=${encodeURIComponent(term)}&categoryId=976759&specialOffer=rollback&numItems=25&responseGroup=full`,
-          { headers }
-        );
-        if (!r.ok) return;
-        const data = await r.json();
-        const items = (data.items || [])
-          .filter(p => {
-            const sale = p.salePrice;
-            const regular = p.regularPrice || p.msrp;
-            return sale && regular && sale < regular && regular <= 50;
-          })
-          .map(p => {
-            const regular = p.regularPrice || p.msrp;
-            const savings = (regular - p.salePrice).toFixed(2);
-            const pctOff = Math.round(((regular - p.salePrice) / regular) * 100);
-            return {
-              id: String(p.itemId), upc: p.upc || "", name: p.name, brand: p.brandName || "",
-              category: term, regularPrice: regular.toFixed(2), salePrice: p.salePrice.toFixed(2),
-              savings, pctOff, size: p.size || "",
-              image: p.thumbnailImage || p.mediumImage || null,
-              productUrl: p.productUrl || null, source: "walmart",
-            };
-          });
-        allProducts.push(...items);
-      } catch (e) { console.error(`Walmart search "${term}" error:`, e.message); }
-    }));
-    const seen = new Set();
-    const unique = allProducts
-      .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
-      .sort((a, b) => b.pctOff - a.pctOff)
-      .slice(0, 200);
-    res.json({ deals: unique });
+    const deals = await fetchWalmartDeals();
+    res.json({ deals });
   } catch (err) {
     console.error("Walmart deals error:", err.message);
     res.status(500).json({ error: err.message });

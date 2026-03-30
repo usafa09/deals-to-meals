@@ -8,6 +8,7 @@ import {
   storesWithDealsCache, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
+import { fetchWalmartDeals } from "./walmart.js";
 
 const router = Router();
 
@@ -186,7 +187,7 @@ router.get("/api/deals/regional", async (req, res) => {
     const summary = summarizeRegions(regions);
     console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains ═══`);
 
-    const results = { kroger: null, aldi: null, sources: [] };
+    const results = { kroger: null, aldi: null, walmart: null, sources: [] };
     const fetchPromises = [];
 
     const krogerRegion = summary.find(s => s.store === "kroger");
@@ -229,6 +230,30 @@ router.get("/api/deals/regional", async (req, res) => {
       })());
     }
 
+    // ── Walmart: national rollback deals, cache as walmart:national ──
+    fetchPromises.push((async () => {
+      const cacheKey = "walmart:national";
+      const cached = await getCachedDeals(cacheKey);
+      if (cached) {
+        results.walmart = cached;
+        results.sources.push({ store: "walmart", banner: "Walmart", division: "National", deals: cached.length, cached: true });
+        console.log(`  Walmart National: ${cached.length} deals [cached]`);
+      } else {
+        try {
+          const deals = await fetchWalmartDeals();
+          if (deals.length > 0) {
+            await setCachedDeals(cacheKey, deals);
+          }
+          results.walmart = deals;
+          results.sources.push({ store: "walmart", banner: "Walmart", division: "National", deals: deals.length, cached: false });
+          console.log(`  Walmart National: ${deals.length} deals [live]`);
+        } catch (e) {
+          console.error(`  Walmart fetch error: ${e.message}`);
+          results.sources.push({ store: "walmart", banner: "Walmart", deals: 0, error: e.message });
+        }
+      }
+    })());
+
     await Promise.all(fetchPromises);
 
     let adExtractDeals = [];
@@ -269,6 +294,7 @@ router.get("/api/deals/regional", async (req, res) => {
     const allDeals = [
       ...(results.kroger || []),
       ...(results.aldi || []),
+      ...(results.walmart || []),
       ...adExtractDeals,
     ];
 

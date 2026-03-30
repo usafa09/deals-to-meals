@@ -219,6 +219,29 @@
     .sale-filter-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }
     .sale-summary { display: flex; gap: 12px; margin-bottom: 16px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
     .sale-summary span { padding: 6px 12px; border-radius: 10px; }
+
+    /* ── Mobile responsive ── */
+    @media (max-width: 500px) {
+      .modal-overlay { padding: 0; }
+      .modal { max-height: 100vh; height: 100vh; border-radius: 0; }
+      .modal-img { height: 160px; border-radius: 0; }
+      .modal-img-placeholder { height: 140px; border-radius: 0; }
+      .modal-body { padding: 16px; overflow-y: auto; max-height: calc(100vh - 160px); -webkit-overflow-scrolling: touch; }
+      .modal-title { font-size: 18px; }
+      .modal-stats { gap: 6px; }
+      .stat-pill { padding: 6px 10px; font-size: 12px; }
+      .modal-actions { flex-direction: column; }
+      .modal-btn { min-width: unset; }
+      .filter-grid { gap: 6px; }
+      .filter-chip { padding: 6px 10px; font-size: 12px; }
+      .sale-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+      .sale-filters { gap: 6px; }
+      .sale-filter-btn { padding: 5px 10px; font-size: 11px; }
+      main { padding: 20px 12px 80px; }
+      .hero-emoji { font-size: 52px; }
+      .hero-title { font-size: 22px; }
+      .meal-grid { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 </head>
 <body>

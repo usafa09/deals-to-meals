@@ -637,9 +637,9 @@ async function loadDealsAndShow() {
       // ALDI
       if (d.source === "aldi" && selectedLower.includes("aldi")) return true;
       // Ad-extracted deals: match by storeName
-      if (d.source === "ad-extract") return selectedLower.some(b => store.includes(b));
+      if (d.source === "ad-extract") return selectedLower.some(b => store.includes(b) || b.includes(store));
       // Fallback
-      return selectedLower.some(b => store.includes(b));
+      return selectedLower.some(b => store.includes(b) || b.includes(store));
     });
 
     // Log sources for debugging

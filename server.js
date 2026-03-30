@@ -1791,7 +1791,13 @@ Generate exactly 8 recipes. Each recipe should:
 - Include simple pantry staples the customer likely already has (salt, pepper, oil, butter, flour, sugar, dried spices/herbs, vinegar, soy sauce, etc.)
 - Have clear, numbered step-by-step instructions a beginner cook could follow
 - Be a REAL recipe that actually works — not made up combinations
-- Use sale items appropriately based on what they are. Raw ingredients (chicken breasts, ground beef, fresh vegetables) should be used in from-scratch recipes. Pre-made or processed products (breaded shrimp, frozen pizza, fish sticks, nuggets) should only be used in recipes where that product IS the dish or a natural component (e.g. breaded shrimp → shrimp po'boy, frozen pizza → loaded pizza). NEVER use a processed product as a substitute for a raw ingredient (e.g. do NOT use breaded frozen shrimp in a butter garlic shrimp skillet).
+- Use sale items appropriately based on what they are:
+  * RAW INGREDIENTS (chicken breasts, ground beef, fresh vegetables, cheese, rice, pasta) → use in from-scratch recipes as you normally would
+  * PRE-MADE/PROCESSED PRODUCTS (chicken nuggets, fish sticks, frozen pizza, hot pockets, breaded shrimp, frozen burritos, mac & cheese boxes) → you have TWO options:
+    Option A: Use the product as-is in a creative assembled dish (e.g. chicken nuggets → chicken nugget parmesan, fish sticks → fish stick tacos)
+    Option B: IGNORE the processed product entirely and use the BASE raw ingredient instead (e.g. if "chicken nuggets" is on sale, make a recipe using "chicken breast" and note it as PANTRY, NOT as a SALE item)
+  * NEVER create a "homemade" version of a processed product that uses that same processed product as an ingredient. "Homemade chicken nuggets" must use raw chicken breast, flour, and breadcrumbs — NOT pre-made chicken nuggets. "Homemade fish sticks" must use fresh fish fillets — NOT frozen fish sticks.
+  * NEVER use a processed product as a substitute for a raw ingredient (e.g. do NOT use breaded frozen shrimp in a butter garlic shrimp skillet, do NOT use chicken nuggets in a chicken stir-fry)
 ${dietNote}
 
 Respond with ONLY valid JSON, no other text. Use this exact format:

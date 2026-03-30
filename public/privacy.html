@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Dishcount</title>
+  <meta name="description" content="Privacy Policy for Dishcount. Learn how we collect, use, and protect your information.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    :root {
+      --green-dark: #2d6a4f;
+      --green-mid: #40916c;
+      --green-light: #d8f3dc;
+      --orange: #d97706;
+      --cream: #fffdf7;
+      --sand: #e8e0d0;
+      --text: #2d3a2e;
+      --muted: #9ca38f;
+      --dark: #1a2e1f;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      background: var(--cream);
+      min-height: 100vh;
+    }
+
+    /* Nav */
+    .landing-nav {
+      background: var(--dark);
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .landing-nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .landing-nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .landing-nav-tagline {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fbbf24;
+      opacity: 0.7;
+    }
+    .landing-nav-links {
+      display: flex;
+      gap: 28px;
+    }
+    .landing-nav-links a {
+      color: #b6c5b8;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .landing-nav-links a:hover { color: #fff; }
+    .landing-nav-signin {
+      color: #fbbf24;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid rgba(251,191,36,0.3);
+      padding: 6px 16px;
+      border-radius: 8px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .landing-nav-signin:hover {
+      background: #fbbf24;
+      color: var(--dark);
+    }
+
+    /* Page header */
+    .page-header {
+      background: var(--dark);
+      padding: 80px 24px 60px;
+      text-align: center;
+    }
+    .page-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .page-header p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .page-header .effective-date {
+      font-size: 14px;
+      color: #7a8b7d;
+      margin-top: 16px;
+    }
+
+    /* Legal content */
+    .legal-content {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 60px 24px;
+      background: var(--cream);
+    }
+    .legal-content h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--green-dark);
+      border-bottom: 2px solid var(--sand);
+      padding-bottom: 8px;
+      margin-top: 40px;
+      margin-bottom: 16px;
+    }
+    .legal-content h2:first-child {
+      margin-top: 0;
+    }
+    .legal-content h3 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+    .legal-content p {
+      font-size: 15px;
+      line-height: 1.8;
+      color: #444;
+      margin-bottom: 12px;
+    }
+    .legal-content ul {
+      font-size: 15px;
+      line-height: 1.8;
+      color: #444;
+      margin: 8px 0 16px 24px;
+    }
+    .legal-content ul li {
+      margin-bottom: 4px;
+    }
+
+    /* Third-party services table */
+    .services-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 14px;
+    }
+    .services-table th {
+      background: var(--green-dark);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .services-table th:first-child {
+      border-radius: 10px 0 0 0;
+    }
+    .services-table th:last-child {
+      border-radius: 0 10px 0 0;
+    }
+    .services-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--sand);
+      color: #444;
+      line-height: 1.6;
+      vertical-align: top;
+    }
+    .services-table tr:nth-child(even) td {
+      background: rgba(45, 106, 79, 0.04);
+    }
+    .services-table tr:last-child td:first-child {
+      border-radius: 0 0 0 10px;
+    }
+    .services-table tr:last-child td:last-child {
+      border-radius: 0 0 10px 0;
+    }
+    .services-table a {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .services-table a:hover {
+      text-decoration: underline;
+    }
+    .services-table .service-name {
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    /* Cookies table */
+    .cookies-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 14px;
+    }
+    .cookies-table th {
+      background: var(--green-dark);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cookies-table th:first-child {
+      border-radius: 10px 0 0 0;
+    }
+    .cookies-table th:last-child {
+      border-radius: 0 10px 0 0;
+    }
+    .cookies-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--sand);
+      color: #444;
+      line-height: 1.6;
+      vertical-align: top;
+    }
+    .cookies-table tr:nth-child(even) td {
+      background: rgba(45, 106, 79, 0.04);
+    }
+    .cookies-table tr:last-child td:first-child {
+      border-radius: 0 0 0 10px;
+    }
+    .cookies-table tr:last-child td:last-child {
+      border-radius: 0 0 10px 0;
+    }
+    .cookies-table code {
+      background: rgba(45, 106, 79, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--green-dark);
+    }
+
+    /* Contact info at bottom */
+    .contact-info {
+      margin-top: 8px;
+    }
+    .contact-info a {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .contact-info a:hover {
+      text-decoration: underline;
+    }
+
+    /* Mobile */
+    @media (max-width: 500px) {
+      .page-header h1 {
+        font-size: 30px;
+      }
+      .page-header p {
+        font-size: 16px;
+      }
+      .page-header {
+        padding: 60px 16px 40px;
+      }
+      .landing-nav-links {
+        display: none;
+      }
+      .legal-content {
+        padding: 40px 16px;
+      }
+      .legal-content h2 {
+        font-size: 19px;
+        margin-top: 32px;
+      }
+      .services-table,
+      .cookies-table {
+        font-size: 13px;
+        display: block;
+        overflow-x: auto;
+      }
+      .services-table th,
+      .services-table td,
+      .cookies-table th,
+      .cookies-table td {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="landing-nav">
+  <div class="landing-nav-inner">
+    <a href="/" class="landing-nav-logo">
+      <svg width="140" height="36" viewBox="0 0 200 50" style="flex-shrink:0">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+        </text>
+      </svg>
+      <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="/#how-it-works">How It Works</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <a href="/profile.html" class="landing-nav-signin">Sign In</a>
+  </div>
+</nav>
+
+<header class="page-header">
+  <h1>Privacy Policy</h1>
+  <p>Your privacy matters to us. Here's exactly what we collect and why.</p>
+  <p class="effective-date">Effective Date: March 30, 2026</p>
+</header>
+
+<main class="legal-content">
+
+  <h2>1. Introduction</h2>
+  <p>Dishcount LLC ("we", "us", "our") operates the websites dishcount.co and dealstomeals.co (the "Service"). This Privacy Policy explains how we collect, use, and protect your information when you use our Service.</p>
+
+  <h2>2. Information We Collect</h2>
+
+  <h3>(a) Information You Provide</h3>
+  <ul>
+    <li>Your zip code (used for store searches, not permanently stored with your identity)</li>
+    <li>Account information if you register (name, email, dietary preferences, favorite recipe types, preferred store)</li>
+    <li>Saved recipes</li>
+    <li>Contact form submissions</li>
+  </ul>
+
+  <h3>(b) Information Collected Automatically</h3>
+  <ul>
+    <li>Basic usage data (pages visited, features used)</li>
+    <li>A session cookie to maintain your login state</li>
+  </ul>
+  <p>We do not use analytics tracking scripts or advertising pixels.</p>
+
+  <h3>(c) Information from Third Parties</h3>
+  <p>If you connect your Kroger account, we receive a temporary access token to add items to your cart. We do not store your Kroger password, and we do not access your Kroger purchase history.</p>
+
+  <h2>3. How We Use Your Information</h2>
+  <p>We use the information we collect to:</p>
+  <ul>
+    <li>Find nearby grocery stores and current deals</li>
+    <li>Generate personalized recipe suggestions using AI</li>
+    <li>Save your preferences and favorite recipes</li>
+    <li>Improve and maintain the Service</li>
+    <li>Respond to your inquiries and support requests</li>
+  </ul>
+  <p>We explicitly do <strong>NOT</strong>:</p>
+  <ul>
+    <li>Sell your personal information to third parties</li>
+    <li>Build advertising profiles based on your activity</li>
+    <li>Share your data with data brokers or marketing companies</li>
+    <li>Use your data for any purpose other than providing and improving the Service</li>
+  </ul>
+
+  <h2>4. Third-Party Services</h2>
+  <p>We integrate with the following third-party services, each of which has its own privacy policy. Each service receives only the minimum data necessary to provide its function.</p>
+
+  <table class="services-table">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Purpose</th>
+        <th>Data Shared</th>
+        <th>Privacy Policy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="service-name">Supabase</td>
+        <td>Database &amp; authentication</td>
+        <td>Account data and saved recipes</td>
+        <td><a href="https://supabase.com/privacy" target="_blank" rel="noopener">supabase.com/privacy</a></td>
+      </tr>
+      <tr>
+        <td class="service-name">Google Places API</td>
+        <td>Store discovery</td>
+        <td>Your zip code for geocoding. Does NOT receive personally identifiable information.</td>
+        <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></td>
+      </tr>
+      <tr>
+        <td class="service-name">Kroger API</td>
+        <td>Deals &amp; cart</td>
+        <td>Temporary OAuth token if you connect your account</td>
+        <td><a href="https://www.kroger.com/i/privacy-policy" target="_blank" rel="noopener">kroger.com/privacy-policy</a></td>
+      </tr>
+      <tr>
+        <td class="service-name">Anthropic Claude AI</td>
+        <td>Recipe generation &amp; deal extraction</td>
+        <td>Sale item names and dietary preferences. Does NOT receive personally identifiable information.</td>
+        <td><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">anthropic.com/privacy</a></td>
+      </tr>
+      <tr>
+        <td class="service-name">Spoonacular</td>
+        <td>Recipe search</td>
+        <td>Ingredient keywords. Does NOT receive personally identifiable information.</td>
+        <td><a href="https://spoonacular.com/food-api/terms" target="_blank" rel="noopener">spoonacular.com/terms</a></td>
+      </tr>
+      <tr>
+        <td class="service-name">Pexels</td>
+        <td>Recipe images</td>
+        <td>Recipe title keywords. Does NOT receive personally identifiable information.</td>
+        <td><a href="https://www.pexels.com/privacy-policy/" target="_blank" rel="noopener">pexels.com/privacy-policy</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5. Data Storage &amp; Security</h2>
+  <p>Your data is stored on Supabase, which runs on Amazon Web Services (AWS) infrastructure. We protect your data using:</p>
+  <ul>
+    <li>HTTPS encryption for all data in transit</li>
+    <li>Hashed session tokens (never plain-text)</li>
+    <li>Row-level security policies on our database</li>
+    <li>Environment variables for all API keys and secrets</li>
+  </ul>
+  <p>While we take reasonable measures to protect your information, no method of electronic storage or transmission is 100% secure.</p>
+
+  <h2>6. Data Retention</h2>
+  <ul>
+    <li>Zip code search results are cached for up to 30 days</li>
+    <li>Deal data is cached for 24 hours</li>
+    <li>Account data is retained while your account is active</li>
+    <li>Saved recipes are retained until you delete them</li>
+  </ul>
+  <p>If you delete your account, your personal data will be removed within 30 days.</p>
+
+  <h2>7. Your Rights</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li>Access the personal information we hold about you</li>
+    <li>Update or correct your account information</li>
+    <li>Delete your account and associated data</li>
+    <li>Opt out of Kroger integration at any time</li>
+    <li>Request a copy of your data</li>
+  </ul>
+  <p>To exercise any of these rights, email <a href="mailto:support@dishcount.co" style="color:var(--orange);text-decoration:none;font-weight:500">support@dishcount.co</a>.</p>
+
+  <h2>8. Children's Privacy</h2>
+  <p>The Service is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If we discover that we have collected information from a child under 13, we will delete it promptly.</p>
+  <p>If you believe a child under 13 has provided us with personal information, please contact <a href="mailto:support@dishcount.co" style="color:var(--orange);text-decoration:none;font-weight:500">support@dishcount.co</a>.</p>
+
+  <h2>9. Cookies</h2>
+  <p>We use only essential cookies required for the Service to function:</p>
+
+  <table class="cookies-table">
+    <thead>
+      <tr>
+        <th>Cookie Name</th>
+        <th>Purpose</th>
+        <th>Duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>site_auth</code></td>
+        <td>Password gate session authentication (HttpOnly, Secure, SameSite=Strict)</td>
+        <td>24 hours</td>
+      </tr>
+      <tr>
+        <td><code>sb-*-auth-token</code></td>
+        <td>Supabase authentication for user login sessions</td>
+        <td>Session</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>We do <strong>NOT</strong> use:</p>
+  <ul>
+    <li>Analytics cookies</li>
+    <li>Advertising or tracking cookies</li>
+    <li>Third-party cookies</li>
+    <li>Cookie-based user profiling</li>
+  </ul>
+
+  <h2>10. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. When we do, we will revise the "Effective Date" at the top of this page. We encourage you to review this policy periodically.</p>
+
+  <h2>11. Contact Us</h2>
+  <p>If you have questions or concerns about this Privacy Policy, please contact us:</p>
+  <div class="contact-info">
+    <p><strong>Dishcount LLC</strong></p>
+    <p>Email: <a href="mailto:support@dishcount.co">support@dishcount.co</a></p>
+    <p>Location: Dayton, Ohio</p>
+  </div>
+
+</main>
+
+<footer style="background:#1a2e1f;padding:32px 24px;text-align:center">
+  <p style="font-size:14px;color:#7a8b7d;line-height:1.8">Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html" style="color:#9ca38f;text-decoration:none">About</a> &middot; <a href="/contact.html" style="color:#9ca38f;text-decoration:none">Contact</a> &middot; <a href="/terms.html" style="color:#9ca38f;text-decoration:none">Terms</a> &middot; <a href="/privacy.html" style="color:#9ca38f;text-decoration:none">Privacy</a></p>
+  <p style="font-size:13px;color:#5a6b5d;margin-top:4px">&copy; 2025 Dishcount. All rights reserved.</p>
+</footer>
+
+</body>
+</html>

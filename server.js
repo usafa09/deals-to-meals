@@ -54,6 +54,12 @@ app.use((req, res, next) => {
 
 app.use(express.static(join(__dirname, "public")));
 
+// ── Input validation helpers ─────────────────────────────────────────────────
+const ZIP_RE = /^\d{5}$/;
+const STORE_NAME_RE = /^[a-zA-Z0-9\s\-'&.]{1,50}$/;
+function validateZip(zip) { return typeof zip === "string" && ZIP_RE.test(zip); }
+function validateStoreName(name) { return typeof name === "string" && STORE_NAME_RE.test(name); }
+
 const KROGER_TOKEN_URL = "https://api.kroger.com/v1/connect/oauth2/token";
 const KROGER_AUTH_URL  = "https://api.kroger.com/v1/connect/oauth2/authorize";
 const KROGER_API_BASE  = "https://api.kroger.com/v1";
@@ -116,7 +122,7 @@ async function getCachedDeals(cacheKey) {
     if (age > DEAL_CACHE_TTL) return null; // expired
     console.log(`  Cache HIT: ${cacheKey} (${Math.round(age/60000)}min old)`);
     return data.data;
-  } catch { return null; }
+  } catch (e) { console.error("Cache read error:", e.message); return null; }
 }
 
 async function setCachedDeals(cacheKey, deals) {
@@ -511,7 +517,7 @@ app.get("/api/aldi/status", async (req, res) => {
 
 app.get("/api/walmart/stores", async (req, res) => {
   const { zip } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
+  if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   try {
     const headers = getWalmartHeaders();
     const r = await fetch(`https://developer.api.walmart.com/api-proxy/service/affil/product/v2/stores?zip=${zip}`, { headers });
@@ -564,7 +570,7 @@ app.get("/api/walmart/deals", async (req, res) => {
             };
           });
         allProducts.push(...items);
-      } catch (e) {}
+      } catch (e) { console.error(`Walmart search "${term}" error:`, e.message); }
     }));
     const seen = new Set();
     const unique = allProducts
@@ -582,7 +588,7 @@ app.get("/api/walmart/deals", async (req, res) => {
 
 app.get("/api/stores", async (req, res) => {
   const { zip, radius } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
+  if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   const miles = Math.min(Math.max(parseInt(radius) || 10, 1), 50);
   try {
     const token = await getAppToken();
@@ -727,7 +733,7 @@ async function getCachedStores(zip, cacheKey) {
     const age = Date.now() - new Date(data.fetched_at).getTime();
     if (age > STORE_CACHE_TTL) return null;
     return data.data;
-  } catch { return null; }
+  } catch (e) { console.error("Store cache read error:", e.message); return null; }
 }
 
 async function setCachedStores(zip, stores, cacheKey) {
@@ -743,7 +749,7 @@ async function setCachedStores(zip, stores, cacheKey) {
 
 app.get("/api/nearby-stores", async (req, res) => {
   const { zip, radius: radiusMiles } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
+  if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   const miles = parseInt(radiusMiles) || 10;
   const radiusMeters = Math.min(miles * 1609, 48000); // convert miles to meters, cap at ~30mi
   const cacheKey = `nearby-stores:${zip}:${miles}mi`;
@@ -907,7 +913,7 @@ app.get("/api/nearby-stores", async (req, res) => {
 
 app.get("/api/ad-regions", async (req, res) => {
   const { zip } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
+  if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   try {
     const zip3 = zip.substring(0, 3);
     const regions = await getAdRegions(zip);
@@ -945,7 +951,7 @@ app.get("/api/ad-regions", async (req, res) => {
 
 app.get("/api/deals/regional", async (req, res) => {
   const { zip, locationId } = req.query;
-  if (!zip) return res.status(400).json({ error: "zip is required" });
+  if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
 
   try {
     const zip3 = zip.substring(0, 3);
@@ -967,47 +973,8 @@ app.get("/api/deals/regional", async (req, res) => {
           results.sources.push({ store: "kroger", banner: krogerRegion.banner, division: krogerRegion.division, deals: cached.length, cached: true });
           console.log(`  Kroger ${krogerRegion.banner} (${krogerRegion.division}): ${cached.length} deals [cached]`);
         } else {
-          // Fetch live from Kroger API
           try {
-            const token = await getAppToken();
-            const allProducts = [];
-            const batchSize = 8;
-            for (let i = 0; i < DEAL_CATEGORIES.length; i += batchSize) {
-              const batch = DEAL_CATEGORIES.slice(i, i + batchSize);
-              await Promise.all(batch.map(async (category) => {
-                try {
-                  const r = await fetch(
-                    `${KROGER_API_BASE}/products?filter.locationId=${locationId}&filter.term=${encodeURIComponent(category)}&filter.limit=20`,
-                    { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
-                  );
-                  if (!r.ok) return;
-                  const data = await r.json();
-                  const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
-                    const item = p.items[0];
-                    const size = item.size || "";
-                    const sizeLower = size.toLowerCase();
-                    const regular = item.price.regular || 0;
-                    const sale = item.price.promo || 0;
-                    const nameLower = (p.description || "").toLowerCase();
-                    const isPerLb = detectPerLb(sizeLower, nameLower, sale);
-                    const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
-                    
-                    const pctOff = Math.round(((regular - sale) / regular) * 100);
-                    return {
-                      id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
-                      regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
-                      isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
-                      savings: (regular - sale).toFixed(2), pctOff, size,
-                      image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
-                      storeName: krogerRegion.banner, source: "kroger",
-                    };
-                  });
-                  allProducts.push(...products);
-                } catch (e) {}
-              }));
-            }
-            const seen = new Set();
-            const unique = allProducts.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; }).sort((a, b) => b.pctOff - a.pctOff).slice(0, 200);
+            const unique = await fetchKrogerDeals(locationId, krogerRegion.banner);
             await setCachedDeals(cacheKey, unique);
             results.kroger = unique;
             results.sources.push({ store: "kroger", banner: krogerRegion.banner, division: krogerRegion.division, deals: unique.length, cached: false });
@@ -1112,7 +1079,7 @@ const extractingStores = new Set();
 
 app.post("/api/extract-store", async (req, res) => {
   const { storeName } = req.body;
-  if (!storeName) return res.status(400).json({ error: "storeName is required" });
+  if (!validateStoreName(storeName)) return res.status(400).json({ error: "Valid storeName is required (letters, numbers, spaces, hyphens, max 50 chars)" });
 
   const storeId = storeName.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
 
@@ -1171,7 +1138,7 @@ app.post("/api/extract-store", async (req, res) => {
           const pHtml = await pRes.text();
           const pImages = (pHtml.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
           if (pImages.length > 0) images.push(pImages[0]);
-        } catch {}
+        } catch (e) { console.error(`LadySavings page ${p} fetch error:`, e.message); }
       }
     } else {
       // Standard: igroceryads/iweeklyads images
@@ -1254,14 +1221,15 @@ app.post("/api/extract-store", async (req, res) => {
           const deals = JSON.parse(cleaned);
           deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
           allDeals.push(...deals);
-        } catch {
+        } catch (e) {
+          console.error(`OCR page ${i+1} JSON parse error:`, e.message);
           const lastBrace = cleaned.lastIndexOf("}");
           if (lastBrace > 0) {
             try {
               const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
               recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
               allDeals.push(...recovered);
-            } catch {}
+            } catch (e2) { console.error(`OCR page ${i+1} recovery parse error:`, e2.message); }
           }
         }
         if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
@@ -1339,7 +1307,8 @@ Rules:
                 return true;
               });
             }
-          } catch {
+          } catch (e) {
+            console.error("Text fallback JSON parse error:", e.message);
             const lastBrace = textCleaned.lastIndexOf("}");
             if (lastBrace > 0) {
               try {
@@ -1348,7 +1317,7 @@ Rules:
                   console.log(`  Text fallback found ${recovered.length} deals (recovered)`);
                   unique = recovered;
                 }
-              } catch {}
+              } catch (e2) { console.error("Text fallback recovery parse error:", e2.message); }
             }
           }
         }
@@ -1384,7 +1353,7 @@ Rules:
 // Check extraction status
 app.get("/api/extract-status", async (req, res) => {
   const { store } = req.query;
-  if (!store) return res.status(400).json({ error: "store is required" });
+  if (!validateStoreName(store)) return res.status(400).json({ error: "Valid store name is required" });
   const storeId = store.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
 
   if (extractingStores.has(storeId)) {
@@ -1397,13 +1366,60 @@ app.get("/api/extract-status", async (req, res) => {
   res.json({ status: "none" });
 });
 
+// ── Shared Kroger deal fetching logic ─────────────────────────────────────────
+
+async function fetchKrogerDeals(locationId, banner) {
+  const token = await getAppToken();
+  const allProducts = [];
+  const batchSize = 8;
+  for (let i = 0; i < DEAL_CATEGORIES.length; i += batchSize) {
+    const batch = DEAL_CATEGORIES.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (category) => {
+      try {
+        const r = await fetch(
+          `${KROGER_API_BASE}/products?filter.locationId=${locationId}&filter.term=${encodeURIComponent(category)}&filter.limit=20`,
+          { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+        );
+        if (!r.ok) return;
+        const data = await r.json();
+        const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
+          const item = p.items[0];
+          const size = item.size || "";
+          const sizeLower = size.toLowerCase();
+          const regular = item.price.regular || 0;
+          const sale = item.price.promo || 0;
+          const nameLower = (p.description || "").toLowerCase();
+          const isPerLb = detectPerLb(sizeLower, nameLower, sale);
+          const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
+
+          const pctOff = Math.round(((regular - sale) / regular) * 100);
+
+          return {
+            id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
+            regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
+            isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
+            savings: (regular - sale).toFixed(2), pctOff, size,
+            image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
+            ...(banner ? { storeName: banner, source: "kroger" } : {}),
+          };
+        });
+        allProducts.push(...products);
+      } catch (e) { console.error(`Kroger category "${category}" fetch error:`, e.message); }
+    }));
+  }
+  const seen = new Set();
+  return allProducts
+    .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+    .sort((a, b) => b.pctOff - a.pctOff)
+    .slice(0, 200);
+}
+
 // ══ DEALS API (Kroger) ════════════════════════════════════════════════════════
 
 app.get("/api/deals", async (req, res) => {
   const { locationId } = req.query;
   if (!locationId) return res.status(400).json({ error: "locationId is required" });
   try {
-    // Check Supabase cache first (keyed by locationId)
     const cacheKey = `kroger:${locationId}`;
     const dbCached = await getCachedDeals(cacheKey);
     if (dbCached) {
@@ -1412,50 +1428,7 @@ app.get("/api/deals", async (req, res) => {
     }
 
     console.log(`Kroger cache MISS for location ${locationId} — fetching live...`);
-    const token = await getAppToken();
-    const allProducts = [];
-    const batchSize = 8;
-    for (let i = 0; i < DEAL_CATEGORIES.length; i += batchSize) {
-      const batch = DEAL_CATEGORIES.slice(i, i + batchSize);
-      await Promise.all(batch.map(async (category) => {
-        try {
-          const r = await fetch(
-            `${KROGER_API_BASE}/products?filter.locationId=${locationId}&filter.term=${encodeURIComponent(category)}&filter.limit=20`,
-            { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
-          );
-          if (!r.ok) return;
-          const data = await r.json();
-          const products = (data.data || []).filter(p => p.items?.[0]?.price?.promo > 0).map(p => {
-            const item = p.items[0];
-            const size = item.size || "";
-            const sizeLower = size.toLowerCase();
-            const regular = item.price.regular || 0;
-            const sale = item.price.promo || 0;
-            const nameLower = (p.description || "").toLowerCase();
-            const isPerLb = detectPerLb(sizeLower, nameLower, sale);
-            const isPerCount = sizeLower.includes("ct") && !sizeLower.includes("oz");
-            
-            const pctOff = Math.round(((regular - sale) / regular) * 100);
-            
-            return {
-              id: p.productId, upc: item.upc || "", name: p.description, brand: p.brand || "", category,
-              regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
-              isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
-              savings: (regular - sale).toFixed(2), pctOff, size,
-              image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
-            };
-          });
-          allProducts.push(...products);
-        } catch (e) {}
-      }));
-    }
-    const seen = new Set();
-    const unique = allProducts
-      .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
-      .sort((a, b) => b.pctOff - a.pctOff)
-      .slice(0, 200);
-
-    // Save to Supabase
+    const unique = await fetchKrogerDeals(locationId);
     await setCachedDeals(cacheKey, unique);
     console.log(`Kroger: saved ${unique.length} deals for location ${locationId}`);
 
@@ -1510,7 +1483,7 @@ app.post("/api/recipes/search", async (req, res) => {
       });
     } else {
       const skipBrandWords = new Set(["appleton","farms","happy","fremont","fish","simply","nature","carlini","cattlemens","ranch","southern","grove","stonemill","bakers","corner","specially","selected","park","street","deli","casa","mamita","mama","cozzis","millville","brookdale","reggano","savoritz","emporium","friendly","barissimo","choceur","clancys","moser","roth","elevation","health","ade","northern","catch","poppi","bremer","never","any","market","kitchen","aldi"]);
-      const cleanIngName = (name) => name.toLowerCase().replace(/[^a-z\s]/g," ").split(" ").filter(w => w.length > 2 && !skipBrandWords.has(w)).slice(-3).join(" ");
+      const cleanIngName = (name) => name.toLowerCase().replace(/[^a-z\s]/g," ").split(" ").filter(w => w.length > 2 && !skipBrandWords.has(w)).slice(0, 5).join(" ");
       const ingredientStr = ingredients.slice(0, 20).map(i => cleanIngName(i.name)).join(",");
       searchParams = new URLSearchParams({
         apiKey,
@@ -1525,8 +1498,10 @@ app.post("/api/recipes/search", async (req, res) => {
         instructionsRequired: "true",
       });
       if (dietStr) searchParams.set("diet", dietStr);
-      if (diets?.includes("Halal")) searchParams.set("excludeIngredients", "pork,bacon,lard,gelatin,alcohol,wine,beer");
-      if (diets?.includes("Kosher")) searchParams.set("excludeIngredients", "pork,shellfish,bacon,lard");
+      const excludeSet = new Set();
+      if (diets?.includes("Halal")) ["pork","bacon","lard","gelatin","alcohol","wine","beer"].forEach(i => excludeSet.add(i));
+      if (diets?.includes("Kosher")) ["pork","shellfish","bacon","lard"].forEach(i => excludeSet.add(i));
+      if (excludeSet.size > 0) searchParams.set("excludeIngredients", [...excludeSet].join(","));
       if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
       if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
     }
@@ -2117,7 +2092,7 @@ IMPORTANT ingredient type rules:
             photographer: photo.photographer || "",
             pexelsUrl: photo.url || "",
           } : null;
-        } catch { return null; }
+        } catch (e) { console.error("Pexels image fetch error:", e.message); return null; }
       }));
       for (let i = 0; i < recipes.length; i++) {
         const result = imageResults[i];

@@ -156,16 +156,18 @@ function getCacheKey(ingredients, mealType, diets, offset) {
   return `${ingKey}|${mealType}|${(diets||[]).sort().join(",")}|${offset||0}`;
 }
 
-// ── Category placeholder images for OCR-extracted deals (Unsplash, free to use) ──
+// ── Category placeholder images for OCR-extracted deals ──
 const CATEGORY_IMAGES = {
   meat:       "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=400&h=300&fit=crop", // raw steaks
-  produce:    "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&h=300&fit=crop", // fresh fruits & vegetables
-  dairy:      "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&h=300&fit=crop", // milk cheese butter
+  vegetables: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop", // mixed vegetables
+  fruits:     "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&h=300&fit=crop", // fruit assortment
+  produce:    "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&h=300&fit=crop", // fallback to vegetables
+  dairy:      "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&h=300&fit=crop", // milk bottles
   bakery:     "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop", // fresh bread
-  frozen:     "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=400&h=300&fit=crop", // frozen foods
-  pantry:     "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=400&h=300&fit=crop", // pantry staples
-  snacks:     "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=400&h=300&fit=crop", // snack foods
-  beverages:  "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=300&fit=crop", // drinks
+  frozen:     "https://images.pexels.com/photos/279151/pexels-photo-279151.jpeg?w=400&h=300&fit=crop", // grocery store freezer aisle
+  pantry:     "https://images.pexels.com/photos/16211537/pexels-photo-16211537.jpeg?w=400&h=300&fit=crop", // canned goods on shelves
+  snacks:     "https://images.pexels.com/photos/1894325/pexels-photo-1894325.jpeg?w=400&h=300&fit=crop", // pretzels & snacks
+  beverages:  "https://images.pexels.com/photos/1384039/pexels-photo-1384039.jpeg?w=400&h=300&fit=crop", // assorted soda bottles
   deli:       "https://images.unsplash.com/photo-1550507992-eb63ffee0847?w=400&h=300&fit=crop", // deli meats & cheeses
   seafood:    "https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=400&h=300&fit=crop", // fresh fish
   household:  "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=400&h=300&fit=crop", // cleaning supplies
@@ -176,18 +178,20 @@ function getCategoryImage(category) {
   if (!category) return CATEGORY_IMAGES.other;
   const lower = category.toLowerCase();
   if (CATEGORY_IMAGES[lower]) return CATEGORY_IMAGES[lower];
-  // Fuzzy match common variants
-  if (lower.includes("meat") || lower.includes("chicken") || lower.includes("beef") || lower.includes("pork")) return CATEGORY_IMAGES.meat;
-  if (lower.includes("produce") || lower.includes("fruit") || lower.includes("vegetable")) return CATEGORY_IMAGES.produce;
-  if (lower.includes("dairy") || lower.includes("cheese") || lower.includes("milk") || lower.includes("yogurt")) return CATEGORY_IMAGES.dairy;
-  if (lower.includes("bakery") || lower.includes("bread")) return CATEGORY_IMAGES.bakery;
+  // Fuzzy match — check specific before general
+  if (lower.includes("meat") || lower.includes("chicken") || lower.includes("beef") || lower.includes("pork") || lower.includes("turkey") || lower.includes("lamb") || lower.includes("sausage") || lower.includes("bacon")) return CATEGORY_IMAGES.meat;
+  if (lower.includes("vegetable") || lower.includes("lettuce") || lower.includes("broccoli") || lower.includes("carrot") || lower.includes("pepper") || lower.includes("onion") || lower.includes("potato") || lower.includes("tomato") || lower.includes("celery") || lower.includes("spinach") || lower.includes("corn") || lower.includes("mushroom")) return CATEGORY_IMAGES.vegetables;
+  if (lower.includes("fruit") || lower.includes("apple") || lower.includes("banana") || lower.includes("orange") || lower.includes("grape") || lower.includes("berry") || lower.includes("strawberr") || lower.includes("blueberr") || lower.includes("melon") || lower.includes("mango") || lower.includes("peach") || lower.includes("pear") || lower.includes("lemon") || lower.includes("lime")) return CATEGORY_IMAGES.fruits;
+  if (lower.includes("produce")) return CATEGORY_IMAGES.vegetables;
+  if (lower.includes("dairy") || lower.includes("cheese") || lower.includes("milk") || lower.includes("yogurt") || lower.includes("butter") || lower.includes("egg") || lower.includes("cream")) return CATEGORY_IMAGES.dairy;
+  if (lower.includes("bakery") || lower.includes("bread") || lower.includes("bagel") || lower.includes("muffin") || lower.includes("roll") || lower.includes("bun")) return CATEGORY_IMAGES.bakery;
   if (lower.includes("frozen")) return CATEGORY_IMAGES.frozen;
-  if (lower.includes("pantry") || lower.includes("canned") || lower.includes("pasta") || lower.includes("rice") || lower.includes("sauce") || lower.includes("oil") || lower.includes("spice") || lower.includes("condiment")) return CATEGORY_IMAGES.pantry;
-  if (lower.includes("snack") || lower.includes("chip") || lower.includes("cracker") || lower.includes("cookie") || lower.includes("candy")) return CATEGORY_IMAGES.snacks;
-  if (lower.includes("beverage") || lower.includes("drink") || lower.includes("juice") || lower.includes("soda") || lower.includes("water") || lower.includes("coffee") || lower.includes("tea")) return CATEGORY_IMAGES.beverages;
-  if (lower.includes("deli") || lower.includes("lunch meat")) return CATEGORY_IMAGES.deli;
-  if (lower.includes("seafood") || lower.includes("fish") || lower.includes("shrimp")) return CATEGORY_IMAGES.seafood;
-  if (lower.includes("household") || lower.includes("cleaning") || lower.includes("paper")) return CATEGORY_IMAGES.household;
+  if (lower.includes("pantry") || lower.includes("canned") || lower.includes("pasta") || lower.includes("rice") || lower.includes("sauce") || lower.includes("oil") || lower.includes("spice") || lower.includes("condiment") || lower.includes("flour") || lower.includes("sugar") || lower.includes("soup") || lower.includes("broth") || lower.includes("bean") || lower.includes("cereal") || lower.includes("oatmeal")) return CATEGORY_IMAGES.pantry;
+  if (lower.includes("snack") || lower.includes("chip") || lower.includes("cracker") || lower.includes("cookie") || lower.includes("candy") || lower.includes("pretzel") || lower.includes("popcorn") || lower.includes("nut")) return CATEGORY_IMAGES.snacks;
+  if (lower.includes("beverage") || lower.includes("drink") || lower.includes("juice") || lower.includes("soda") || lower.includes("water") || lower.includes("coffee") || lower.includes("tea") || lower.includes("pop") || lower.includes("energy")) return CATEGORY_IMAGES.beverages;
+  if (lower.includes("deli") || lower.includes("lunch meat") || lower.includes("hot dog")) return CATEGORY_IMAGES.deli;
+  if (lower.includes("seafood") || lower.includes("fish") || lower.includes("shrimp") || lower.includes("salmon") || lower.includes("tilapia") || lower.includes("crab") || lower.includes("lobster") || lower.includes("tuna")) return CATEGORY_IMAGES.seafood;
+  if (lower.includes("household") || lower.includes("cleaning") || lower.includes("paper") || lower.includes("detergent") || lower.includes("trash")) return CATEGORY_IMAGES.household;
   return CATEGORY_IMAGES.other;
 }
 

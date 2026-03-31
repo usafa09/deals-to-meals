@@ -70,8 +70,49 @@ function resetApp() {
   document.getElementById("zipInput").value = "";
   document.getElementById("zipBtn").disabled = true;
 }
-function showLoading(text, sub="") { document.getElementById("loadingText").textContent=text; document.getElementById("loadingSub").textContent=sub; document.getElementById("loadingOverlay").classList.add("show"); }
-function hideLoading() { document.getElementById("loadingOverlay").classList.remove("show"); }
+let cookingInterval = null;
+const COOKING_MESSAGES = [
+  { emoji: "🍳", text: "Preheating the oven..." },
+  { emoji: "🔪", text: "Chopping ingredients..." },
+  { emoji: "🧈", text: "Melting the butter..." },
+  { emoji: "🥘", text: "Simmering the sauce..." },
+  { emoji: "🧂", text: "Adding seasoning..." },
+  { emoji: "🍲", text: "Stirring the pot..." },
+  { emoji: "👨‍🍳", text: "Taste-testing..." },
+  { emoji: "🍽️", text: "Plating the dishes..." },
+  { emoji: "✨", text: "Adding the finishing touches..." },
+];
+function showLoading(text, sub="") {
+  document.getElementById("loadingText").textContent=text;
+  document.getElementById("loadingSub").textContent=sub;
+  document.getElementById("loadingOverlay").classList.add("show");
+}
+function showCookingLoading() {
+  const overlay = document.getElementById("loadingOverlay");
+  const spinner = overlay.querySelector(".spinner");
+  const textEl = document.getElementById("loadingText");
+  const subEl = document.getElementById("loadingSub");
+  // Replace spinner with cooking emoji
+  spinner.style.display = "none";
+  let emojiEl = overlay.querySelector(".cooking-emoji");
+  if (!emojiEl) { emojiEl = document.createElement("div"); emojiEl.className = "cooking-emoji"; spinner.parentNode.insertBefore(emojiEl, spinner); }
+  emojiEl.style.display = "block";
+  let idx = 0;
+  const update = () => { const m = COOKING_MESSAGES[idx % COOKING_MESSAGES.length]; emojiEl.textContent = m.emoji; textEl.textContent = m.text; idx++; };
+  update();
+  subEl.textContent = "Our AI chef is crafting your recipes";
+  cookingInterval = setInterval(update, 2500);
+  overlay.classList.add("show");
+}
+function hideLoading() {
+  document.getElementById("loadingOverlay").classList.remove("show");
+  if (cookingInterval) { clearInterval(cookingInterval); cookingInterval = null; }
+  const overlay = document.getElementById("loadingOverlay");
+  const spinner = overlay.querySelector(".spinner");
+  const emojiEl = overlay.querySelector(".cooking-emoji");
+  if (spinner) spinner.style.display = "";
+  if (emojiEl) emojiEl.style.display = "none";
+}
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
 
 // ── Screen 1 ──────────────────────────────────────────────────────────────────
@@ -380,7 +421,7 @@ async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("All deals excluded — unmark some items");return;}
   state.recipeOffset=0;
-  showLoading("🤖 AI is cooking up recipes…",`Matching sale items to ${state.selectedStyle} meals`);
+  showCookingLoading();
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     const data=await res.json();
@@ -397,7 +438,7 @@ async function loadMoreRecipes() {
   if(!payload){showToast("Error loading more recipes");return;}
   const btn=document.getElementById("moreRecipesBtn");
   btn.disabled=true; btn.textContent="🤖 Generating…";
-  showLoading("🤖 Cooking up more recipes…",`Batch ${Math.floor(state.recipeOffset/8)+1} — finding new ideas`);
+  showCookingLoading();
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     const data=await res.json();

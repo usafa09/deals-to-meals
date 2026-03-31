@@ -10,19 +10,19 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 
 /* ══ Landing Nav (shared across landing pages) ══ */
 .landing-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(26,46,31,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.15); }
-.landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 12px 28px; display: flex; align-items: center; gap: 16px; }
+.landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 14px 28px; display: flex; align-items: center; gap: 16px; }
 .landing-nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
-.landing-nav-tagline { font-size: 9px; color: #9ca38f; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+.landing-nav-tagline { font-size: 11px; color: #b0bfb3; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
 .landing-nav-links { margin-left: auto; display: flex; gap: 28px; align-items: center; }
-.landing-nav-links a { color: #c8d6cb; text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.2s; }
+.landing-nav-links a { color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; transition: color 0.2s; }
 .landing-nav-links a:hover { color: white; }
-.landing-nav-signin { padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.08); color: #e8f0ea; transition: all 0.2s; margin-left: 8px; }
+.landing-nav-signin { padding: 9px 22px; border-radius: 20px; font-size: 14px; font-weight: 700; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.08); color: #e8f0ea; transition: all 0.2s; margin-left: 8px; }
 .landing-nav-signin:hover { background: var(--green-mid); color: white; }
 .landing-nav-saved { display: none; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; border: 2px solid var(--orange); background: rgba(255,255,255,0.08); color: #fef3c7; transition: all 0.2s; }
 .landing-nav-saved:hover { background: var(--orange); color: white; }
 
 /* ══ Landing Hero ══ */
-.landing-hero { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; background: url('https://images.unsplash.com/photo-1543168256-418811576931?w=1400&h=800&fit=crop') center/cover no-repeat; padding: 120px 24px 80px; }
+.landing-hero { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; background: url('https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1400&h=800&fit=crop') center/cover no-repeat; padding: 120px 24px 80px; }
 .landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.85) 0%, rgba(26,46,31,0.7) 50%, rgba(26,46,31,0.9) 100%); }
 .landing-hero-content { position: relative; z-index: 1; text-align: center; max-width: 720px; }
 .landing-badge { display: inline-block; padding: 8px 20px; border-radius: 24px; background: rgba(217,119,6,0.2); border: 1px solid rgba(217,119,6,0.4); color: var(--orange-light); font-size: 14px; font-weight: 700; margin-bottom: 24px; }
@@ -242,6 +242,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .loading-overlay.show { display: flex; }
 .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.cooking-emoji { font-size: 56px; animation: cookBounce 0.6s ease-in-out infinite alternate; }
+@keyframes cookBounce { 0% { transform: translateY(0) rotate(-5deg); } 100% { transform: translateY(-12px) rotate(5deg); } }
 .loading-text { font-family: 'Trebuchet MS', sans-serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
 .loading-sub { font-size: 13px; color: var(--muted); }
 .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }

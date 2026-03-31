@@ -330,7 +330,7 @@
   <section class="contact-form-section">
     <h2>Send Us a Message</h2>
     <div class="contact-form-card">
-      <form onsubmit="event.preventDefault(); this.querySelector('button').textContent='Sent! ✓'; this.querySelector('button').disabled=true; setTimeout(()=>{this.reset();this.querySelector('button').textContent='Send Message →';this.querySelector('button').disabled=false;},2000);">
+      <form id="contactForm" onsubmit="submitContact(event)">
         <div class="form-group">
           <label for="name">Name</label>
           <input type="text" id="name" name="name" required>
@@ -403,5 +403,41 @@
     <div class="copyright">&copy; 2026 Dishcount. All rights reserved.</div>
   </footer>
 
+<div id="toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;z-index:400;box-shadow:0 4px 20px rgba(0,0,0,0.2);white-space:nowrap;font-family:'DM Sans',sans-serif"></div>
+<script>
+function showToast(msg, type="error") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  t.style.background = type === "success" ? "#2d6a4f" : "#D32F2F";
+  t.style.color = "white";
+  setTimeout(() => { t.style.display = "none"; }, 3500);
+}
+async function submitContact(e) {
+  e.preventDefault();
+  const form = document.getElementById("contactForm");
+  const btn = form.querySelector("button");
+  btn.disabled = true; btn.textContent = "Sending...";
+  try {
+    const res = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name.value,
+        email: form.email.value,
+        topic: form.topic.value,
+        message: form.message.value,
+      }),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to send"); }
+    showToast("Message sent! We'll get back to you soon.", "success");
+    form.reset();
+  } catch (err) {
+    showToast(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Send Message \u2192";
+  }
+}
+</script>
 </body>
 </html>

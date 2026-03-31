@@ -97,4 +97,22 @@ router.patch("/api/profile", async (req, res) => {
   res.json(data);
 });
 
+// ══ CONTACT FORM ═════════════════════════════════════════════════════════════
+
+router.post("/api/contact", async (req, res) => {
+  const { name, email, topic, message } = req.body;
+  if (!name || !email || !topic || !message) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  try {
+    const { error } = await supabase.from("contact_messages").insert({ name, email, topic, message });
+    if (error) throw new Error(error.message);
+    console.log(`Contact form: ${topic} from ${email}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Contact form error:", err.message);
+    res.status(500).json({ error: "Could not send message. Please try again." });
+  }
+});
+
 export default router;

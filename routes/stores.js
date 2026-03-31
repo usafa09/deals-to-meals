@@ -217,15 +217,24 @@ router.get("/api/deals/regional", async (req, res) => {
     const aldiRegion = summary.find(s => s.store === "aldi");
     if (aldiRegion) {
       fetchPromises.push((async () => {
+        // Try aldi_deals table first, then fall back to ad-extract cache
         const cacheKey = "aldi:national";
         const cached = await getCachedDeals(cacheKey);
-        if (cached) {
+        if (cached && cached.length > 0) {
           results.aldi = cached;
           results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: cached.length, cached: true });
           console.log(`  ALDI National: ${cached.length} deals [cached]`);
         } else {
-          results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: 0, note: "Run Aldi-v2.js to populate" });
-          console.log(`  ALDI National: no cache — run Aldi-v2.js`);
+          // Fall back to ad-extracted ALDI deals
+          const adCached = await getCachedDeals("ad-extract:aldi");
+          if (adCached && adCached.length > 0) {
+            results.aldi = adCached;
+            results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: adCached.length, cached: true });
+            console.log(`  ALDI National: ${adCached.length} deals [ad-extract]`);
+          } else {
+            results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: 0, note: "Tap ALDI on deals screen to extract" });
+            console.log(`  ALDI National: no deals — extraction available`);
+          }
         }
       })());
     }

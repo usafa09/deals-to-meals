@@ -9,33 +9,38 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function checkAuth() {
   try {
-    const { data: { session }, error } = await sb.auth.getSession();
+    console.log("checkAuth: starting...");
+    const { data, error } = await sb.auth.getSession();
+    console.log("checkAuth: getSession returned", { session: !!data?.session, error });
     if (error) { console.error("checkAuth getSession error:", error); return; }
-    if (session?.user) {
-      console.log("checkAuth: user logged in:", session.user.email);
-      const { data, error: profileErr } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
-      if (profileErr) console.error("checkAuth profile query error:", profileErr);
-      const name = data?.full_name || session.user.email?.split("@")[0] || "Profile";
-      const firstName = name.split(" ")[0];
-      // Update app header
-      const icon = document.getElementById("profileBtnIcon");
-      const text = document.getElementById("profileBtnText");
-      const btn = document.getElementById("profileBtn");
-      if (icon) icon.innerHTML = `<span class="profile-avatar">${firstName[0].toUpperCase()}</span>`;
-      if (text) text.textContent = firstName;
-      if (btn) btn.classList.add("logged-in");
-      // Update saved buttons
-      const savedBtn = document.getElementById("savedRecipesBtn");
-      if (savedBtn) savedBtn.style.display = "flex";
-      const landingSavedBtn = document.getElementById("landingSavedBtn");
-      if (landingSavedBtn) landingSavedBtn.style.display = "flex";
-      // Update landing nav sign in button
-      const landingSignin = document.getElementById("landingSigninBtn");
-      if (landingSignin) { landingSignin.textContent = firstName; landingSignin.href = "/profile.html"; }
-    }
+    const session = data?.session;
+    if (!session?.user) { console.log("checkAuth: no session, user not logged in"); return; }
+    console.log("checkAuth: user logged in:", session.user.email, "id:", session.user.id);
+    const { data: profile, error: profileErr } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
+    console.log("checkAuth: profile query result:", { profile, profileErr });
+    const name = profile?.full_name || session.user.email?.split("@")[0] || "Profile";
+    const firstName = name.split(" ")[0];
+    console.log("checkAuth: updating UI with name:", firstName);
+    // Update app header button
+    const icon = document.getElementById("profileBtnIcon");
+    const text = document.getElementById("profileBtnText");
+    const btn = document.getElementById("profileBtn");
+    console.log("checkAuth: found elements:", { icon: !!icon, text: !!text, btn: !!btn });
+    if (icon) icon.innerHTML = `<span class="profile-avatar">${firstName[0].toUpperCase()}</span>`;
+    if (text) text.textContent = firstName;
+    if (btn) btn.classList.add("logged-in");
+    // Update saved buttons
+    const savedBtn = document.getElementById("savedRecipesBtn");
+    if (savedBtn) savedBtn.style.display = "flex";
+    const landingSavedBtn = document.getElementById("landingSavedBtn");
+    if (landingSavedBtn) landingSavedBtn.style.display = "flex";
+    // Update landing nav sign in button
+    const landingSignin = document.getElementById("landingSigninBtn");
+    if (landingSignin) { landingSignin.textContent = firstName; landingSignin.href = "/profile.html"; }
   } catch (e) { console.error("checkAuth error:", e); }
 }
-document.addEventListener("DOMContentLoaded", checkAuth);
+// Run immediately — script is at bottom of body so DOM is ready
+checkAuth();
 
 const RECIPE_STYLES = [
   { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },

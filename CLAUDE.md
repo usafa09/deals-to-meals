@@ -2,9 +2,9 @@
 
 ## What this app does
 
-Dishcount (dealstomeals.co) helps grocery shoppers save money by finding recipes based on what's currently on sale at their local stores. The user enters a zip code, selects nearby stores, browses this week's deals, picks items they want, chooses a recipe style, and gets AI-generated recipes that maximize savings.
+Dishcount (dishcount.co) helps grocery shoppers save money by finding recipes based on what's currently on sale at their local stores. The user enters a zip code, selects nearby stores, browses this week's deals, picks items they want, chooses a recipe style, and gets AI-generated recipes that maximize savings.
 
-**Branding:** The app name is "Dishcount" with tagline "Meals from Deals". The domain is dealstomeals.co. The codebase repo is named `deals-to-meals`.
+**Branding:** The app name is "Dishcount" with tagline "Meals from Deals". The primary domain is dishcount.co (dealstomeals.co also works as a secondary domain). The codebase repo is named `deals-to-meals`.
 
 ## Tech stack
 
@@ -12,7 +12,7 @@ Dishcount (dealstomeals.co) helps grocery shoppers save money by finding recipes
 - **Backend:** `server.js` (~2,500 lines). Node.js + Express. ESM modules (import/export).
 - **Database:** Supabase (PostgreSQL). Project URL: `https://gkzlwzafnkqwxwiootah.supabase.co`
 - **Hosting:** Render (auto-deploys from GitHub on push). Port 10000 in production.
-- **Domain:** dealstomeals.co
+- **Domain:** dishcount.co (primary), dealstomeals.co (secondary)
 
 ## Environment variables (all set in Render)
 

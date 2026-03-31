@@ -3,8 +3,8 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
-const SUPABASE_URL = "https://gkzlwzafnkqwxwiootah.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdremx3emFmbmtxd3h3aW9vdGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NzgyMTMsImV4cCI6MjA2MzM1NDIxM30.a3GFTA9UOS5I7Oy6U3tMc1JssYHxMcTm0Mq0RqXKJms";
+const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     detectSessionInUrl: true,

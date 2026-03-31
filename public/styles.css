@@ -283,8 +283,18 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .sale-summary { display: flex; gap: 12px; margin-bottom: 16px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
 .sale-summary span { padding: 6px 12px; border-radius: 10px; }
 
+/* ── Shopping List Slide-out ── */
+.slideout-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 350; }
+.slideout-overlay.open { display: block; }
+.slideout-panel { position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; z-index: 360; display: flex; flex-direction: column; box-shadow: -4px 0 24px rgba(0,0,0,0.15); transition: right 0.3s ease; }
+.slideout-panel.open { right: 0; }
+.slideout-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 2px solid var(--sand); flex-shrink: 0; }
+.slideout-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.slideout-footer { padding: 12px 16px; border-top: 2px solid var(--sand); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; background: var(--cream); }
+
 /* ── Mobile responsive ── */
 @media (max-width: 500px) {
+  .slideout-panel { width: 100%; right: -100%; }
   .landing-nav-inner { padding: 10px 16px; }
   .landing-nav-links { display: none; }
   .landing-hero { min-height: 520px; padding: 100px 16px 60px; }

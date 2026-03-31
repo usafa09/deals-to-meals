@@ -75,7 +75,7 @@
     <p>MEALS FROM DEALS</p>
   </div>
   <div class="header-right">
-    <span id="shoppingBadge" onclick="showFullShoppingList()" style="display:none;cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif"></span>
+    <span id="shoppingBadge" onclick="toggleSlideout()" style="display:none;cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif"></span>
     <div class="progress-bar" id="progressBar"></div>
     <a href="/profile.html#saved" class="saved-recipes-btn" id="savedRecipesBtn">&#10084;&#65039; Saved</a>
     <a href="/profile.html" class="profile-btn" id="profileBtn">
@@ -292,6 +292,23 @@
   </div>
 
 </main>
+
+<!-- Shopping List Slide-out -->
+<div class="slideout-overlay" id="slideoutOverlay" onclick="closeSlideout()"></div>
+<div class="slideout-panel" id="slideoutPanel">
+  <div class="slideout-header">
+    <div style="font-family:'Outfit',sans-serif;font-size:18px;font-weight:700;color:var(--green-dark)">&#128722; Shopping List</div>
+    <button onclick="closeSlideout()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px">&#10005;</button>
+  </div>
+  <div class="slideout-body" id="slideoutBody"></div>
+  <div class="slideout-footer">
+    <button onclick="addListToKrogerCart()" class="btn btn-primary" style="font-size:14px;padding:12px;border-radius:12px">&#128722; Add to Kroger Cart</button>
+    <div style="display:flex;gap:8px">
+      <button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:13px;padding:10px;flex:1">&#128203; Copy List</button>
+      <button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;padding:10px">Clear</button>
+    </div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>

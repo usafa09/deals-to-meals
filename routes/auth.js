@@ -2,26 +2,12 @@ import { Router } from "express";
 import crypto from "crypto";
 import fetch from "node-fetch";
 import {
-  supabase, generateSessionToken, isValidSession, getUser,
+  supabase, getUser,
   krogerTokens, oauthStates,
   KROGER_TOKEN_URL, KROGER_AUTH_URL, KROGER_API_BASE, REDIRECT_URI, APP_URL,
 } from "../lib/utils.js";
 
 const router = Router();
-
-// ══ SITE LOGIN ════════════════════════════════════════════════════════════════
-
-router.post("/api/site-login", (req, res) => {
-  const { password } = req.body;
-  if (password === process.env.SITE_PASSWORD) {
-    const token = generateSessionToken();
-    const isProduction = process.env.NODE_ENV === "production" || process.env.PORT === "10000";
-    res.setHeader("Set-Cookie", `site_auth=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${isProduction ? "; Secure" : ""}`);
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ error: "Incorrect password" });
-  }
-});
 
 // ══ KROGER OAUTH ══════════════════════════════════════════════════════════════
 

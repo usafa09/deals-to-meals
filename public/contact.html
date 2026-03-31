@@ -30,62 +30,10 @@
       min-height: 100vh;
     }
 
-    /* Nav */
-    .landing-nav {
-      background: var(--dark);
-      padding: 0 24px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .landing-nav-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 60px;
-    }
-    .landing-nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
-    .landing-nav-tagline {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      color: #fbbf24;
-      opacity: 0.7;
-    }
-    .landing-nav-links {
-      display: flex;
-      gap: 28px;
-    }
-    .landing-nav-links a {
-      color: #b6c5b8;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-    .landing-nav-links a:hover { color: #fff; }
-    .landing-nav-signin {
-      color: #fbbf24;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 600;
-      border: 1px solid rgba(251,191,36,0.3);
-      padding: 6px 16px;
-      border-radius: 8px;
-      transition: background 0.2s, color 0.2s;
-    }
+    /* Nav — uses shared styles from /styles.css */
     .landing-nav-signin:hover {
-      background: #fbbf24;
-      color: var(--dark);
+      background: var(--green-mid);
+      color: white;
     }
 
     /* Page header */
@@ -309,7 +257,7 @@
   <nav class="landing-nav">
     <div class="landing-nav-inner">
       <a href="/" class="landing-nav-logo">
-        <svg width="140" height="36" viewBox="0 0 200 50" style="flex-shrink:0">
+        <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
           <g transform="translate(4, 2)">
             <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
             <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>

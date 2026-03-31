@@ -5,42 +5,62 @@ function escapeHtml(str) {
 
 const SUPABASE_URL = "https://gkzlwzafnkqwxwiootah.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdremx3emFmbmtxd3h3aW9vdGFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NzgyMTMsImV4cCI6MjA2MzM1NDIxM30.a3GFTA9UOS5I7Oy6U3tMc1JssYHxMcTm0Mq0RqXKJms";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: "implicit",
+    storage: window.localStorage,
+    storageKey: "dtm-auth-token",
+  }
+});
 
-async function checkAuth() {
-  try {
-    console.log("checkAuth: starting...");
-    const { data, error } = await sb.auth.getSession();
-    console.log("checkAuth: getSession returned", { session: !!data?.session, error });
-    if (error) { console.error("checkAuth getSession error:", error); return; }
-    const session = data?.session;
-    if (!session?.user) { console.log("checkAuth: no session, user not logged in"); return; }
-    console.log("checkAuth: user logged in:", session.user.email, "id:", session.user.id);
-    const { data: profile, error: profileErr } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
-    console.log("checkAuth: profile query result:", { profile, profileErr });
-    const name = profile?.full_name || session.user.email?.split("@")[0] || "Profile";
-    const firstName = name.split(" ")[0];
-    console.log("checkAuth: updating UI with name:", firstName);
-    // Update app header button
+function updateAuthUI(session) {
+  if (!session?.user) {
+    // Reset to signed-out state
     const icon = document.getElementById("profileBtnIcon");
     const text = document.getElementById("profileBtnText");
     const btn = document.getElementById("profileBtn");
-    console.log("checkAuth: found elements:", { icon: !!icon, text: !!text, btn: !!btn });
+    if (icon) icon.innerHTML = "&#128100;";
+    if (text) text.textContent = "Sign In";
+    if (btn) btn.classList.remove("logged-in");
+    const savedBtn = document.getElementById("savedRecipesBtn");
+    if (savedBtn) savedBtn.style.display = "none";
+    const landingSavedBtn = document.getElementById("landingSavedBtn");
+    if (landingSavedBtn) landingSavedBtn.style.display = "none";
+    const landingSignin = document.getElementById("landingSigninBtn");
+    if (landingSignin) { landingSignin.textContent = "Sign In"; landingSignin.href = "/profile.html"; }
+    return;
+  }
+  // Signed in — update UI
+  const user = session.user;
+  sb.from("profiles").select("full_name").eq("id", user.id).single().then(({ data: profile }) => {
+    const name = profile?.full_name || user.email?.split("@")[0] || "Profile";
+    const firstName = name.split(" ")[0];
+    const icon = document.getElementById("profileBtnIcon");
+    const text = document.getElementById("profileBtnText");
+    const btn = document.getElementById("profileBtn");
     if (icon) icon.innerHTML = `<span class="profile-avatar">${firstName[0].toUpperCase()}</span>`;
     if (text) text.textContent = firstName;
     if (btn) btn.classList.add("logged-in");
-    // Update saved buttons
     const savedBtn = document.getElementById("savedRecipesBtn");
     if (savedBtn) savedBtn.style.display = "flex";
     const landingSavedBtn = document.getElementById("landingSavedBtn");
     if (landingSavedBtn) landingSavedBtn.style.display = "flex";
-    // Update landing nav sign in button
     const landingSignin = document.getElementById("landingSigninBtn");
     if (landingSignin) { landingSignin.textContent = firstName; landingSignin.href = "/profile.html"; }
-  } catch (e) { console.error("checkAuth error:", e); }
+  });
 }
-// Run immediately — script is at bottom of body so DOM is ready
-checkAuth();
+
+// Listen for auth state changes (handles OAuth redirects, sign-in, sign-out)
+sb.auth.onAuthStateChange((event, session) => {
+  console.log("auth state change:", event, !!session);
+  updateAuthUI(session);
+});
+
+// Also check on page load
+sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
 
 const RECIPE_STYLES = [
   { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },

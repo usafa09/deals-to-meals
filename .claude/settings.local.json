@@ -15,7 +15,8 @@
       "Bash(grep -r \"api_key\\\\|secret\\\\|password\" /c/Users/billm/deals-to-meals/public --include=*.js --include=*.html)",
       "Bash(npm install:*)",
       "Bash(npm audit:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(grep -n \"bvwwtrwxnuncalgtuqvx\" public/*.html public/*.js)"
     ]
   }
 }

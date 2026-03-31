@@ -189,18 +189,18 @@ async function initApp() {
   if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
 
-  // Only use onAuthStateChange for future sign in/out events
-  sb.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_OUT") {
+  // Listen for all auth state changes (handles OAuth redirects, sign-in, sign-out)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    console.log("profile auth state change:", event, session?.user?.email);
+    if (event === "SIGNED_IN" && session?.user) {
+      currentUser = session.user;
+      await loadProfileData();
+      renderProfile();
+    } else if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
     }
   });
-
-  // If URL has an OAuth token hash, let Supabase process it first
-  if (window.location.hash.includes("access_token")) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
 
   try {
     const { data, error } = await sb.auth.getSession();
@@ -278,7 +278,7 @@ async function signInWithGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://dishcount.co/profile.html",
+      redirectTo: window.location.origin + "/profile.html",
     },
   });
   if (error) showAuthError(error.message);

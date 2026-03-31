@@ -75,7 +75,7 @@ const DIET_FILTERS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Pa
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
-  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:new Set(),
+  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
 };
 
 function goTo(step) {
@@ -102,7 +102,7 @@ function renderProgress(step) {
   }).join("");
 }
 function resetApp() {
-  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:new Set() };
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
   document.getElementById("zipInput").value = "";
   document.getElementById("zipBtn").disabled = true;
 }
@@ -595,7 +595,7 @@ function renderModal(r){
         return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
       ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">🎟️ Digital Coupons</div><div style="display:flex;flex-direction:column;gap:8px">${r.couponsToClip.map(c=>`<div class="coupon-card"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px">${c.clipped?"✅":"🎟️"} ${escapeHtml(c.description)}</span><span style="font-weight:800;color:var(--orange);white-space:nowrap">-$${parseFloat(c.savings).toFixed(2)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${c.clipped?"Already clipped":"Clip in Kroger app to save"}</div></div>`).join("")}</div></div>`:""}
-      <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map(ing=>{
+      <div class="modal-section"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="modal-section-title" style="margin-bottom:0">📋 All Ingredients</div><button onclick="addAllToShoppingList()" style="padding:5px 12px;border:2px solid var(--green-mid);border-radius:8px;background:var(--green-light);color:var(--green-dark);font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">+ Add All to List</button></div><div class="ing-list">${(r.allIngredients||[]).map((ing,idx)=>{
         const type=ing.type||"PANTRY";
         const isOnSale=type==="SALE"&&ing.onSale;
         const isOnHand=type==="ON_HAND";
@@ -605,7 +605,9 @@ function renderModal(r){
         const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
         const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
         const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
-        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${escapeHtml(ing.name)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
+        const inList=state.shoppingList.some(i=>i.name===ing.name&&i.recipe===r.title);
+        const addBtn=(type!=="PANTRY"&&type!=="ON_HAND")?`<button id="addIng${idx}" onclick="event.stopPropagation();addIngToList(${idx})" style="width:24px;height:24px;border-radius:50%;border:2px solid var(--green-mid);background:${inList?"var(--green-mid)":"white"};color:${inList?"white":"var(--green-dark)"};font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">${inList?"✓":"+"}</button>`:"";
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${escapeHtml(ing.name)}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${addBtn}</div></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
       <div class="cart-success-msg" id="cartSuccessMsg">✅ Items added to your cart!</div>
@@ -718,6 +720,80 @@ function copyShoppingList() {
   });
 }
 
+// ── Shopping List Management ─────────────────────────────────────────────────
+function addToShoppingList(name, recipe, type, price) {
+  if (state.shoppingList.some(i => i.name === name && i.recipe === recipe)) return;
+  state.shoppingList.push({ name, recipe, type: type||"item", price: price||"" });
+  updateShoppingBadge();
+}
+function addAllToShoppingList() {
+  const r = state.currentRecipe;
+  (r.allIngredients||[]).forEach(ing => {
+    if (ing.type === "PANTRY" || ing.type === "ON_HAND") return;
+    const price = ing.matchedDeal ? (ing.matchedDeal.actualCost || String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")) : "";
+    addToShoppingList(ing.name, r.title, ing.type, price);
+  });
+  showToast(`Added ${(r.allIngredients||[]).filter(i=>i.type!=="PANTRY"&&i.type!=="ON_HAND").length} items to shopping list`, "success");
+  renderModal(r); // re-render to update + buttons
+}
+function addIngToList(idx) {
+  const r = state.currentRecipe;
+  const ing = (r.allIngredients||[])[idx];
+  if (!ing) return;
+  const price = ing.matchedDeal ? (ing.matchedDeal.actualCost || String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")) : "";
+  addToShoppingList(ing.name, r.title, ing.type, price);
+  const btn = document.getElementById(`addIng${idx}`);
+  if (btn) { btn.textContent = "✓"; btn.style.background = "var(--green-mid)"; btn.style.color = "white"; setTimeout(() => { btn.textContent = "+"; btn.style.background = ""; btn.style.color = ""; }, 1200); }
+}
+function removeFromShoppingList(idx) {
+  state.shoppingList.splice(idx, 1);
+  updateShoppingBadge();
+  showFullShoppingList();
+}
+function updateShoppingBadge() {
+  const badge = document.getElementById("shoppingBadge");
+  if (badge) {
+    badge.textContent = `🛒 ${state.shoppingList.length}`;
+    badge.style.display = state.shoppingList.length > 0 ? "inline-block" : "none";
+  }
+}
+function showFullShoppingList() {
+  const list = state.shoppingList;
+  if (!list.length) { showToast("Shopping list is empty. Add items from a recipe!"); return; }
+  const grouped = {};
+  list.forEach((item, idx) => {
+    if (!grouped[item.recipe]) grouped[item.recipe] = [];
+    grouped[item.recipe].push({ ...item, idx });
+  });
+  let html = `<div class="modal-body">
+    <div class="modal-header"><div class="modal-title">🛒 My Shopping List (${list.length} items)</div><button class="modal-close" onclick="closeModal()">✕</button></div>`;
+  for (const [recipe, items] of Object.entries(grouped)) {
+    html += `<div class="modal-section"><div class="modal-section-title">${escapeHtml(recipe)}</div>`;
+    items.forEach(item => {
+      html += `<div class="ing-row" style="background:var(--green-light);margin-bottom:4px"><span>${escapeHtml(item.name)}</span><div style="display:flex;align-items:center;gap:8px">${item.price?`<span style="font-weight:700;color:var(--orange)">$${escapeHtml(item.price)}</span>`:""}<button onclick="removeFromShoppingList(${item.idx})" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--red)">✕</button></div></div>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div class="modal-actions"><button class="modal-btn modal-btn-save" onclick="copyFullShoppingList()">📋 Copy List</button><button class="modal-btn modal-btn-list" onclick="state.shoppingList=[];updateShoppingBadge();closeModal();showToast('Shopping list cleared','success')">🗑️ Clear All</button></div></div>`;
+  document.getElementById("modalContent").innerHTML = html;
+  document.getElementById("modalOverlay").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function copyFullShoppingList() {
+  let text = "Shopping List\n" + "=".repeat(30) + "\n\n";
+  const grouped = {};
+  state.shoppingList.forEach(item => {
+    if (!grouped[item.recipe]) grouped[item.recipe] = [];
+    grouped[item.recipe].push(item);
+  });
+  for (const [recipe, items] of Object.entries(grouped)) {
+    text += `${recipe}:\n`;
+    items.forEach(i => { text += `  [ ] ${i.name}${i.price ? " — $" + i.price : ""}\n`; });
+    text += "\n";
+  }
+  navigator.clipboard.writeText(text).then(() => showToast("Shopping list copied!", "success")).catch(() => showToast("Could not copy"));
+}
+
 async function addToCart(){
   if(!state.selectedBrands.includes("Kroger")){
     showShoppingList();
@@ -725,9 +801,21 @@ async function addToCart(){
   }
   let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){showToast("Could not check login status");return;}
   if(!session){showToast("Sign in to add to cart");window.location.href="/profile.html";return;}
-  const items=(state.currentRecipe.usedSaleItems||[]).filter(i=>i.upc).map(i=>({upc:i.upc,quantity:1}));
-  if(!items.length){showToast("No UPC items to add");return;}
+  // Collect UPCs from usedSaleItems first, then match ingredient names to deals for more UPCs
+  const upcSet = new Set();
+  const items = [];
+  for (const si of (state.currentRecipe.usedSaleItems||[])) {
+    if (si.upc && !upcSet.has(si.upc)) { upcSet.add(si.upc); items.push({upc:si.upc,quantity:1}); }
+  }
+  // Also try matching allIngredients to state.deals for UPCs
+  for (const ing of (state.currentRecipe.allIngredients||[])) {
+    if (ing.type !== "SALE") continue;
+    const nameLower = (ing.name||"").toLowerCase();
+    const match = state.deals.find(d => d.upc && d.source === "kroger" && nameLower.includes(d.name.toLowerCase().split(" ").filter(w=>w.length>3)[0]||"NOMATCH"));
+    if (match && match.upc && !upcSet.has(match.upc)) { upcSet.add(match.upc); items.push({upc:match.upc,quantity:1}); }
+  }
+  if(!items.length){showToast("These ingredients don't have Kroger product codes. Try a recipe with more Kroger sale items.");return;}
   try{const res=await fetch("/api/cart",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({items})});
-    if(res.ok){document.getElementById("cartSuccessMsg").style.display="block";showToast("Added to Kroger cart!","success");}else throw new Error("Cart error");
+    if(res.ok){document.getElementById("cartSuccessMsg").style.display="block";showToast(`Added ${items.length} items to Kroger cart!`,"success");}else throw new Error("Cart error");
   }catch(e){showToast("Could not add to cart — connect Kroger in profile");}
 }

@@ -16,7 +16,11 @@
       "Bash(npm install:*)",
       "Bash(npm audit:*)",
       "Bash(git rm:*)",
-      "Bash(grep -n \"bvwwtrwxnuncalgtuqvx\" public/*.html public/*.js)"
+      "Bash(grep -n \"bvwwtrwxnuncalgtuqvx\" public/*.html public/*.js)",
+      "Bash(npx kill-port:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:5000/api/aldi/deals)",
+      "Bash(curl -s http://localhost:5000/api/contact -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"test\"\"\"\",\"\"\"\"email\"\"\"\":\"\"\"\"t@t.com\"\"\"\",\"\"\"\"topic\"\"\"\":\"\"\"\"x\"\"\"\",\"\"\"\"message\"\"\"\":\"\"\"\"y\"\"\"\"}')"
     ]
   }
 }

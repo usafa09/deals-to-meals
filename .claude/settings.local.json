@@ -8,7 +8,8 @@
       "Bash(wc:*)",
       "Bash(npm test:*)",
       "Bash(grep -r \"2025\" public/*.html)",
-      "Bash(grep -c \"2026\" public/*.html)"
+      "Bash(grep -c \"2026\" public/*.html)",
+      "Bash(grep -l \"G-41675D42V1\" public/*.html)"
     ]
   }
 }

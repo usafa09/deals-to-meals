@@ -331,6 +331,10 @@
     <h2>Send Us a Message</h2>
     <div class="contact-form-card">
       <form id="contactForm" onsubmit="submitContact(event)">
+        <div style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">
+          <label for="website">Website</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
         <div class="form-group">
           <label for="name">Name</label>
           <input type="text" id="name" name="name" required>
@@ -427,6 +431,7 @@ async function submitContact(e) {
         email: form.email.value,
         topic: form.topic.value,
         message: form.message.value,
+        website: form.website.value,
       }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to send"); }

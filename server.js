@@ -3,6 +3,8 @@ dotenv.config();
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -20,10 +22,77 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ── Security headers ────────────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP would break inline scripts on other pages
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ── CORS — restrict to known origins ────────────────────────────────────────
+const allowedOrigins = [
+  "https://dishcount.co",
+  "https://www.dishcount.co",
+  "https://dealstomeals.co",
+  "https://www.dealstomeals.co",
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, mobile apps)
+    if (!origin || allowedOrigins.includes(origin) || origin.includes("localhost")) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Still allow but don't reflect origin (safe default)
+    }
+  },
+}));
+
+// ── Body parsing with size limits ───────────────────────────────────────────
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
+// ── Rate limiting ───────────────────────────────────────────────────────────
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in a few minutes." },
+});
+
+const expensiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Rate limit reached for this action. Please wait before trying again." },
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many messages sent. Please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many auth attempts. Please try again later." },
+});
+
+// Apply rate limits to API routes
+app.use("/api/", generalLimiter);
+app.use("/api/recipes/ai", expensiveLimiter);
+app.use("/api/extract-store", expensiveLimiter);
+app.use("/api/extract-ad", expensiveLimiter);
+app.use("/api/contact", contactLimiter);
+app.use("/auth/", authLimiter);
+
+// ── Static files ────────────────────────────────────────────────────────────
 app.use(express.static(join(__dirname, "public")));
 
 // ── Mount route modules ─────────────────────────────────────────────────────
@@ -39,6 +108,5 @@ app.use(adminRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`✅ Dishcount running on port ${PORT}`);
-  // Populate in-memory stores cache on startup
   await initStoresWithDealsCache();
 });

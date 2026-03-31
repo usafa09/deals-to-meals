@@ -100,7 +100,12 @@ router.patch("/api/profile", async (req, res) => {
 // ══ CONTACT FORM ═════════════════════════════════════════════════════════════
 
 router.post("/api/contact", async (req, res) => {
-  const { name, email, topic, message } = req.body;
+  const { name, email, topic, message, website } = req.body;
+  // Honeypot — bots fill this hidden field, humans don't
+  if (website) {
+    console.log("Contact form honeypot triggered — rejecting spam");
+    return res.json({ success: true }); // Fake success so bots don't retry
+  }
   if (!name || !email || !topic || !message) {
     return res.status(400).json({ error: "All fields are required" });
   }

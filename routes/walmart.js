@@ -41,7 +41,7 @@ export async function fetchWalmartDeals() {
   return allProducts
     .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
     .sort((a, b) => b.pctOff - a.pctOff)
-    .slice(0, 200);
+    .slice(0, 500);
 }
 
 router.get("/api/walmart/stores", async (req, res) => {

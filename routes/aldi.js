@@ -9,7 +9,7 @@ router.get("/api/aldi/deals", async (req, res) => {
       .from("aldi_deals")
       .select("*")
       .order("name", { ascending: true })
-      .limit(300);
+      .limit(500);
     if (error) throw new Error(error.message);
     const deals = (data || []).map(d => ({
       id: d.id,

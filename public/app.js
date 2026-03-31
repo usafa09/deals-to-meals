@@ -21,6 +21,9 @@ async function checkAuth() {
       if (savedBtn) savedBtn.style.display = "flex";
       const landingSavedBtn = document.getElementById("landingSavedBtn");
       if (landingSavedBtn) landingSavedBtn.style.display = "flex";
+      // Update landing nav sign in button
+      const landingSignin = document.getElementById("landingSigninBtn");
+      if (landingSignin) { landingSignin.textContent = name.split(" ")[0]; landingSignin.href = "/profile.html"; }
     }
   } catch (e) { showToast("Could not check login status"); }
 }
@@ -326,8 +329,8 @@ async function loadDealsAndShow() {
       console.log("Available chains:", data.availableChains);
     }
 
-    state.coupons=[];state.boostDeals=[];
-    if(state.selectedBrands.includes("Kroger")){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];}}}catch(e){}}
+    state.coupons=[];state.boostDeals=[];state.krogerConnected=false;
+    if(state.selectedBrands.includes("Kroger")){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];state.krogerConnected=true;}}}catch(e){}}
     const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
     state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
@@ -367,14 +370,12 @@ function renderSaleItems() {
   if(state.saleStoreFilter!=="all")deals=deals.filter(d=>(d.storeName||d.source||"").toLowerCase().includes(state.saleStoreFilter.toLowerCase()));
   if(state.saleCategoryFilter!=="all")deals=deals.filter(d=>getCatGroup(d.category)===state.saleCategoryFilter);
 
-  // Kroger connect banner
+  // Kroger connect banner — hide if coupons loaded (means connected) or explicitly connected
   const krogerBanner = document.getElementById("krogerConnectBanner");
   if (krogerBanner) {
-    if (state.selectedBrands.includes("Kroger") && state.coupons.length === 0 && state.boostDeals.length === 0) {
-      krogerBanner.style.display = "flex";
-    } else {
-      krogerBanner.style.display = "none";
-    }
+    const hasCoupons = state.coupons.length > 0 || state.boostDeals.length > 0;
+    const showBanner = state.selectedBrands.includes("Kroger") && !hasCoupons && !state.krogerConnected;
+    krogerBanner.style.display = showBanner ? "flex" : "none";
   }
 
   const ic=Object.values(state.dealStates).filter(v=>v==="include").length;
@@ -598,6 +599,13 @@ function showShoppingList(){
   }).join("");
   const additionalRows=(r.allIngredients||[]).filter(i=>i.type==="ADDITIONAL").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#FFF8E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#FFB74D" /><span>🛒 ${escapeHtml(i.name)}</span></div>`).join("");
   const pantryRows=(r.allIngredients||[]).filter(i=>i.type==="PANTRY"||i.type==="ON_HAND").map(i=>`<div class="ing-row" style="margin-bottom:6px;background:#F5F0E8;display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:#999" /><span>${i.type==="ON_HAND"?"🏠":"🫙"} ${escapeHtml(i.name)}</span><span style="font-size:9px;color:#999">${i.type==="ON_HAND"?"on hand":"pantry"}</span></div>`).join("");
+  // Other included items not used in this recipe
+  const usedNames=new Set((r.usedSaleItems||[]).map(i=>i.name.toLowerCase()));
+  const otherIncluded=Object.entries(state.dealStates).filter(([,v])=>v==="include").map(([id])=>state.deals.find(d=>d.id===id)).filter(d=>d&&!usedNames.has(d.name.toLowerCase()));
+  const otherRows=otherIncluded.map(d=>{
+    const price=d.salePrice||"";const store=d.storeName||d.source||"";
+    return `<div class="ing-row" style="margin-bottom:6px;background:var(--green-light);display:flex;align-items:center;gap:8px"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--green-mid)" /><span style="font-weight:600">🏷️ ${escapeHtml(d.name)}</span></div><div style="display:flex;justify-content:space-between;padding:0 12px 4px"><span style="font-size:10px;color:#999">${escapeHtml(store)}</span><span style="font-size:12px;font-weight:700;color:var(--orange)">${price?`$${escapeHtml(String(price).replace(/^\$/,""))}`:""}</span></div>`;
+  }).join("");
   const perServing=r.estimatedCost>0&&r.servings?`$${(r.estimatedCost/r.servings).toFixed(2)}/serving`:"";
   document.getElementById("modalContent").innerHTML=`<div class="modal-body">
     <div class="modal-header"><div class="modal-title">📋 Shopping List</div><button class="modal-close" onclick="renderModal(state.currentRecipe)">✕</button></div>
@@ -605,6 +613,7 @@ function showShoppingList(){
     ${saleRows?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale Items</div>${saleRows}</div>`:""}
     ${additionalRows?`<div class="modal-section"><div class="modal-section-title">🛒 Items to Buy</div>${additionalRows}</div>`:""}
     ${pantryRows?`<div class="modal-section"><div class="modal-section-title">🫙 Pantry / On Hand</div>${pantryRows}</div>`:""}
+    ${otherRows?`<div class="modal-section"><div class="modal-section-title">🏷️ Other Items You Selected</div>${otherRows}</div>`:""}
     <div style="background:var(--green-light);border:2px solid var(--green-mid);border-radius:14px;padding:16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-weight:700;color:var(--green-dark)">With This Week's Deals</div>

@@ -270,6 +270,13 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
 .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; }
+.sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--orange); }
+.kroger-connect-banner { display: none; align-items: center; gap: 12px; background: var(--orange-light); border: 2px solid var(--orange); border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; }
+.kroger-connect-banner p { flex: 1; font-size: 14px; font-weight: 600; color: #5A4A30; }
+.kroger-connect-banner a { padding: 8px 18px; border-radius: 20px; background: var(--orange); color: white; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: all 0.2s; }
+.kroger-connect-banner a:hover { filter: brightness(1.1); }
+.kroger-connect-banner .dismiss { background: none; border: none; font-size: 18px; cursor: pointer; color: #999; padding: 4px; }
+.coupon-card { background: white; border: 2px dashed var(--orange); border-radius: 12px; padding: 12px 14px; }
 .sale-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .sale-filter-btn { padding: 6px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
 .sale-filter-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }

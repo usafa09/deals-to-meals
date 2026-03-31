@@ -340,6 +340,17 @@ async function loadDealsAndShow() {
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
+// ── Coupon matching helper ────────────────────────────────────────────────────
+function findMatchingCoupon(dealName) {
+  const nameLower = (dealName || "").toLowerCase();
+  const allCoupons = [...(state.coupons || []), ...(state.boostDeals || [])];
+  return allCoupons.find(c => {
+    const desc = ((c.description || "") + " " + (c.brand || "")).toLowerCase();
+    const words = nameLower.split(/\s+/).filter(w => w.length > 3);
+    return words.some(w => desc.includes(w)) || desc.split(/\s+/).filter(w => w.length > 3).some(w => nameLower.includes(w));
+  });
+}
+
 // ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
 function renderSaleItems() {
   const CATEGORY_GROUPS = {
@@ -355,6 +366,16 @@ function renderSaleItems() {
   let deals=state.deals;
   if(state.saleStoreFilter!=="all")deals=deals.filter(d=>(d.storeName||d.source||"").toLowerCase().includes(state.saleStoreFilter.toLowerCase()));
   if(state.saleCategoryFilter!=="all")deals=deals.filter(d=>getCatGroup(d.category)===state.saleCategoryFilter);
+
+  // Kroger connect banner
+  const krogerBanner = document.getElementById("krogerConnectBanner");
+  if (krogerBanner) {
+    if (state.selectedBrands.includes("Kroger") && state.coupons.length === 0 && state.boostDeals.length === 0) {
+      krogerBanner.style.display = "flex";
+    } else {
+      krogerBanner.style.display = "none";
+    }
+  }
 
   const ic=Object.values(state.dealStates).filter(v=>v==="include").length;
   const ec=Object.values(state.dealStates).filter(v=>v==="exclude").length;
@@ -381,9 +402,11 @@ function renderSaleItems() {
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
     const unit=d.priceUnit||"";
+    const hasCoupon = findMatchingCoupon(d.name);
     return `<div class="sale-card ${cls}" onclick="cycleDealState('${escapeHtml(d.id)}')">
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
+      ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
       ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name">${escapeHtml(d.name)}</div>
@@ -471,6 +494,7 @@ function renderRecipeGrid(){
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${r.totalSavings>0?`<span class="meta-chip meta-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
         <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
+        ${r.couponsToClip?.length?`<span class="meta-chip meta-coupon">🎟️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""} — save $${r.couponsToClip.reduce((s,c)=>s+parseFloat(c.savings||0),0).toFixed(2)} more</span>`:""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them
   lazyLoadRecipeImages();
@@ -513,7 +537,14 @@ function renderModal(r){
         ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         <span class="stat-pill stat-servings">👥 ${escapeHtml(r.servings)} servings</span>
         ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.regularPriceTotal>r.estimatedCost?` <s style="opacity:0.5">$${r.regularPriceTotal.toFixed(2)}</s>`:""}</span>`:""}
-        ${r.totalSavings>0?`<span class="stat-pill stat-savings">🔥 Save $${r.totalSavings.toFixed(2)}</span>`:""}
+        ${(()=>{
+          const couponSavings=r.couponsToClip?.reduce((s,c)=>s+parseFloat(c.savings||0),0)||0;
+          const saleSavings=r.totalSavings||0;
+          const totalSavings=saleSavings+couponSavings;
+          if(totalSavings<=0)return"";
+          if(couponSavings>0)return`<span class="stat-pill stat-savings">🔥 Save $${totalSavings.toFixed(2)}</span><span class="stat-pill" style="background:var(--orange-light);color:var(--orange);font-size:11px">Sales $${saleSavings.toFixed(2)} + Coupons $${couponSavings.toFixed(2)}</span>`;
+          return`<span class="stat-pill stat-savings">🔥 Save $${saleSavings.toFixed(2)}</span>`;
+        })()}
         ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
       </div>
       ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
@@ -524,7 +555,7 @@ function renderModal(r){
         const regPrice=!ing.isPerLb&&ing.regularPrice&&ing.regularPrice!=="—"?`<span class="ing-reg-price">$${String(ing.regularPrice).replace(/[^0-9.]/g,"")}</span>`:"";
         return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
-      ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">✂️ Clip These Coupons</div><div class="coupon-list">${r.couponsToClip.map(c=>`<div class="coupon-row ${c.clipped?"clipped":""}"><span>${c.clipped?"✅":"✂️"} ${escapeHtml(c.description)}</span><span class="coupon-save">Save $${parseFloat(c.savings).toFixed(2)}</span></div>`).join("")}</div></div>`:""}
+      ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">🎟️ Digital Coupons</div><div style="display:flex;flex-direction:column;gap:8px">${r.couponsToClip.map(c=>`<div class="coupon-card"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px">${c.clipped?"✅":"🎟️"} ${escapeHtml(c.description)}</span><span style="font-weight:800;color:var(--orange);white-space:nowrap">-$${parseFloat(c.savings).toFixed(2)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${c.clipped?"Already clipped":"Clip in Kroger app to save"}</div></div>`).join("")}</div></div>`:""}
       <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map(ing=>{
         const type=ing.type||"PANTRY";
         const isOnSale=type==="SALE"&&ing.onSale;

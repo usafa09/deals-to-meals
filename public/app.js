@@ -10,24 +10,32 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function checkAuth() {
   try {
     const { data: { session }, error } = await sb.auth.getSession();
-    if (error) { showToast("Could not check login status"); return; }
+    if (error) { console.error("checkAuth getSession error:", error); return; }
     if (session?.user) {
-      const { data } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
-      const name = data?.full_name || session.user.email?.split("@")[0] || "You";
-      document.getElementById("profileBtnIcon").innerHTML = `<span class="profile-avatar">${name[0].toUpperCase()}</span>`;
-      document.getElementById("profileBtnText").textContent = name.split(" ")[0];
-      document.getElementById("profileBtn").classList.add("logged-in");
+      console.log("checkAuth: user logged in:", session.user.email);
+      const { data, error: profileErr } = await sb.from("profiles").select("full_name").eq("id", session.user.id).single();
+      if (profileErr) console.error("checkAuth profile query error:", profileErr);
+      const name = data?.full_name || session.user.email?.split("@")[0] || "Profile";
+      const firstName = name.split(" ")[0];
+      // Update app header
+      const icon = document.getElementById("profileBtnIcon");
+      const text = document.getElementById("profileBtnText");
+      const btn = document.getElementById("profileBtn");
+      if (icon) icon.innerHTML = `<span class="profile-avatar">${firstName[0].toUpperCase()}</span>`;
+      if (text) text.textContent = firstName;
+      if (btn) btn.classList.add("logged-in");
+      // Update saved buttons
       const savedBtn = document.getElementById("savedRecipesBtn");
       if (savedBtn) savedBtn.style.display = "flex";
       const landingSavedBtn = document.getElementById("landingSavedBtn");
       if (landingSavedBtn) landingSavedBtn.style.display = "flex";
       // Update landing nav sign in button
       const landingSignin = document.getElementById("landingSigninBtn");
-      if (landingSignin) { landingSignin.textContent = name.split(" ")[0]; landingSignin.href = "/profile.html"; }
+      if (landingSignin) { landingSignin.textContent = firstName; landingSignin.href = "/profile.html"; }
     }
-  } catch (e) { showToast("Could not check login status"); }
+  } catch (e) { console.error("checkAuth error:", e); }
 }
-checkAuth();
+document.addEventListener("DOMContentLoaded", checkAuth);
 
 const RECIPE_STYLES = [
   { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },
@@ -42,7 +50,7 @@ const DIET_FILTERS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Pa
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
-  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(),
+  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:new Set(),
 };
 
 function goTo(step) {
@@ -69,7 +77,7 @@ function renderProgress(step) {
   }).join("");
 }
 function resetApp() {
-  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set() };
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:new Set() };
   document.getElementById("zipInput").value = "";
   document.getElementById("zipBtn").disabled = true;
 }
@@ -336,7 +344,12 @@ async function loadDealsAndShow() {
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
     if(state.deals.length===0){
       hideLoading();
-      showToast("No deals found for your selected stores. Try selecting different stores or expanding your search radius.");
+      const onlyAldi = state.selectedBrands.length === 1 && state.selectedBrands[0] === "ALDI";
+      if (onlyAldi) {
+        showToast("ALDI deals are being updated. Try adding another store or check back soon!");
+      } else {
+        showToast("No deals found for your selected stores. Try selecting different stores or expanding your search radius.");
+      }
       return;
     }
     renderSaleItems(); goTo(4);
@@ -522,7 +535,7 @@ function lazyLoadRecipeImages() {
 }
 
 // ── Recipe Modal ──────────────────────────────────────────────────────────────
-function getCartLabel(){if(state.selectedBrands.includes("Kroger"))return"🛒 Add to Kroger Cart";if(state.selectedBrands.includes("Walmart"))return"🔵 Shop at Walmart";if(state.selectedBrands.includes("ALDI"))return"🟥 Shop at ALDI";return"🛒 Shop Ingredients";}
+function getCartLabel(){if(state.selectedBrands.includes("Kroger"))return"🛒 Add to Kroger Cart";return"📋 Shopping List";}
 function openModal(i){state.currentRecipe={...state.recipes[i],index:i};renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
 function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
@@ -579,13 +592,16 @@ function renderModal(r){
 }
 
 async function saveRecipe(){
-  let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){showToast("Could not check login status");return;}
+  let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){console.error("saveRecipe auth error:",e);showToast("Could not check login status");return;}
   if(!session){showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
   const r=state.currentRecipe;if(state.savedRecipeIds.has(r.title)){showToast("Already saved!","success");return;}
-  try{const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},
-    body:JSON.stringify({title:r.title,emoji:"🍽️",time:r.time,servings:r.servings,difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""})});
+  try{
+    const body={title:r.title,emoji:"🍽️",time:r.time,servings:String(r.servings||4),difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""};
+    console.log("saveRecipe: sending",body);
+    const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
     if(res.ok){state.savedRecipeIds.add(r.title);document.getElementById("saveBtn").textContent="❤️ Saved!";document.getElementById("saveBtn").classList.add("saved");showToast("Recipe saved!","success");}
-  }catch(e){showToast("Could not save recipe");}
+    else{const err=await res.json().catch(()=>({}));console.error("saveRecipe API error:",res.status,err);showToast(err.error||"Could not save recipe — try signing in again");}
+  }catch(e){console.error("saveRecipe error:",e);showToast("Could not save recipe: "+e.message);}
 }
 
 function showShoppingList(){
@@ -630,15 +646,56 @@ function showShoppingList(){
       </div>`:""}
       ${perServing?`<div style="text-align:right;font-size:11px;color:var(--green-dark);margin-top:6px">${perServing}</div>`:""}
     </div>
-    <div class="modal-actions"><button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">← Back</button><button class="modal-btn modal-btn-cart" onclick="addToCart()">${cartLabel}</button></div></div>`;
+    <div class="modal-actions"><button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">&#8592; Back</button><button class="modal-btn modal-btn-save" onclick="copyShoppingList()">&#128203; Copy List</button>${state.selectedBrands.includes("Kroger")?`<button class="modal-btn modal-btn-cart" onclick="addToCart()">${cartLabel}</button>`:""}</div></div>`;
+}
+
+function copyShoppingList() {
+  const r = state.currentRecipe;
+  let text = `Shopping List: ${r.title}\n${"=".repeat(40)}\n\n`;
+  // Sale items
+  const sale = r.usedSaleItems || [];
+  if (sale.length) {
+    text += "ON SALE:\n";
+    sale.forEach(i => {
+      const price = i.actualCost || String(i.salePrice).replace(/[^0-9.]/g, "");
+      text += `  [ ] ${i.name} — $${price}${i.storeName ? " (" + i.storeName + ")" : ""}\n`;
+    });
+    text += "\n";
+  }
+  // Additional items
+  const additional = (r.allIngredients || []).filter(i => i.type === "ADDITIONAL");
+  if (additional.length) {
+    text += "TO BUY:\n";
+    additional.forEach(i => { text += `  [ ] ${i.name}\n`; });
+    text += "\n";
+  }
+  // Other selected deals
+  const usedNames = new Set(sale.map(i => i.name.toLowerCase()));
+  const otherDeals = Object.entries(state.dealStates).filter(([,v]) => v === "include").map(([id]) => state.deals.find(d => d.id === id)).filter(d => d && !usedNames.has(d.name.toLowerCase()));
+  if (otherDeals.length) {
+    text += "OTHER SELECTED DEALS:\n";
+    otherDeals.forEach(d => {
+      const price = d.salePrice || "";
+      text += `  [ ] ${d.name}${price ? " — $" + String(price).replace(/^\$/, "") : ""}${d.storeName ? " (" + d.storeName + ")" : ""}\n`;
+    });
+    text += "\n";
+  }
+  // Pantry
+  const pantry = (r.allIngredients || []).filter(i => i.type === "PANTRY" || i.type === "ON_HAND");
+  if (pantry.length) {
+    text += "PANTRY / ON HAND:\n";
+    pantry.forEach(i => { text += `  [x] ${i.name}\n`; });
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast("Shopping list copied!", "success");
+  }).catch(() => {
+    showToast("Could not copy — try selecting and copying manually");
+  });
 }
 
 async function addToCart(){
   if(!state.selectedBrands.includes("Kroger")){
-    const r=state.currentRecipe;const q=encodeURIComponent((r.title||"grocery").split(" ").slice(0,3).join(" "));
-    if(state.selectedBrands.includes("Walmart")){window.open(`https://www.walmart.com/search?q=${q}`,"_blank");showToast("Opening Walmart!","success");}
-    else if(state.selectedBrands.includes("ALDI")){window.open(`https://www.aldi.us/search?query=${q}`,"_blank");showToast("Opening ALDI!","success");}
-    else{window.open(`https://www.google.com/search?q=${q}+grocery`,"_blank");showToast("Opening search!","success");}
+    showShoppingList();
     return;
   }
   let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){showToast("Could not check login status");return;}

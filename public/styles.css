@@ -21,6 +21,22 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-nav-saved { display: none; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; border: 2px solid var(--orange); background: rgba(255,255,255,0.08); color: #fef3c7; transition: all 0.2s; }
 .landing-nav-saved:hover { background: var(--orange); color: white; }
 
+/* ── Hamburger menu ── */
+.hamburger { display: none; background: none; border: none; color: #e8f0ea; font-size: 24px; cursor: pointer; padding: 8px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
+.nav-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); overflow: hidden; max-height: 0; transition: max-height 0.2s ease; }
+.nav-dropdown.open { display: block; max-height: 400px; }
+.nav-dropdown a { display: block; padding: 14px 28px; color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.06); min-height: 44px; line-height: 44px; padding-top: 0; padding-bottom: 0; }
+.nav-dropdown a:hover { background: rgba(255,255,255,0.05); color: white; }
+.nav-dropdown a:last-child { border-bottom: none; }
+@media (max-width: 767px) {
+  .hamburger { display: flex; }
+  .landing-nav-links { display: none !important; }
+}
+@media (min-width: 768px) {
+  .hamburger { display: none !important; }
+  .nav-dropdown { display: none !important; }
+}
+
 /* ══ Landing Hero ══ */
 .landing-hero { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; background: url('https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1400&h=800&fit=crop') center/cover no-repeat; padding: 120px 24px 80px; }
 .landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.85) 0%, rgba(26,46,31,0.7) 50%, rgba(26,46,31,0.9) 100%); }

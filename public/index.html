@@ -66,6 +66,7 @@
       </svg>
       <span class="landing-nav-tagline">MEALS FROM DEALS</span>
     </a>
+    <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
     <div class="landing-nav-links">
       <a href="#how-it-works">How It Works</a>
       <a href="/about.html">About</a>
@@ -75,6 +76,13 @@
     <a href="/profile.html#saved" class="landing-nav-saved" id="landingSavedBtn">&#10084;&#65039; Saved</a>
     <a href="/profile.html" class="landing-nav-signin" id="landingSigninBtn">Sign In</a>
   </div>
+  <div class="nav-dropdown" id="navDropdown">
+      <a href="/#how-it-works" onclick="closeHamburger()">How It Works</a>
+      <a href="/about.html" onclick="closeHamburger()">About</a>
+      <a href="/contact.html" onclick="closeHamburger()">Contact</a>
+      <a href="/terms.html" onclick="closeHamburger()">Terms</a>
+      <a href="/privacy.html" onclick="closeHamburger()">Privacy</a>
+    </div>
 </nav>
 
 <!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->

@@ -66,6 +66,32 @@ sb.auth.onAuthStateChange((event, session) => {
 // Also check on page load
 sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
 
+// Handle Kroger OAuth return — restore state and show success
+(function handleKrogerReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("kroger") === "success") {
+    showToast("Kroger account connected!", "success");
+    window.history.replaceState({}, "", "/");
+    // Restore saved state and jump back to deals
+    try {
+      const saved = JSON.parse(localStorage.getItem("dishcount-restore-state"));
+      if (saved?.zip) {
+        state.zip = saved.zip;
+        state.selectedBrands = saved.selectedBrands || [];
+        state.selectedKrogerId = saved.selectedKrogerId || null;
+        state.krogerConnected = true;
+        document.getElementById("zipInput").value = saved.zip;
+        // Auto-reload deals
+        setTimeout(() => loadDealsAndShow(), 500);
+      }
+      localStorage.removeItem("dishcount-restore-state");
+    } catch(e) {}
+  } else if (params.get("kroger") === "error") {
+    showToast("Kroger connection failed. Please try again.");
+    window.history.replaceState({}, "", "/");
+  }
+})();
+
 const RECIPE_STYLES = [
   { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },
   { id:"Family-Friendly", icon:"👨‍👩‍👧‍👦", label:"Family-Friendly", sub:"Kids will eat it" },
@@ -334,6 +360,21 @@ function pickKrogerLocation(id) {
 function onKrogerPicked(){loadDealsAndShow();}
 function goBackFromDeals(){if(state.selectedBrands.includes("Kroger")&&state.krogerLocations.length>1)goTo(3);else goTo(2);}
 
+// ── Kroger connection check ──────────────────────────────────────────────────
+async function checkKrogerConnection() {
+  if (state.krogerConnected) return; // already checked
+  try {
+    const { data } = await sb.auth.getSession();
+    if (!data?.session?.access_token) { state.krogerConnected = false; return; }
+    const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${data.session.access_token}` } });
+    if (res.ok) {
+      const profile = await res.json();
+      state.krogerConnected = !!profile.kroger_connected;
+      console.log("Kroger connection:", state.krogerConnected);
+    }
+  } catch(e) { console.error("checkKrogerConnection error:", e); }
+}
+
 // ── Load Deals → Screen 4 ────────────────────────────────────────────────────
 async function loadDealsAndShow() {
   showLoading("Loading this week's deals…","Fetching sale items from your stores");
@@ -365,8 +406,11 @@ async function loadDealsAndShow() {
     console.log("Regional response:", { totalDeals: data.totalDeals, sources: data.sources, selectedBrands: state.selectedBrands });
     console.log("After brand filter:", allDeals.length, "deals from", data.totalDeals, "total");
 
-    state.coupons=[];state.boostDeals=[];state.krogerConnected=false;
-    if(state.selectedBrands.includes("Kroger")){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];state.krogerConnected=true;}}}catch(e){}}
+    state.coupons=[];state.boostDeals=[];
+    if(state.selectedBrands.includes("Kroger")){
+      await checkKrogerConnection();
+      if(state.krogerConnected){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];}}}catch(e){}}
+    }
     const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
     state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
@@ -774,22 +818,39 @@ async function saveSlideoutList() {
     else { const d = await res.json().catch(()=>({})); showToast(d.error || "Could not save list"); }
   } catch(e) { showToast("Could not save list"); }
 }
+function connectKrogerFromList() {
+  // Save state before redirecting to Kroger OAuth
+  try {
+    localStorage.setItem("dishcount-restore-state", JSON.stringify({
+      zip: state.zip, selectedBrands: state.selectedBrands, selectedKrogerId: state.selectedKrogerId
+    }));
+  } catch(e) {}
+  sb.auth.getSession().then(({data}) => {
+    const userId = data?.session?.user?.id || "anonymous";
+    window.location.href = `/auth/kroger?userId=${userId}`;
+  });
+}
+
 async function addListToKrogerCart() {
   let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
-  if (!session) { showToast("Sign in to add to cart"); window.location.href = "/profile.html"; return; }
+  if (!session) { showToast("Sign in to add to cart"); return; }
 
   // Check Kroger connection
-  try {
-    const profileRes = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
-    if (profileRes.ok) {
-      const profile = await profileRes.json();
-      if (!profile.kroger_connected) {
-        showToast("Connect your Kroger account first");
-        window.location.href = `/auth/kroger?userId=${session.user.id}`;
-        return;
-      }
+  await checkKrogerConnection();
+  if (!state.krogerConnected) {
+    // Show connect prompt instead of silently redirecting
+    const body = document.getElementById("slideoutBody");
+    if (body) {
+      body.innerHTML = `<div style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:16px">🔗</div>
+        <div style="font-weight:700;font-size:16px;color:var(--green-dark);margin-bottom:8px">Connect your Kroger account</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:20px">Link your Kroger account to add items directly to your cart for pickup or delivery.</p>
+        <button onclick="connectKrogerFromList()" style="padding:14px 28px;border:none;border-radius:12px;background:var(--orange);color:white;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:48px">Connect Kroger Account</button>
+        <div style="margin-top:12px"><button onclick="renderSlideoutList()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">← Back to list</button></div>
+      </div>`;
     }
-  } catch(e) {}
+    return;
+  }
 
   const locationId = state.selectedKrogerId || localStorage.getItem("dishcount-kroger-location") || "";
   const cartBtn = document.querySelector(".slideout-footer .btn-primary");

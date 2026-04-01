@@ -58,10 +58,10 @@ router.get("/auth/kroger/callback", async (req, res) => {
     if (userId !== "anonymous") {
       await supabase.from("profiles").update({ kroger_connected: true }).eq("id", userId);
     }
-    res.redirect(`${APP_URL}/profile.html?kroger=success`);
+    res.redirect(`${APP_URL}/?kroger=success`);
   } catch (err) {
     console.error("Kroger callback error:", err.message);
-    res.redirect(`${APP_URL}/profile.html?kroger=error`);
+    res.redirect(`${APP_URL}/?kroger=error`);
   }
 });
 
@@ -82,7 +82,10 @@ router.get("/api/profile", async (req, res) => {
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (error) return res.status(500).json({ error: error.message });
   const krogerData = krogerTokens.get(user.id);
-  res.json({ ...data, kroger_connected: !!krogerData, kroger_profile: krogerData?.profile || null });
+  // Check both in-memory token AND database flag (token may be lost after deploy)
+  const isConnected = !!krogerData || !!data.kroger_connected;
+  console.log(`Profile ${user.id}: krogerTokens=${!!krogerData}, db_flag=${!!data.kroger_connected}, connected=${isConnected}`);
+  res.json({ ...data, kroger_connected: isConnected, kroger_profile: krogerData?.profile || null });
 });
 
 router.patch("/api/profile", async (req, res) => {

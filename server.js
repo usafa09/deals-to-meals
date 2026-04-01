@@ -74,6 +74,14 @@ const contactLimiter = rateLimit({
   message: { error: "Too many messages sent. Please try again later." },
 });
 
+const storeSearchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many store searches. Please try again in a few minutes." },
+});
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -89,8 +97,8 @@ app.use("/api/extract-store", expensiveLimiter);
 app.use("/api/extract-ad", expensiveLimiter);
 app.use("/api/contact", contactLimiter);
 app.use("/api/admin/login", authLimiter);
-app.use("/api/kroger/search", expensiveLimiter);
-app.use("/api/nearby-stores", expensiveLimiter);
+app.use("/api/kroger/search", storeSearchLimiter);
+app.use("/api/nearby-stores", storeSearchLimiter);
 app.use("/auth/", authLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────

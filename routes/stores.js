@@ -321,12 +321,41 @@ router.get("/api/deals/regional", async (req, res) => {
       console.log(`  No ad-extracted deals found`);
     }
 
-    const allDeals = [
+    let allDeals = [
       ...(results.kroger || []),
       ...(results.aldi || []),
       ...(results.walmart || []),
       ...adExtractDeals,
     ];
+
+    // Deduplicate: keep the one with better price data
+    const beforeDedup = allDeals.length;
+    const seen = new Map();
+    allDeals = allDeals.filter(d => {
+      const key = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+      if (!key) return false; // filter empty names
+      if (seen.has(key)) {
+        const existing = seen.get(key);
+        // Keep existing if it has better price data
+        if (!existing.salePrice && d.salePrice) { seen.set(key, d); return false; }
+        return false;
+      }
+      seen.set(key, d);
+      return true;
+    });
+    // Replace with best versions
+    allDeals = [...seen.values()];
+
+    // Filter bad prices
+    const beforeFilter = allDeals.length;
+    allDeals = allDeals.filter(d => {
+      if (!d.name || d.name.trim() === "") return false;
+      const price = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+      if (price > 500) return false; // data error
+      return true;
+    });
+    const removed = beforeDedup - allDeals.length;
+    if (removed > 0) console.log(`  Cleaned: ${beforeDedup - beforeFilter} dupes, ${beforeFilter - allDeals.length} bad prices removed`);
 
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
     logSearch(zip, results.sources.length, allDeals.length);

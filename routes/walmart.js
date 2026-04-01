@@ -5,7 +5,12 @@ import { validateZip, getWalmartHeaders, WALMART_API_BASE } from "../lib/utils.j
 const router = Router();
 
 export async function fetchWalmartDeals() {
-  const headers = getWalmartHeaders();
+  if (!process.env.WALMART_CONSUMER_ID || !process.env.WALMART_PRIVATE_KEY) {
+    console.log("Walmart: credentials not configured, skipping");
+    return [];
+  }
+  let headers;
+  try { headers = getWalmartHeaders(); } catch(e) { console.error("Walmart auth error:", e.message); return []; }
   const allProducts = [];
   const searchTerms = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
   await Promise.all(searchTerms.map(async (term) => {
@@ -47,6 +52,7 @@ export async function fetchWalmartDeals() {
 router.get("/api/walmart/stores", async (req, res) => {
   const { zip } = req.query;
   if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
+  if (!process.env.WALMART_CONSUMER_ID || !process.env.WALMART_PRIVATE_KEY) return res.json({ stores: [] });
   try {
     const headers = getWalmartHeaders();
     const r = await fetch(`https://developer.api.walmart.com/api-proxy/service/affil/product/v2/stores?zip=${zip}`, { headers });

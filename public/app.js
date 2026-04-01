@@ -687,8 +687,12 @@ function slAddItem(item) {
 function slRemoveItem(id) { state.shoppingList = state.shoppingList.filter(i => i.id !== id); saveShoppingListToStorage(); updateShoppingBadge(); renderSlideoutList(); }
 function slClear() { state.shoppingList = []; saveShoppingListToStorage(); updateShoppingBadge(); renderSlideoutList(); showToast("Shopping list cleared", "success"); }
 function updateShoppingBadge() {
+  const count = state.shoppingList.length;
+  const text = "🛒 " + count;
   const badge = document.getElementById("shoppingBadge");
-  if (badge) { badge.textContent = "🛒 " + state.shoppingList.length; badge.style.display = state.shoppingList.length > 0 ? "inline-block" : "none"; }
+  if (badge) badge.textContent = text;
+  const badge2 = document.getElementById("shoppingBadgeLanding");
+  if (badge2) badge2.textContent = text;
 }
 function toggleSlideout() {
   const panel = document.getElementById("slideoutPanel");
@@ -787,8 +791,55 @@ function renderSlideoutList() {
   body.innerHTML = html;
 }
 function getListAsText() {
-  let text = "Shopping List\n" + "=".repeat(30) + "\n";
-  state.shoppingList.forEach(i => { text += `[ ] ${i.name}${i.price ? " - $" + String(i.price).replace(/^\$/,"") : ""}${i.store ? " (" + i.store + ")" : ""}\n`; });
+  const list = state.shoppingList;
+  let text = "🛒 My Dishcount Shopping List\n" + "=".repeat(30) + "\n\n";
+
+  // Recipes — collapsed, title + count only
+  const recipeMap = {};
+  list.filter(i => i.source === "recipe-ingredient" && i.recipeTitle).forEach(i => {
+    if (!recipeMap[i.recipeTitle]) recipeMap[i.recipeTitle] = 0;
+    recipeMap[i.recipeTitle]++;
+  });
+  if (Object.keys(recipeMap).length) {
+    text += "RECIPES INCLUDED:\n";
+    for (const [title, count] of Object.entries(recipeMap)) {
+      text += `- ${title} (${count} ingredients)\n`;
+    }
+    text += "\n";
+  }
+
+  // Store sections — deals grouped by store then category
+  const dealItems = list.filter(i => i.source === "deal");
+  const storeMap = {};
+  dealItems.forEach(i => {
+    const store = i.store || "Other";
+    if (!storeMap[store]) storeMap[store] = {};
+    const cat = i.category || "Other";
+    if (!storeMap[store][cat]) storeMap[store][cat] = [];
+    storeMap[store][cat].push(i);
+  });
+  for (const [store, cats] of Object.entries(storeMap)) {
+    text += `${store.toUpperCase()}:\n`;
+    for (const [cat, items] of Object.entries(cats)) {
+      text += `  ${cat}: ${items.map(i => `${i.name}${i.price ? " $" + String(i.price).replace(/^\$/,"") : ""}`).join(", ")}\n`;
+    }
+    text += "\n";
+  }
+
+  // Recipe ingredients as flat list
+  const recipeItems = list.filter(i => i.source === "recipe-ingredient");
+  if (recipeItems.length) {
+    text += "INGREDIENTS:\n";
+    recipeItems.forEach(i => { text += `[ ] ${i.name}${i.price ? " $" + String(i.price).replace(/^\$/,"") : ""}\n`; });
+    text += "\n";
+  }
+
+  // Other items
+  const otherItems = list.filter(i => i.source !== "deal" && i.source !== "recipe-ingredient");
+  if (otherItems.length) {
+    text += "OTHER:\n  " + otherItems.map(i => i.name).join(", ") + "\n";
+  }
+
   return text;
 }
 function copySlideoutList() {
@@ -858,13 +909,12 @@ async function addListToKrogerCart() {
 
   const upcSet = new Set(); const items = []; const notFound = [];
 
-  for (const item of state.shoppingList) {
-    // 1. Direct UPC
+  // Only process actual shopping items (not recipe objects)
+  const shoppableItems = state.shoppingList.filter(i => i.name && i.source !== "recipe");
+  for (const item of shoppableItems) {
+    // 1. Direct UPC from deal data
     if (item.upc && !upcSet.has(item.upc)) { upcSet.add(item.upc); items.push({ upc: item.upc, quantity: 1 }); continue; }
-    // 2. Match from loaded deals
-    const dealMatch = (state.deals||[]).find(d => d.upc && d.source === "kroger" && d.name.toLowerCase().includes((item.name||"").toLowerCase().split(" ").filter(w=>w.length>3)[0]||"NOMATCH"));
-    if (dealMatch?.upc && !upcSet.has(dealMatch.upc)) { upcSet.add(dealMatch.upc); items.push({ upc: dealMatch.upc, quantity: 1 }); continue; }
-    // 3. Search Kroger API
+    // 2. Search Kroger API by name
     if (locationId) {
       try {
         const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(item.name)}&locationId=${locationId}`);

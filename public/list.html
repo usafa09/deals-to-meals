@@ -108,15 +108,24 @@ function renderList(data) {
   const items = data.items || [];
   let itemsHtml = "";
 
-  // Recipes section
+  // Recipes — collapsed, title + count only
   const recipeMap = {};
   items.filter(i => i.source === "recipe-ingredient" && i.recipeTitle).forEach(i => {
-    if (!recipeMap[i.recipeTitle]) recipeMap[i.recipeTitle] = [];
-    recipeMap[i.recipeTitle].push(i);
+    if (!recipeMap[i.recipeTitle]) recipeMap[i.recipeTitle] = 0;
+    recipeMap[i.recipeTitle]++;
   });
-  for (const [title, ings] of Object.entries(recipeMap)) {
-    itemsHtml += `<div class="list-group-title">🍽️ ${escapeHtml(title)} (${ings.length} items)</div>`;
-    ings.forEach(item => {
+  if (Object.keys(recipeMap).length) {
+    itemsHtml += `<div class="list-group-title">Recipes Included</div>`;
+    for (const [title, count] of Object.entries(recipeMap)) {
+      itemsHtml += `<div class="list-item"><div class="list-item-name">🍽️ ${escapeHtml(title)}</div><div class="list-item-store">${count} ingredients</div></div>`;
+    }
+  }
+
+  // Recipe ingredients as flat items
+  const recipeItems = items.filter(i => i.source === "recipe-ingredient");
+  if (recipeItems.length) {
+    itemsHtml += `<div class="list-group-title">Ingredients</div>`;
+    recipeItems.forEach(item => {
       itemsHtml += `<div class="list-item"><div class="list-item-name">${escapeHtml(item.name)}</div>
         ${item.price ? `<div class="list-item-price">$${escapeHtml(String(item.price).replace(/^\$/,""))}</div>` : ""}</div>`;
     });

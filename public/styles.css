@@ -23,7 +23,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .nav-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .nav-signin { padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; text-decoration: none; color: #c8d6cb; transition: all 0.2s; white-space: nowrap; }
 .nav-signin:hover { color: white; }
-.hamburger { display: flex; background: none; border: none; color: #c8d6cb; font-size: 20px; cursor: pointer; padding: 4px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
+.hamburger { display: flex; background: none; border: none; color: #c8d6cb; font-size: 28px; cursor: pointer; padding: 4px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
 .hamburger:hover { color: white; }
 .nav-profile-icon { display: none; }
 .nav-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); overflow: hidden; max-height: 0; transition: max-height 0.2s ease; }

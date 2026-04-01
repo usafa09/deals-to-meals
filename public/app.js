@@ -1052,31 +1052,33 @@ async function addListToKrogerCart() {
 
   function cleanIngredientForSearch(name) {
     let s = name.replace(/®/g, "").replace(/\([^)]*\)/g, "").trim();
-    // Remove leading quantities: "1 lb", "3 slices", "1/2 cup", "2 14-oz cans"
     s = s.replace(/^[\d\/\.\s]+(lb|lbs|oz|cup|cups|tbsp|tsp|tablespoon|teaspoon|slices?|pieces?|bags?|cans?|cloves?|bunch|bunches|heads?|stalks?|sprigs?|pinch|dash|large|medium|small|to taste)\b\s*/i, "");
-    // Remove any remaining leading numbers/fractions
     s = s.replace(/^[\d\/\.\-\s]+/, "").trim();
-    // Remove trailing "to taste"
     s = s.replace(/,?\s*to taste$/i, "").trim();
-    // Remove leading "of "
     s = s.replace(/^of\s+/i, "").trim();
     return s;
   }
 
-  const upcSet = new Set();
-  const added = []; // { name, upc, productName }
-  const notFound = []; // item names
-  const skipped = []; // pantry items
+  function isGoodMatch(searchTerm, resultName) {
+    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+    const resultLower = (resultName || "").toLowerCase();
+    if (!searchWords.length) return true; // short search, accept any result
+    return searchWords.some(w => resultLower.includes(w));
+  }
 
-  // Process all items with names (skip only source:"recipe" — recipe objects, not ingredients)
+  const upcSet = new Set();
+  const added = []; // { name, upc, productName, searched }
+  const notFound = []; // { name, searched }
+  const skipped = []; // item names
+
   const shoppableItems = state.shoppingList.filter(i => i.name && i.source !== "recipe");
   for (const item of shoppableItems) {
     const cleaned = cleanIngredientForSearch(item.name);
     console.log(`Kroger cart: "${item.name}" → cleaned: "${cleaned}"`);
 
-    // Skip pantry staples
-    if (PANTRY_SKIP.has(cleaned.toLowerCase())) {
-      console.log(`  Skipped (pantry): ${cleaned}`);
+    // Only skip pantry items from recipe ingredients, NEVER from user-added deals
+    if (item.source === "recipe-ingredient" && PANTRY_SKIP.has(cleaned.toLowerCase())) {
+      console.log(`  Skipped (recipe pantry): ${cleaned}`);
       skipped.push(item.name);
       continue;
     }
@@ -1084,28 +1086,36 @@ async function addListToKrogerCart() {
     // 1. Direct UPC from deal data
     if (item.upc && !upcSet.has(item.upc)) {
       upcSet.add(item.upc);
-      added.push({ name: item.name, upc: item.upc, productName: item.name });
+      added.push({ name: item.name, upc: item.upc, productName: item.name, searched: "(had UPC)" });
       console.log(`  Found UPC directly: ${item.upc}`);
       continue;
     }
 
     // 2. Search Kroger API by cleaned name
+    let found = false;
     try {
       console.log(`  Searching Kroger for: "${cleaned}"`);
       const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(cleaned)}&locationId=${locationId}`);
       if (searchRes.ok) {
         const { product } = await searchRes.json();
         if (product?.upc && !upcSet.has(product.upc)) {
-          upcSet.add(product.upc);
-          added.push({ name: item.name, upc: product.upc, productName: product.name });
-          console.log(`  Found: "${product.name}" UPC: ${product.upc}`);
-          continue;
+          // Validate: does the result actually match what we searched for?
+          if (isGoodMatch(cleaned, product.name)) {
+            upcSet.add(product.upc);
+            added.push({ name: item.name, upc: product.upc, productName: product.name, searched: cleaned });
+            console.log(`  Found: "${product.name}" UPC: ${product.upc} ✓ good match`);
+            found = true;
+          } else {
+            console.log(`  Rejected bad match: searched "${cleaned}" got "${product.name}"`);
+          }
         }
       }
     } catch(e) { console.error(`  Search error for "${cleaned}":`, e.message); }
 
-    console.log(`  Not found: ${cleaned}`);
-    notFound.push(item.name);
+    if (!found) {
+      console.log(`  Not found: ${cleaned}`);
+      notFound.push({ name: item.name, searched: cleaned });
+    }
   }
 
   // Send to Kroger cart
@@ -1130,12 +1140,12 @@ async function addListToKrogerCart() {
     let html = `<div style="padding:16px">`;
     if (added.length) {
       html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--green-dark);margin-bottom:8px">✅ Added (${added.length} items)</div>`;
-      added.forEach(a => { html += `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede6">${escapeHtml(a.productName || a.name)}</div>`; });
+      added.forEach(a => { html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f0ede6"><div>${escapeHtml(a.searched || "")} → <strong>${escapeHtml(a.productName)}</strong></div></div>`; });
       html += `</div>`;
     }
     if (notFound.length) {
       html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--red);margin-bottom:8px">❌ Not found (${notFound.length} items)</div>`;
-      notFound.forEach(n => { html += `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede6;color:var(--muted)">${escapeHtml(n)}</div>`; });
+      notFound.forEach(n => { html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f0ede6;color:var(--muted)">${escapeHtml(n.searched || n.name || n)} → No good match found</div>`; });
       html += `</div>`;
     }
     if (skipped.length) {

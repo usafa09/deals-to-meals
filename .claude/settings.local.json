@@ -25,7 +25,8 @@
       "Bash(Soopers account to unlock digital coupons and save even more!\"\\):*)",
       "Bash(grep -l \"favicon.ico\" public/*.html)",
       "Bash(grep -l \"favicon.svg\" public/*.html)",
-      "Bash(node -e \"import\\(''''./public/app.js''''\\).catch\\(\\(\\)=>{}\\)\")"
+      "Bash(node -e \"import\\(''''./public/app.js''''\\).catch\\(\\(\\)=>{}\\)\")",
+      "Bash(Olive Oil\" and \"pepper → No good match found\":*)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import fetch from "node-fetch";
 import {
-  supabase, validateZip, validateStoreName,
+  supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, extractingStores,
@@ -100,15 +100,15 @@ router.get("/api/nearby-stores", async (req, res) => {
       else if (lower.includes("winco")) brand = "WinCo";
       else if (lower.includes("food city")) brand = "Food City";
       else if (lower.includes("ingles")) brand = "Ingles";
-      else if (lower.includes("fred meyer")) brand = "Kroger";
-      else if (lower.includes("king soopers")) brand = "Kroger";
-      else if (lower.includes("ralphs")) brand = "Kroger";
-      else if (lower.includes("fry's food")) brand = "Kroger";
-      else if (lower.includes("smith's food") || lower.includes("smiths food")) brand = "Kroger";
-      else if (lower.includes("qfc")) brand = "Kroger";
-      else if (lower.includes("dillons")) brand = "Kroger";
-      else if (lower.includes("pick n save") || lower.includes("pick 'n save")) brand = "Kroger";
-      else if (lower.includes("mariano")) brand = "Kroger";
+      else if (lower.includes("fred meyer")) brand = "Fred Meyer";
+      else if (lower.includes("king soopers")) brand = "King Soopers";
+      else if (lower.includes("ralphs")) brand = "Ralphs";
+      else if (lower.includes("fry's food") || lower.includes("frys food")) brand = "Fry's";
+      else if (lower.includes("smith's food") || lower.includes("smiths food")) brand = "Smith's";
+      else if (lower.includes("qfc")) brand = "QFC";
+      else if (lower.includes("dillons")) brand = "Dillons";
+      else if (lower.includes("pick n save") || lower.includes("pick 'n save")) brand = "Pick 'n Save";
+      else if (lower.includes("mariano")) brand = "Mariano's";
 
       if (!brandMap.has(brand)) {
         brandMap.set(brand, {
@@ -130,8 +130,9 @@ router.get("/api/nearby-stores", async (req, res) => {
       .map(s => ({
         ...s,
         hasDeals: storesWithDealsCache.has(normalizeName(s.name))
-          || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart",
-        canExtract: !!findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart",
+          || isKrogerFamilyBrand(s.name) || s.name === "ALDI" || s.name === "Walmart",
+        canExtract: !!findIgroceryadsUrl(s.name) || isKrogerFamilyBrand(s.name) || s.name === "ALDI" || s.name === "Walmart",
+        krogerFamily: isKrogerFamilyBrand(s.name),
       }))
       .filter(s => s.hasDeals || s.canExtract);
 
@@ -192,25 +193,28 @@ router.get("/api/deals/regional", async (req, res) => {
     const results = { kroger: null, aldi: null, walmart: null, sources: [] };
     const fetchPromises = [];
 
+    // Kroger-family deals: fetch if locationId is provided (works for all Kroger banners)
     const krogerRegion = summary.find(s => s.store === "kroger");
-    if (krogerRegion && locationId) {
+    if (locationId) {
+      const banner = krogerRegion?.banner || "Kroger";
+      const division = krogerRegion?.division || "";
       fetchPromises.push((async () => {
         const cacheKey = `kroger:${locationId}`;
         const cached = await getCachedDeals(cacheKey);
         if (cached) {
           results.kroger = cached;
-          results.sources.push({ store: "kroger", banner: krogerRegion.banner, division: krogerRegion.division, deals: cached.length, cached: true });
-          console.log(`  Kroger ${krogerRegion.banner} (${krogerRegion.division}): ${cached.length} deals [cached]`);
+          results.sources.push({ store: "kroger", banner, division, deals: cached.length, cached: true });
+          console.log(`  Kroger ${banner}: ${cached.length} deals [cached]`);
         } else {
           try {
-            const unique = await fetchKrogerDeals(locationId, krogerRegion.banner);
+            const unique = await fetchKrogerDeals(locationId, banner);
             await setCachedDeals(cacheKey, unique);
             results.kroger = unique;
-            results.sources.push({ store: "kroger", banner: krogerRegion.banner, division: krogerRegion.division, deals: unique.length, cached: false });
-            console.log(`  Kroger ${krogerRegion.banner} (${krogerRegion.division}): ${unique.length} deals [live]`);
+            results.sources.push({ store: "kroger", banner, division, deals: unique.length, cached: false });
+            console.log(`  Kroger ${banner}: ${unique.length} deals [live]`);
           } catch (e) {
             console.error(`  Kroger fetch error: ${e.message}`);
-            results.sources.push({ store: "kroger", banner: krogerRegion.banner, deals: 0, error: e.message });
+            results.sources.push({ store: "kroger", banner, deals: 0, error: e.message });
           }
         }
       })());

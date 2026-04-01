@@ -237,10 +237,9 @@ async function findStores() {
     const brandMap=new Map();
     for(const s of allStores){
       let brandName;
-      if(isKrogerFamily(s.name))brandName="Kroger";
-      else if(s.name.toLowerCase().includes("aldi"))brandName="ALDI";
+      if(s.name.toLowerCase().includes("aldi"))brandName="ALDI";
       else brandName=s.name.trim();
-      if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[],hasDeals:s.hasDeals||s.source==="kroger"||s.source==="aldi"});}
+      if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[],hasDeals:s.hasDeals||s.source==="kroger"||s.source==="aldi",krogerFamily:isKrogerFamily(brandName)||s.krogerFamily||false});}
       const brand=brandMap.get(brandName);
       brand.stores.push(s);
       if(s.hasDeals)brand.hasDeals=true;
@@ -325,11 +324,12 @@ async function toggleBrand(name) {
 
 // ── Screen 2 → 3 or 4 ────────────────────────────────────────────────────────
 function onStoresPicked() {
-  if(state.selectedBrands.includes("Kroger")){
-    const kb=state.storeBrands.find(b=>b.name==="Kroger");
-    state.krogerLocations=kb?kb.stores:[];
+  // Check if any selected brand is Kroger-family
+  const krogerBrand = state.storeBrands.find(b => state.selectedBrands.includes(b.name) && (b.krogerFamily || isKrogerFamily(b.name)));
+  if(krogerBrand){
+    state.krogerLocations=krogerBrand.stores||[];
     if(state.krogerLocations.length>1){renderKrogerLocations();goTo(3);return;}
-    else if(state.krogerLocations.length===1)state.selectedKrogerId=state.krogerLocations[0].id;
+    else if(state.krogerLocations.length===1){state.selectedKrogerId=state.krogerLocations[0].id;try{localStorage.setItem("dishcount-kroger-location",state.krogerLocations[0].id);}catch(e){}}
   }
   loadDealsAndShow();
 }
@@ -386,10 +386,11 @@ async function loadDealsAndShow() {
 
     // Filter to only selected brands
     const selectedLower = state.selectedBrands.map(b => b.toLowerCase());
+    const hasKrogerFamilySelected = state.selectedBrands.some(b => isKrogerFamily(b));
     allDeals = allDeals.filter(d => {
       const store = (d.storeName || d.source || "").toLowerCase();
-      // Kroger family: if user selected "Kroger", include all kroger-source deals
-      if (d.source === "kroger" && selectedLower.some(b => b === "kroger" || store.includes(b))) return true;
+      // Kroger family: if user selected ANY Kroger-family brand, include all kroger-source deals
+      if (d.source === "kroger" && hasKrogerFamilySelected) return true;
       // ALDI
       if (d.source === "aldi" && selectedLower.includes("aldi")) return true;
       // Ad-extracted deals: match by storeName
@@ -403,7 +404,7 @@ async function loadDealsAndShow() {
     console.log("After brand filter:", allDeals.length, "deals from", data.totalDeals, "total");
 
     state.coupons=[];state.boostDeals=[];
-    if(state.selectedBrands.includes("Kroger")){
+    if(hasKrogerFamilySelected){
       await checkKrogerConnection();
       if(state.krogerConnected){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];}}}catch(e){}}
     }
@@ -455,7 +456,8 @@ function renderSaleItems() {
   const krogerBanner = document.getElementById("krogerConnectBanner");
   if (krogerBanner) {
     const hasCoupons = state.coupons.length > 0 || state.boostDeals.length > 0;
-    const showBanner = state.selectedBrands.includes("Kroger") && !hasCoupons && !state.krogerConnected;
+    const hasKF = state.selectedBrands.some(b => isKrogerFamily(b));
+    const showBanner = hasKF && !hasCoupons && !state.krogerConnected;
     krogerBanner.style.display = showBanner ? "flex" : "none";
   }
 

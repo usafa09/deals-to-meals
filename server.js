@@ -102,6 +102,15 @@ app.use(recipesRoutes);
 app.use(storesRoutes);
 app.use(adminRoutes);
 
+// ── 404 catch-all ───────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  if (req.method === "GET" && !req.path.startsWith("/api/")) {
+    res.status(404).sendFile(join(__dirname, "public", "404.html"));
+  } else {
+    next();
+  }
+});
+
 // ── Start server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", async () => {

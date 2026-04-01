@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Not Found — Dishcount</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta property="og:title" content="Dishcount — Meals from Deals" />
+  <meta property="og:description" content="Free AI-powered recipes based on your local grocery store's weekly sales. Find deals, get recipes, save money." />
+  <meta property="og:image" content="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&h=630&fit=crop" />
+  <style>
+    body { background: var(--cream); min-height: 100vh; display: flex; flex-direction: column; }
+    .notfound-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 100px 24px 60px; text-align: center; }
+    .notfound-code { font-family: 'Outfit', sans-serif; font-size: 120px; font-weight: 800; color: var(--green-dark); line-height: 1; margin-bottom: 8px; }
+    .notfound-title { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+    .notfound-desc { font-size: 16px; color: var(--muted); margin-bottom: 32px; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+    .notfound-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .notfound-actions a { display: inline-block; padding: 14px 28px; border-radius: 50px; font-size: 15px; font-weight: 700; text-decoration: none; font-family: 'DM Sans', sans-serif; transition: all 0.2s; min-height: 48px; }
+    .notfound-actions a:hover { transform: translateY(-2px); filter: brightness(1.08); }
+    .nf-primary { background: var(--orange); color: white; }
+    .nf-outline { background: white; color: var(--green-dark); border: 2px solid var(--green-dark); }
+    @media (max-width: 500px) {
+      .notfound-code { font-size: 80px; }
+      .notfound-title { font-size: 22px; }
+      .notfound-actions { flex-direction: column; align-items: center; }
+      .notfound-actions a { width: 100%; max-width: 280px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="landing-nav">
+  <div class="landing-nav-inner">
+    <a href="/" class="landing-nav-logo">
+      <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+            <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+            <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          </g>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+        </text>
+      </svg>
+      <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="/">Home</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <a href="/profile.html" class="landing-nav-signin">Sign In</a>
+  </div>
+</nav>
+
+<div class="notfound-main">
+  <div>
+    <div class="notfound-code">404</div>
+    <div class="notfound-title">Page not found</div>
+    <p class="notfound-desc">The page you're looking for doesn't exist or has been moved.</p>
+    <div class="notfound-actions">
+      <a href="/" class="nf-primary">Go to Homepage</a>
+      <a href="/" class="nf-outline">Find Deals</a>
+    </div>
+  </div>
+</div>
+
+<footer class="landing-footer">
+  <p>Dishcount — Meals from Deals &middot; <a href="/about.html">About</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+  <p>&copy; 2026 Dishcount. All rights reserved.</p>
+</footer>
+
+</body>
+</html>

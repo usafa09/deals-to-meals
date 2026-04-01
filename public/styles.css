@@ -260,6 +260,7 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 @keyframes cookBounce { 0% { transform: translateY(0) rotate(-5deg); } 100% { transform: translateY(-12px) rotate(5deg); } }
 .loading-text { font-family: 'Trebuchet MS', sans-serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
 .loading-sub { font-size: 13px; color: var(--muted); }
+.loading-tip { font-size: 14px; color: #6b7b6e; font-style: italic; text-align: center; max-width: 380px; line-height: 1.5; margin-top: 16px; padding: 0 20px; transition: opacity 0.4s ease; }
 .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
 .toast.show { display: block; animation: fadeUp 0.3s ease; }
 .extract-spinner { display:inline-block; width:18px; height:18px; border:3px solid var(--sand); border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }

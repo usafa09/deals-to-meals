@@ -24,7 +24,8 @@
       "Bash(grep -rin \"deals to meals\" --include=\"*.{js,html,md}\" .)",
       "Bash(Soopers account to unlock digital coupons and save even more!\"\\):*)",
       "Bash(grep -l \"favicon.ico\" public/*.html)",
-      "Bash(grep -l \"favicon.svg\" public/*.html)"
+      "Bash(grep -l \"favicon.svg\" public/*.html)",
+      "Bash(node -e \"import\\(''''./public/app.js''''\\).catch\\(\\(\\)=>{}\\)\")"
     ]
   }
 }

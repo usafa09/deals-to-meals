@@ -114,6 +114,107 @@ function resetApp() {
   document.getElementById("zipBtn").disabled = true;
 }
 let cookingInterval = null;
+let tipInterval = null;
+const COOKING_TIPS = [
+  // Money-saving (25)
+  "Buying whole chickens and breaking them down yourself saves 40\u201360% vs pre-cut pieces.",
+  "Frozen vegetables are just as nutritious as fresh \u2014 and way cheaper.",
+  "Store-brand spices are identical to name-brand. Save up to 70%.",
+  "Buy cheese in blocks and shred it yourself \u2014 pre-shredded costs 30% more.",
+  "Dried beans cost about $0.15 per serving vs $0.75 for canned.",
+  "Buy produce in season and freeze the extras. You\u2019ll eat better for less all year.",
+  "Batch cooking on Sunday saves money AND time during the week.",
+  "Whole grains like rice, oats, and lentils are the cheapest healthy foods on earth.",
+  "Buying a whole pork loin and slicing your own chops saves about 50%.",
+  "Eggs are one of the cheapest complete proteins \u2014 about $0.25 each.",
+  "A slow cooker turns cheap cuts of meat into tender, flavorful meals.",
+  "Making your own salad dressing costs pennies compared to bottled.",
+  "Buy marked-down bread and freeze it \u2014 it thaws perfectly for toast and sandwiches.",
+  "Homemade stock from veggie scraps and bones is free and tastes better than store-bought.",
+  "Canned tomatoes are often better than fresh for cooking \u2014 and cheaper year-round.",
+  "A $2 bag of dried chickpeas makes about 6 cans worth of chickpeas.",
+  "Buying in bulk and dividing into portions can cut your meat costs by 30%.",
+  "Generic canned goods are usually the exact same product as name brands.",
+  "Plan your meals around what\u2019s on sale this week \u2014 that\u2019s what Dishcount is for!",
+  "Leftover rice makes the best fried rice \u2014 fresh rice is too moist.",
+  "A sharp knife is safer than a dull one. It requires less force, so it\u2019s less likely to slip.",
+  "Freeze overripe bananas for smoothies or banana bread later.",
+  "Buy large containers of yogurt instead of individual cups \u2014 save up to 40%.",
+  "Roasting a whole chicken on Sunday gives you meals for days: dinner, sandwiches, soup.",
+  "Making pizza at home costs about $3 vs $15\u201320 for delivery.",
+  // Cooking techniques (22)
+  "Let meat rest 5\u201310 minutes after cooking. The juices redistribute and it stays moist.",
+  "Salt your pasta water until it tastes like the sea. It\u2019s the only chance to season the pasta itself.",
+  "Pat meat dry with paper towels before searing. Moisture prevents browning.",
+  "Add a splash of pasta water to your sauce \u2014 the starch helps it cling to the noodles.",
+  "Don\u2019t overcrowd the pan. Cook in batches for better browning.",
+  "Preheat your pan before adding oil. Hot pan + cold oil = food won\u2019t stick.",
+  "Taste as you go. The best cooks adjust seasoning throughout the process.",
+  "A pinch of sugar can balance acidic tomato sauces without making them sweet.",
+  "Rest your dough. Whether it\u2019s bread, pizza, or cookies, resting improves texture.",
+  "Deglaze your pan with wine, broth, or even water to make an instant sauce.",
+  "Use high heat for searing and stir-frying, low heat for sauces and braises.",
+  "Toast your spices in a dry pan for 30 seconds to unlock deeper flavor.",
+  "Add acid (lemon, vinegar) at the end of cooking to brighten flavors.",
+  "Bloom garlic in oil for 30 seconds before adding other ingredients.",
+  "Finish pasta in the sauce, not on the plate. It absorbs more flavor.",
+  "Season every layer of your dish \u2014 not just at the end.",
+  "Use a meat thermometer. It\u2019s the only way to know when meat is perfectly done.",
+  "Caramelize onions low and slow for 30+ minutes. There are no shortcuts.",
+  "Brine poultry in saltwater for juicier, more flavorful results.",
+  "Add a bay leaf to soups, stews, and rice for subtle depth of flavor.",
+  "Roast vegetables at 425\u00b0F for crispy edges. Lower temps make them soggy.",
+  "Toss salad with dressing right before serving. Dressed too early = wilted greens.",
+  // Food storage (16)
+  "Store herbs like flowers \u2014 stems in a glass of water in the fridge.",
+  "Wrap banana stems in plastic wrap to slow ripening by 3\u20135 days.",
+  "Keep tomatoes on the counter, not in the fridge. Cold kills the flavor.",
+  "Freeze leftover broth in ice cube trays for easy portioning.",
+  "Store ginger root in the freezer \u2014 it grates easier when frozen.",
+  "Keep bread in the freezer, not the fridge. The fridge actually dries it out faster.",
+  "Store onions and potatoes separately. Together, they make each other spoil faster.",
+  "Wrap celery in aluminum foil to keep it crisp for weeks.",
+  "Store avocados with onions to slow browning after cutting.",
+  "Keep brown sugar soft by adding a marshmallow or bread slice to the bag.",
+  "Freeze fresh herbs in olive oil using ice cube trays for instant flavor bombs.",
+  "Store mushrooms in a paper bag, not plastic. They need to breathe.",
+  "Squeeze excess air out of freezer bags to prevent freezer burn.",
+  "Cooked grains freeze beautifully. Make a big batch and freeze portions.",
+  "Store nuts in the freezer to prevent them from going rancid.",
+  "Ripe fruit going bad? Chop and freeze it for smoothies.",
+  // Kitchen hacks (15)
+  "Microwave lemons for 15 seconds before juicing \u2014 you\u2019ll get twice the juice.",
+  "Use a damp paper towel under your cutting board to stop it from sliding.",
+  "Freeze ginger root and grate it frozen \u2014 way easier than fresh.",
+  "Put a wooden spoon across a boiling pot to prevent it from boiling over.",
+  "Use dental floss to slice soft cheese, cake layers, or cookie dough logs.",
+  "Warm plates in the oven at 200\u00b0F before serving. Food stays hot longer.",
+  "Peel garlic fast: smash with the flat side of a knife, skin slides right off.",
+  "Use a muffin tin to hold taco shells upright while you fill them.",
+  "Freeze leftover wine in ice cube trays for cooking later.",
+  "Roll citrus on the counter before cutting to release more juice.",
+  "Soak stuck-on food with hot water and dish soap for 15 min before scrubbing.",
+  "Use a fork to shred cooked chicken in seconds \u2014 two forks, pulling apart.",
+  "Sprinkle salt on cutting boards after cutting garlic or onions to remove the smell.",
+  "Wet your knife before cutting sticky foods like dates or dried fruit.",
+  "Cook bacon in the oven at 400\u00b0F on a sheet pan. No splatter, perfectly even.",
+  // Fun facts (10)
+  "Honey never spoils. Archaeologists found 3,000-year-old honey that\u2019s still edible.",
+  "Apples float because they\u2019re 25% air.",
+  "Bananas are berries, but strawberries aren\u2019t \u2014 botanically speaking.",
+  "The most expensive spice in the world is saffron \u2014 up to $5,000 per pound.",
+  "Cranberries bounce when they\u2019re ripe. That\u2019s actually how farmers test quality.",
+  "The average American eats about 23 pounds of pizza per year.",
+  "Pound cake got its name because the original recipe used one pound each of butter, sugar, eggs, and flour.",
+  "Peanuts aren\u2019t nuts \u2014 they\u2019re legumes that grow underground.",
+  "A chef\u2019s hat traditionally has 100 pleats, representing 100 ways to cook an egg.",
+  "Nutmeg is toxic in large quantities \u2014 but perfectly safe in the pinch your recipe calls for.",
+];
+// Shuffle on load, track shown tips
+const shuffledTips = [...COOKING_TIPS].sort(() => Math.random() - 0.5);
+let tipIdx = 0;
+function getNextTip() { const tip = shuffledTips[tipIdx % shuffledTips.length]; tipIdx++; return tip; }
+
 const COOKING_MESSAGES = [
   { emoji: "🍳", text: "Preheating the oven\u2026" },
   { emoji: "🔪", text: "Chopping ingredients\u2026" },
@@ -129,6 +230,7 @@ function showLoading(text, sub="") {
   document.getElementById("loadingText").textContent=text;
   document.getElementById("loadingSub").textContent=sub;
   document.getElementById("loadingOverlay").classList.add("show");
+  startTipRotation();
 }
 function showCookingLoading() {
   const overlay = document.getElementById("loadingOverlay");
@@ -146,15 +248,30 @@ function showCookingLoading() {
   subEl.textContent = "Our AI chef is crafting your recipes";
   cookingInterval = setInterval(update, 2500);
   overlay.classList.add("show");
+  startTipRotation();
+}
+function startTipRotation() {
+  const tipEl = document.getElementById("loadingTip");
+  if (!tipEl) return;
+  tipEl.style.opacity = "0";
+  setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 200);
+  if (tipInterval) clearInterval(tipInterval);
+  tipInterval = setInterval(() => {
+    tipEl.style.opacity = "0";
+    setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 400);
+  }, 4000);
 }
 function hideLoading() {
   document.getElementById("loadingOverlay").classList.remove("show");
   if (cookingInterval) { clearInterval(cookingInterval); cookingInterval = null; }
+  if (tipInterval) { clearInterval(tipInterval); tipInterval = null; }
   const overlay = document.getElementById("loadingOverlay");
   const spinner = overlay.querySelector(".spinner");
   const emojiEl = overlay.querySelector(".cooking-emoji");
+  const tipEl = document.getElementById("loadingTip");
   if (spinner) spinner.style.display = "";
   if (emojiEl) emojiEl.style.display = "none";
+  if (tipEl) tipEl.textContent = "";
 }
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
 

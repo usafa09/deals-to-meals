@@ -202,8 +202,9 @@ const BANNER_INFO = {
 };
 function getBanner(name) { const k=(name||"").toLowerCase(); for(const[b,info]of Object.entries(BANNER_INFO)){if(k.includes(b))return info;} return{emoji:"🏪",color:"#666"}; }
 
-const KROGER_BANNERS=["kroger","ralphs","fred meyer","king soopers","harris teeter","smith's","fry's","qfc","mariano's","dillons","pick n save","city market","baker's"];
-function isKrogerFamily(name){const k=(name||"").toLowerCase();return KROGER_BANNERS.some(b=>k.includes(b));}
+const KROGER_FAMILY_NORM=new Set(["kroger","ralphs","fredmeyer","frys","frysfood","harristeeter","kingsoopers","smiths","qfc","marianos","picksave","metromarket","dillons","bakers","payless","gerbes","jayc","food4less","foodsco","owens","citymarket"]);
+function normBrand(n){return(n||"").toLowerCase().replace(/['\s\-]/g,"");}
+function isKrogerFamily(name){return KROGER_FAMILY_NORM.has(normBrand(name));}
 
 async function findStores() {
   const zip=document.getElementById("zipInput").value; if(zip.length<5)return;
@@ -323,13 +324,30 @@ async function toggleBrand(name) {
 }
 
 // ── Screen 2 → 3 or 4 ────────────────────────────────────────────────────────
-function onStoresPicked() {
+async function onStoresPicked() {
   // Check if any selected brand is Kroger-family
-  const krogerBrand = state.storeBrands.find(b => state.selectedBrands.includes(b.name) && (b.krogerFamily || isKrogerFamily(b.name)));
-  if(krogerBrand){
-    state.krogerLocations=krogerBrand.stores||[];
-    if(state.krogerLocations.length>1){renderKrogerLocations();goTo(3);return;}
-    else if(state.krogerLocations.length===1){state.selectedKrogerId=state.krogerLocations[0].id;try{localStorage.setItem("dishcount-kroger-location",state.krogerLocations[0].id);}catch(e){}}
+  const hasKrogerFamily = state.selectedBrands.some(b => isKrogerFamily(b));
+  if (hasKrogerFamily) {
+    // Check if stored locationId is for current zip
+    const storedZip = localStorage.getItem("dishcount-kroger-zip") || "";
+    const storedLoc = localStorage.getItem("dishcount-kroger-location") || "";
+    if (storedLoc && storedZip === state.zip) {
+      state.selectedKrogerId = storedLoc;
+    } else {
+      // Fetch Kroger locations for this zip
+      showLoading("Finding Kroger stores near you...");
+      try {
+        const res = await fetch(`/api/stores?zip=${state.zip}`);
+        const data = await res.json();
+        state.krogerLocations = data.stores || [];
+      } catch(e) { state.krogerLocations = []; }
+      hideLoading();
+      if (state.krogerLocations.length > 1) { renderKrogerLocations(); goTo(3); return; }
+      if (state.krogerLocations.length === 1) {
+        state.selectedKrogerId = state.krogerLocations[0].id;
+        try { localStorage.setItem("dishcount-kroger-location", state.krogerLocations[0].id); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
+      }
+    }
   }
   loadDealsAndShow();
 }
@@ -348,7 +366,7 @@ function renderKrogerLocations() {
 }
 function pickKrogerLocation(id) {
   state.selectedKrogerId=id;
-  try { localStorage.setItem("dishcount-kroger-location", id); } catch(e) {}
+  try { localStorage.setItem("dishcount-kroger-location", id); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
   document.querySelectorAll("[id^='kloc-']").forEach(el=>el.classList.remove("selected"));
   document.getElementById(`kloc-${id}`).classList.add("selected");
   document.getElementById("krogerBtn").disabled=false;
@@ -709,8 +727,7 @@ function closeSlideout() {
 const CATEGORY_EMOJI = {"meat":"🥩","chicken":"🥩","beef":"🥩","pork":"🥩","seafood":"🐟","produce":"🥬","vegetables":"🥬","fruit":"🍎","dairy":"🧀","cheese":"🧀","eggs":"🧀","frozen":"🧊","pantry":"🥫","snacks":"🍿","beverages":"☕","bakery":"🍞","deli":"🥪"};
 function getCatEmoji(cat) { const c=(cat||"").toLowerCase(); for(const[k,e]of Object.entries(CATEGORY_EMOJI)){if(c.includes(k))return e;} return "🏷️"; }
 
-const KROGER_FAMILY = new Set(["kroger","ralphs","fred meyer","fry's","harris teeter","king soopers","smith's","qfc","mariano's","pick 'n save","pick n save","metro market","dillons","baker's","pay less","gerbes","jay c","food 4 less","foods co","owen's"]);
-function isKrogerFamily(store) { return KROGER_FAMILY.has((store||"").toLowerCase()); }
+// isKrogerFamily defined above with KROGER_FAMILY_NORM
 
 function updateKrogerCartButton() {
   const btn = document.getElementById("krogerCartBtn");

@@ -214,30 +214,45 @@ router.get("/api/deals/regional", async (req, res) => {
       })());
     }
 
-    const aldiRegion = summary.find(s => s.store === "aldi");
-    if (aldiRegion) {
-      fetchPromises.push((async () => {
-        // Try aldi_deals table first, then fall back to ad-extract cache
-        const cacheKey = "aldi:national";
-        const cached = await getCachedDeals(cacheKey);
-        if (cached && cached.length > 0) {
-          results.aldi = cached;
-          results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: cached.length, cached: true });
-          console.log(`  ALDI National: ${cached.length} deals [cached]`);
-        } else {
-          // Fall back to ad-extracted ALDI deals
-          const adCached = await getCachedDeals("ad-extract:aldi");
-          if (adCached && adCached.length > 0) {
-            results.aldi = adCached;
-            results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: adCached.length, cached: true });
-            console.log(`  ALDI National: ${adCached.length} deals [ad-extract]`);
-          } else {
-            results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: 0, note: "Tap ALDI on deals screen to extract" });
-            console.log(`  ALDI National: no deals — extraction available`);
-          }
+    // ALDI is national — always fetch regardless of ad_regions
+    fetchPromises.push((async () => {
+      // Try cache first
+      const cacheKey = "aldi:national";
+      const cached = await getCachedDeals(cacheKey);
+      if (cached && cached.length > 0) {
+        results.aldi = cached;
+        results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: cached.length, cached: true });
+        console.log(`  ALDI National: ${cached.length} deals [cached]`);
+        return;
+      }
+      // Try aldi_deals table directly
+      try {
+        const { data: aldiData } = await supabase.from("aldi_deals").select("*").order("name").limit(500);
+        if (aldiData && aldiData.length > 0) {
+          const deals = aldiData.map(d => ({
+            id: String(d.id), upc: "", name: d.name, brand: d.brand || "", category: d.category || "ALDI",
+            regularPrice: d.regular_price || "", salePrice: d.price, savings: d.savings || "",
+            pctOff: (() => { const s=parseFloat(d.price?.replace(/[^0-9.]/g,"")); const r=parseFloat(d.regular_price?.replace(/[^0-9.]/g,"")); return s&&r&&r>s?Math.round(((r-s)/r)*100):0; })(),
+            size: "", image: d.image || null, source: "aldi", storeName: "ALDI",
+          }));
+          await setCachedDeals(cacheKey, deals);
+          results.aldi = deals;
+          results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: deals.length, cached: false });
+          console.log(`  ALDI National: ${deals.length} deals [table]`);
+          return;
         }
-      })());
-    }
+      } catch (e) { console.error("ALDI table query error:", e.message); }
+      // Fall back to ad-extracted ALDI deals
+      const adCached = await getCachedDeals("ad-extract:aldi");
+      if (adCached && adCached.length > 0) {
+        results.aldi = adCached;
+        results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: adCached.length, cached: true });
+        console.log(`  ALDI National: ${adCached.length} deals [ad-extract]`);
+      } else {
+        results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: 0, note: "No deals available" });
+        console.log(`  ALDI National: no deals`);
+      }
+    })());
 
     // ── Walmart: national rollback deals, cache as walmart:national ──
     fetchPromises.push((async () => {

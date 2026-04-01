@@ -54,26 +54,28 @@
 
 <!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->
 <header id="appHeader">
-  <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
-    <g transform="translate(4, 2)">
-      <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
-      <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
-      <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
-      <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
-        <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
-        <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
-        <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
-        <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
-        <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <a href="javascript:void(0)" onclick="resetApp();goTo(1)" style="display:flex;align-items:center;gap:12px;text-decoration:none;cursor:pointer">
+    <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
+      <g transform="translate(4, 2)">
+        <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+        <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+          <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+          <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+          <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+          <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+        </g>
       </g>
-    </g>
-    <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
-      <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
-    </text>
-  </svg>
-  <div class="logo-text" style="margin-left:-4px">
-    <p>MEALS FROM DEALS</p>
-  </div>
+      <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+        <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+      </text>
+    </svg>
+    <div class="logo-text" style="margin-left:-4px">
+      <p>MEALS FROM DEALS</p>
+    </div>
+  </a>
   <div class="header-right">
     <span id="shoppingBadge" onclick="toggleSlideout()" style="display:none;cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif"></span>
     <div class="progress-bar" id="progressBar"></div>

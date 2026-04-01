@@ -167,9 +167,6 @@ const DIETARY_OPTIONS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto",
 const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];
 const STORES = [
   { id:"kroger",  name:"Kroger",  emoji:"🏪", desc:"Kroger, Ralphs, Fred Meyer, King Soopers & more", available:true },
-  { id:"publix",  name:"Publix",  emoji:"🛒", desc:"Coming soon", available:false },
-  { id:"walmart", name:"Walmart", emoji:"🔵", desc:"Coming soon", available:false },
-  { id:"aldi",    name:"Aldi",    emoji:"🏬", desc:"Coming soon", available:false },
 ];
 
 let currentUser  = null;
@@ -217,8 +214,17 @@ async function initApp() {
     renderAuth();
   }
 
-  // Clear URL params AFTER reading session
-  window.history.replaceState({}, "", "/profile.html");
+  // Clear URL params AFTER reading session (preserve hash)
+  const hash = window.location.hash;
+  window.history.replaceState({}, "", "/profile.html" + hash);
+
+  // Auto-scroll to saved recipes if #saved hash present
+  if (hash === "#saved") {
+    setTimeout(() => {
+      const savedSection = document.querySelector('[data-section="saved"]') || document.getElementById("savedRecipesSection");
+      if (savedSection) savedSection.scrollIntoView({ behavior: "smooth" });
+    }, 500);
+  }
 }
 
 window.addEventListener("load", initApp);

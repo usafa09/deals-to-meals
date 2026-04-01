@@ -357,10 +357,8 @@ async function loadDealsAndShow() {
     });
 
     // Log sources for debugging
-    if (data.sources) {
-      console.log("Deal sources:", data.sources);
-      console.log("Available chains:", data.availableChains);
-    }
+    console.log("Regional response:", { totalDeals: data.totalDeals, sources: data.sources, selectedBrands: state.selectedBrands });
+    console.log("After brand filter:", allDeals.length, "deals from", data.totalDeals, "total");
 
     state.coupons=[];state.boostDeals=[];state.krogerConnected=false;
     if(state.selectedBrands.includes("Kroger")){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];state.krogerConnected=true;}}}catch(e){}}

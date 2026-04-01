@@ -47,7 +47,7 @@
 <!-- ══ LANDING NAV ══ -->
 <nav class="landing-nav" id="landingNav">
   <div class="landing-nav-inner">
-    <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
+    <div class="nav-left"><button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button></div>
     <a href="/" class="landing-nav-logo">
       <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
         <g transform="translate(4, 2)">
@@ -72,10 +72,7 @@
       <a href="/about.html">About</a>
       <a href="/contact.html">Contact</a>
     </div>
-    <span id="shoppingBadgeLanding" onclick="toggleSlideout()" style="cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif">&#128722; 0</span>
-    <a href="/profile.html#saved" class="landing-nav-saved" id="landingSavedBtn">&#10084;&#65039; Saved</a>
-    <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
-    <a href="/profile.html" class="landing-nav-signin" id="landingSigninBtn">Sign In</a>
+    <div class="nav-right"><span id="shoppingBadgeLanding" onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin" id="landingSigninBtn">Sign In</a></div>
   </div>
   <div class="nav-dropdown" id="navDropdown">
       <a href="/#how-it-works" onclick="closeHamburger()">How It Works</a>
@@ -89,7 +86,7 @@
 
 <!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->
 <header id="appHeader">
-  <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
+  <div class="nav-left"><button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button></div>
   <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="app-logo">
     <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
       <g transform="translate(4, 2)">
@@ -108,12 +105,10 @@
       </text>
     </svg>
   </a>
-  <div class="header-right">
-    <span id="shoppingBadge" onclick="toggleSlideout()" style="cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif">&#128722; 0</span>
+  <div class="nav-right">
+    <span id="shoppingBadge" onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span>
     <div class="progress-bar" id="progressBar"></div>
-    <a href="/profile.html" class="profile-btn" id="profileBtn">
-      <span id="profileBtnIcon">&#128100;</span>
-    </a>
+    <a href="/profile.html" class="nav-signin" id="profileBtn"><span id="profileBtnText">Sign In</span></a>
   </div>
 </header>
 

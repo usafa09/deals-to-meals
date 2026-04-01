@@ -17,39 +17,20 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 function updateAuthUI(session) {
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   if (!session?.user) {
-    // Reset to signed-out state
-    const icon = document.getElementById("profileBtnIcon");
-    const text = document.getElementById("profileBtnText");
-    const btn = document.getElementById("profileBtn");
-    if (icon) icon.innerHTML = "&#128100;";
-    if (text) text.textContent = "Sign In";
-    if (btn) btn.classList.remove("logged-in");
-    const savedBtn = document.getElementById("savedRecipesBtn");
-    if (savedBtn) savedBtn.style.display = "none";
-    const landingSavedBtn = document.getElementById("landingSavedBtn");
-    if (landingSavedBtn) landingSavedBtn.style.display = "none";
-    const landingSignin = document.getElementById("landingSigninBtn");
-    if (landingSignin) { landingSignin.textContent = "Sign In"; landingSignin.href = "/profile.html"; }
+    setText("profileBtnText", "Sign In");
+    setText("landingSigninBtn", "Sign In");
+    const btn = document.getElementById("profileBtn"); if (btn) btn.classList.remove("logged-in");
     return;
   }
-  // Signed in — update UI
   const user = session.user;
   sb.from("profiles").select("full_name").eq("id", user.id).single().then(({ data: profile }) => {
     const name = profile?.full_name || user.email?.split("@")[0] || "Profile";
     const firstName = name.split(" ")[0];
-    const icon = document.getElementById("profileBtnIcon");
-    const text = document.getElementById("profileBtnText");
-    const btn = document.getElementById("profileBtn");
-    if (icon) icon.innerHTML = `<span class="profile-avatar">${firstName[0].toUpperCase()}</span>`;
-    if (text) text.textContent = firstName;
-    if (btn) btn.classList.add("logged-in");
-    const savedBtn = document.getElementById("savedRecipesBtn");
-    if (savedBtn) savedBtn.style.display = "flex";
-    const landingSavedBtn = document.getElementById("landingSavedBtn");
-    if (landingSavedBtn) landingSavedBtn.style.display = "flex";
-    const landingSignin = document.getElementById("landingSigninBtn");
-    if (landingSignin) { landingSignin.textContent = firstName; landingSignin.href = "/profile.html"; }
+    setText("profileBtnText", firstName);
+    setText("landingSigninBtn", firstName);
+    const btn = document.getElementById("profileBtn"); if (btn) btn.classList.add("logged-in");
   });
 }
 

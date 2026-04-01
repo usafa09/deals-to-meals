@@ -279,7 +279,8 @@
 
   <nav class="landing-nav">
     <div class="landing-nav-inner">
-      <a href="/" class="landing-nav-logo">
+    <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
+    <a href="/" class="landing-nav-logo">
         <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
           <g transform="translate(4, 2)">
             <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
@@ -298,8 +299,7 @@
         </svg>
         <span class="landing-nav-tagline">MEALS FROM DEALS</span>
       </a>
-      <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
-    <div class="landing-nav-links">
+      <div class="landing-nav-links">
         <a href="/#how-it-works">How It Works</a>
         <a href="/about.html">About</a>
         <a href="/contact.html">Contact</a>
@@ -437,5 +437,6 @@
     checkAuth();
   </script>
 
+<script>function toggleHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.toggle("open");}}function closeHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.remove("open");}}document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");var h=document.querySelector(".hamburger");if(d&&h&&!d.contains(e.target)&&!h.contains(e.target)){d.classList.remove("open");}});</script>
 </body>
 </html>

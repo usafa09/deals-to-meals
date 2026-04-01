@@ -904,48 +904,111 @@ async function addListToKrogerCart() {
   }
 
   const locationId = state.selectedKrogerId || localStorage.getItem("dishcount-kroger-location") || "";
+  if (!locationId) { showToast("Select a Kroger store first (go back to store selection)"); return; }
+
   const cartBtn = document.querySelector(".slideout-footer .btn-primary");
   if (cartBtn) { cartBtn.disabled = true; cartBtn.textContent = "Adding items..."; }
 
-  const upcSet = new Set(); const items = []; const notFound = [];
+  const PANTRY_SKIP = new Set(["salt","pepper","salt and pepper","salt and pepper to taste","olive oil","vegetable oil","cooking oil","canola oil","butter","sugar","flour","water","garlic","onion powder","garlic powder","paprika","cumin","chili powder","oregano","basil","thyme","cinnamon","baking powder","baking soda","cornstarch","vanilla extract","soy sauce","vinegar","hot sauce","ketchup","mustard","honey"]);
 
-  // Only process actual shopping items (not recipe objects)
+  function cleanIngredientForSearch(name) {
+    let s = name.replace(/®/g, "").replace(/\([^)]*\)/g, "").trim();
+    // Remove leading quantities: "1 lb", "3 slices", "1/2 cup", "2 14-oz cans"
+    s = s.replace(/^[\d\/\.\s]+(lb|lbs|oz|cup|cups|tbsp|tsp|tablespoon|teaspoon|slices?|pieces?|bags?|cans?|cloves?|bunch|bunches|heads?|stalks?|sprigs?|pinch|dash|large|medium|small|to taste)\b\s*/i, "");
+    // Remove any remaining leading numbers/fractions
+    s = s.replace(/^[\d\/\.\-\s]+/, "").trim();
+    // Remove trailing "to taste"
+    s = s.replace(/,?\s*to taste$/i, "").trim();
+    // Remove leading "of "
+    s = s.replace(/^of\s+/i, "").trim();
+    return s;
+  }
+
+  const upcSet = new Set();
+  const added = []; // { name, upc, productName }
+  const notFound = []; // item names
+  const skipped = []; // pantry items
+
+  // Process all items with names (skip only source:"recipe" — recipe objects, not ingredients)
   const shoppableItems = state.shoppingList.filter(i => i.name && i.source !== "recipe");
   for (const item of shoppableItems) {
-    // 1. Direct UPC from deal data
-    if (item.upc && !upcSet.has(item.upc)) { upcSet.add(item.upc); items.push({ upc: item.upc, quantity: 1 }); continue; }
-    // 2. Search Kroger API by name
-    if (locationId) {
-      try {
-        const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(item.name)}&locationId=${locationId}`);
-        if (searchRes.ok) {
-          const { product } = await searchRes.json();
-          if (product?.upc && !upcSet.has(product.upc)) { upcSet.add(product.upc); items.push({ upc: product.upc, quantity: 1 }); continue; }
-        }
-      } catch(e) {}
+    const cleaned = cleanIngredientForSearch(item.name);
+    console.log(`Kroger cart: "${item.name}" → cleaned: "${cleaned}"`);
+
+    // Skip pantry staples
+    if (PANTRY_SKIP.has(cleaned.toLowerCase())) {
+      console.log(`  Skipped (pantry): ${cleaned}`);
+      skipped.push(item.name);
+      continue;
     }
+
+    // 1. Direct UPC from deal data
+    if (item.upc && !upcSet.has(item.upc)) {
+      upcSet.add(item.upc);
+      added.push({ name: item.name, upc: item.upc, productName: item.name });
+      console.log(`  Found UPC directly: ${item.upc}`);
+      continue;
+    }
+
+    // 2. Search Kroger API by cleaned name
+    try {
+      console.log(`  Searching Kroger for: "${cleaned}"`);
+      const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(cleaned)}&locationId=${locationId}`);
+      if (searchRes.ok) {
+        const { product } = await searchRes.json();
+        if (product?.upc && !upcSet.has(product.upc)) {
+          upcSet.add(product.upc);
+          added.push({ name: item.name, upc: product.upc, productName: product.name });
+          console.log(`  Found: "${product.name}" UPC: ${product.upc}`);
+          continue;
+        }
+      }
+    } catch(e) { console.error(`  Search error for "${cleaned}":`, e.message); }
+
+    console.log(`  Not found: ${cleaned}`);
     notFound.push(item.name);
   }
 
-  if (!items.length) {
-    showToast("No matching Kroger products found");
-    if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
-    return;
+  // Send to Kroger cart
+  if (added.length) {
+    try {
+      const cartItems = added.map(a => ({ upc: a.upc, quantity: 1 }));
+      const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ items: cartItems }) });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        if (err.error?.includes("expired") || err.error?.includes("token")) {
+          showToast("Kroger session expired. Please reconnect.");
+        } else { showToast("Could not add to cart — try reconnecting Kroger"); }
+        if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
+        return;
+      }
+    } catch(e) { showToast("Could not add to cart"); if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; } return; }
   }
 
-  try {
-    const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ items }) });
-    if (res.ok) {
-      let msg = `Added ${items.length} of ${state.shoppingList.length} items to Kroger cart!`;
-      if (notFound.length) msg += ` ${notFound.length} not found: ${notFound.slice(0,3).join(", ")}${notFound.length>3?"...":""}`;
-      showToast(msg, "success");
-    } else {
-      const err = await res.json().catch(()=>({}));
-      if (err.error?.includes("expired") || err.error?.includes("token")) {
-        showToast("Kroger session expired. Please reconnect.");
-      } else { showToast("Could not add to cart — try reconnecting Kroger"); }
+  // Show detailed results modal
+  const body = document.getElementById("slideoutBody");
+  if (body) {
+    let html = `<div style="padding:16px">`;
+    if (added.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--green-dark);margin-bottom:8px">✅ Added (${added.length} items)</div>`;
+      added.forEach(a => { html += `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede6">${escapeHtml(a.productName || a.name)}</div>`; });
+      html += `</div>`;
     }
-  } catch(e) { showToast("Could not add to cart"); }
+    if (notFound.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--red);margin-bottom:8px">❌ Not found (${notFound.length} items)</div>`;
+      notFound.forEach(n => { html += `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede6;color:var(--muted)">${escapeHtml(n)}</div>`; });
+      html += `</div>`;
+    }
+    if (skipped.length) {
+      html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--muted);margin-bottom:8px">⏭️ Skipped pantry items (${skipped.length})</div>`;
+      skipped.forEach(s => { html += `<div style="font-size:13px;padding:4px 0;color:var(--muted)">${escapeHtml(s)}</div>`; });
+      html += `</div>`;
+    }
+    if (!added.length && !notFound.length) html += `<p style="color:var(--muted);text-align:center;padding:20px">No items to add</p>`;
+    html += `<button onclick="renderSlideoutList()" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--green-dark);color:white;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:44px">← Back to List</button></div>`;
+    body.innerHTML = html;
+  }
+
   if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
 }
 

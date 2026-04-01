@@ -82,25 +82,69 @@ router.get("/api/stores", async (req, res) => {
 router.get("/api/kroger/search", async (req, res) => {
   const { query, locationId } = req.query;
   if (!query || !locationId) return res.status(400).json({ error: "query and locationId required" });
-  try {
+
+  async function searchKroger(term) {
     const token = await getAppToken();
-    const r = await fetch(
-      `${KROGER_API_BASE}/products?filter.term=${encodeURIComponent(query)}&filter.locationId=${locationId}&filter.limit=5`,
-      { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
-    );
-    if (!r.ok) return res.status(r.status).json({ error: "Kroger API error" });
+    const url = `${KROGER_API_BASE}/products?filter.term=${encodeURIComponent(term)}&filter.locationId=${locationId}&filter.limit=5`;
+    console.log(`Kroger search: "${term}" at ${locationId}`);
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!r.ok) { console.error(`Kroger search error: ${r.status} for "${term}"`); return []; }
     const data = await r.json();
-    const products = (data.data || []).map(p => ({
+    return (data.data || []).map(p => ({
       upc: p.items?.[0]?.upc || "",
-      name: p.description,
+      name: p.description || "",
       brand: p.brand || "",
       price: p.items?.[0]?.price?.regular || 0,
       image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
-    }));
-    // Prefer Kroger/Simple Truth brand
-    const krogerBrand = products.find(p => /kroger|simple truth/i.test(p.brand));
-    res.json({ product: krogerBrand || products[0] || null, results: products.length });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    })).filter(p => p.upc);
+  }
+
+  function pickBest(products) {
+    if (!products.length) return null;
+    return products.find(p => /kroger|simple truth/i.test(p.brand)) || products[0];
+  }
+
+  try {
+    // 1. Try full query
+    let products = await searchKroger(query);
+    if (products.length) {
+      const best = pickBest(products);
+      console.log(`Kroger found (full): "${best.name}" UPC:${best.upc}`);
+      return res.json({ product: best, results: products.length, searchUsed: query });
+    }
+
+    // 2. Try first 4 words (keeps brand + product)
+    const words = query.split(/\s+/);
+    if (words.length > 4) {
+      const shortQuery = words.slice(0, 4).join(" ");
+      products = await searchKroger(shortQuery);
+      if (products.length) {
+        const best = pickBest(products);
+        console.log(`Kroger found (short): "${best.name}" UPC:${best.upc}`);
+        return res.json({ product: best, results: products.length, searchUsed: shortQuery });
+      }
+    }
+
+    // 3. Try core product word (last 1-2 significant words, or first noun)
+    const skipWords = new Set(["fresh","natural","premium","organic","original","classic","homestyle","traditional","regular","extra","large","small","whole","ground","boneless","skinless"]);
+    const coreWords = words.filter(w => w.length > 2 && !skipWords.has(w.toLowerCase()));
+    if (coreWords.length > 2) {
+      // Try last 2 meaningful words (often the actual product)
+      const coreQuery = coreWords.slice(-2).join(" ");
+      products = await searchKroger(coreQuery);
+      if (products.length) {
+        const best = pickBest(products);
+        console.log(`Kroger found (core): "${best.name}" UPC:${best.upc}`);
+        return res.json({ product: best, results: products.length, searchUsed: coreQuery });
+      }
+    }
+
+    console.log(`Kroger not found: "${query}"`);
+    res.json({ product: null, results: 0, searchUsed: query });
+  } catch (err) {
+    console.error("Kroger search error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ══ DEALS API (Kroger) ════════════════════════════════════════════════════════

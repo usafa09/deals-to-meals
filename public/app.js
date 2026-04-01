@@ -27,8 +27,6 @@ function updateAuthUI(session) {
     if (btn) btn.classList.remove("logged-in");
     const savedBtn = document.getElementById("savedRecipesBtn");
     if (savedBtn) savedBtn.style.display = "none";
-    const listsBtn = document.getElementById("listsBtn");
-    if (listsBtn) listsBtn.style.display = "none";
     const landingSavedBtn = document.getElementById("landingSavedBtn");
     if (landingSavedBtn) landingSavedBtn.style.display = "none";
     const landingSignin = document.getElementById("landingSigninBtn");
@@ -48,8 +46,6 @@ function updateAuthUI(session) {
     if (btn) btn.classList.add("logged-in");
     const savedBtn = document.getElementById("savedRecipesBtn");
     if (savedBtn) savedBtn.style.display = "flex";
-    const listsBtn = document.getElementById("listsBtn");
-    if (listsBtn) listsBtn.style.display = "flex";
     const landingSavedBtn = document.getElementById("landingSavedBtn");
     if (landingSavedBtn) landingSavedBtn.style.display = "flex";
     const landingSignin = document.getElementById("landingSigninBtn");

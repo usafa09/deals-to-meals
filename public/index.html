@@ -89,7 +89,8 @@
 
 <!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->
 <header id="appHeader">
-  <a href="javascript:void(0)" onclick="resetApp();goTo(1)" style="display:flex;align-items:center;gap:12px;text-decoration:none;cursor:pointer">
+  <button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button>
+  <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="app-logo">
     <svg width="160" height="40" viewBox="0 0 200 50" style="flex-shrink:0">
       <g transform="translate(4, 2)">
         <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
@@ -106,17 +107,12 @@
         <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
       </text>
     </svg>
-    <div class="logo-text" style="margin-left:-4px">
-      <p>MEALS FROM DEALS</p>
-    </div>
   </a>
   <div class="header-right">
     <span id="shoppingBadge" onclick="toggleSlideout()" style="cursor:pointer;padding:6px 12px;border-radius:16px;background:var(--orange);color:white;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif">&#128722; 0</span>
     <div class="progress-bar" id="progressBar"></div>
-    <a href="/profile.html#saved" class="saved-recipes-btn" id="savedRecipesBtn">&#10084;&#65039; Saved</a>
     <a href="/profile.html" class="profile-btn" id="profileBtn">
       <span id="profileBtnIcon">&#128100;</span>
-      <span id="profileBtnText">Sign In</span>
     </a>
   </div>
 </header>

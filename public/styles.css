@@ -8,43 +8,25 @@
 }
 body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
 
-/* ══ Landing Nav (shared across landing pages) ══ */
+/* ══ Landing Nav — Option C centered logo on all sizes ══ */
 .landing-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(26,46,31,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.15); }
-.landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 14px 28px; display: flex; align-items: center; gap: 16px; }
-.landing-nav-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
-.landing-nav-tagline { font-size: 11px; color: #b0bfb3; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
-.landing-nav-links { margin-left: auto; display: flex; gap: 28px; align-items: center; }
-.landing-nav-links a { color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; transition: color 0.2s; }
-.landing-nav-links a:hover { color: white; }
-.landing-nav-signin { padding: 9px 22px; border-radius: 20px; font-size: 14px; font-weight: 700; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.08); color: #e8f0ea; transition: all 0.2s; margin-left: 8px; }
-.landing-nav-signin:hover { background: var(--green-mid); color: white; }
-.landing-nav-saved { display: none; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; border: 2px solid var(--orange); background: rgba(255,255,255,0.08); color: #fef3c7; transition: all 0.2s; }
-.landing-nav-saved:hover { background: var(--orange); color: white; }
-
-/* ── Hamburger menu ── */
-.hamburger { display: none; background: none; border: none; color: #e8f0ea; font-size: 22px; cursor: pointer; padding: 6px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
+.landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+.landing-nav-logo { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.landing-nav-tagline { display: none; }
+.landing-nav-links { display: none; }
+.landing-nav-signin { display: none; }
+.landing-nav-saved { display: none; }
+.hamburger { display: flex; background: none; border: none; color: #e8f0ea; font-size: 22px; cursor: pointer; padding: 6px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
+.nav-profile-icon { display: flex; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid var(--green-mid); align-items: center; justify-content: center; font-size: 16px; color: #e8f0ea; text-decoration: none; flex-shrink: 0; transition: all 0.2s; }
+.nav-profile-icon:hover { background: var(--green-mid); }
 .nav-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); overflow: hidden; max-height: 0; transition: max-height 0.2s ease; }
 .nav-dropdown.open { display: block; max-height: 500px; }
 .nav-dropdown a { display: flex; align-items: center; gap: 8px; padding: 0 24px; color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.06); min-height: 48px; }
 .nav-dropdown a:hover { background: rgba(255,255,255,0.05); color: white; }
 .nav-dropdown a:last-child { border-bottom: none; }
-.nav-profile-icon { display: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid var(--green-mid); align-items: center; justify-content: center; font-size: 16px; color: #e8f0ea; text-decoration: none; flex-shrink: 0; transition: all 0.2s; }
-.nav-profile-icon:hover { background: var(--green-mid); }
-@media (max-width: 767px) {
-  .hamburger { display: flex; }
-  .landing-nav-inner { padding: 10px 12px; gap: 8px; }
-  .landing-nav-logo { flex: 1; justify-content: center; }
+@media (max-width: 500px) {
+  .landing-nav-inner { padding: 10px 12px; gap: 6px; }
   .landing-nav-logo svg { width: 130px; height: 33px; }
-  .landing-nav-tagline { display: none; }
-  .landing-nav-links { display: none !important; }
-  .landing-nav-signin { display: none !important; }
-  .landing-nav-saved { display: none !important; }
-  .nav-profile-icon { display: flex; }
-}
-@media (min-width: 768px) {
-  .hamburger { display: none !important; }
-  .nav-dropdown { display: none !important; }
-  .nav-profile-icon { display: none !important; }
 }
 
 /* ══ Landing Hero ══ */
@@ -113,20 +95,19 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-footer a { color: #9ca38f; text-decoration: none; transition: color 0.2s; }
 .landing-footer a:hover { color: white; }
 
-/* ══ App Header (screens 2-6) ══ */
-header { background: var(--dark); border-bottom: none; padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; display: none; }
-.logo-mark { display: none; }
-.logo-text h1 { font-family: 'Trebuchet MS', sans-serif; font-size: 19px; color: #e8f0ea; }
-.logo-text p  { font-size: 10px; color: #9ca38f; letter-spacing: 1.5px; text-transform: uppercase; font-style: normal; }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.progress-bar { display: flex; gap: 5px; align-items: center; }
-.pip { height: 8px; border-radius: 4px; background: #3a5a40; transition: all 0.35s ease; }
-.profile-btn { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.1); color: #e8f0ea; }
+/* ══ App Header (screens 2-6) — same centered layout ══ */
+header { background: var(--dark); padding: 12px 20px; display: none; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+header a.app-logo { flex: 1; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.logo-text { display: none; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.progress-bar { display: flex; gap: 4px; align-items: center; }
+.pip { height: 6px; border-radius: 3px; background: #3a5a40; transition: all 0.35s ease; }
+.profile-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--green-mid); background: rgba(255,255,255,0.1); color: #e8f0ea; padding: 0; }
 .profile-btn:hover { background: var(--green-mid); color: white; }
 .profile-btn.logged-in { background: var(--green-mid); color: white; border-color: var(--green-mid); }
+.profile-btn span#profileBtnText { display: none; }
 .profile-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--green-mid); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; }
-.saved-recipes-btn { display: none; align-items: center; gap: 5px; padding: 8px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: 2px solid var(--orange); background: rgba(255,255,255,0.1); color: #fef3c7; }
-.saved-recipes-btn:hover { background: var(--orange); color: white; }
+.saved-recipes-btn { display: none; }
 
 /* ── App Layout ── */
 main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
@@ -350,13 +331,5 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .sale-filter-btn { padding: 5px 10px; font-size: 11px; }
   main { padding: 20px 12px 80px; }
   .meal-grid { grid-template-columns: repeat(2, 1fr); }
-  /* App header mobile */
-  header { padding: 10px 12px; gap: 8px; }
   header svg { width: 120px; height: 30px; }
-  .logo-text { display: none; }
-  .header-right { gap: 6px; }
-  .profile-btn { padding: 6px 10px; font-size: 11px; gap: 4px; }
-  .saved-recipes-btn { padding: 5px 8px; font-size: 10px; }
-  .progress-bar { gap: 3px; }
-  .pip { height: 6px; }
 }

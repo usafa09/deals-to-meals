@@ -295,8 +295,12 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 /* ── Mobile responsive ── */
 @media (max-width: 500px) {
   .slideout-panel { width: 100%; right: -100%; }
-  .landing-nav-inner { padding: 10px 16px; }
+  .landing-nav-inner { padding: 10px 12px; gap: 8px; flex-wrap: nowrap; }
+  .landing-nav-logo svg { width: 120px; height: 30px; }
+  .landing-nav-tagline { display: none; }
   .landing-nav-links { display: none; }
+  .landing-nav-signin { padding: 7px 14px; font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .landing-nav-saved { padding: 6px 10px; font-size: 11px; }
   .landing-hero { min-height: 520px; padding: 100px 16px 60px; }
   .landing-headline { font-size: 32px; }
   .landing-subtitle { font-size: 15px; }
@@ -326,4 +330,13 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .sale-filter-btn { padding: 5px 10px; font-size: 11px; }
   main { padding: 20px 12px 80px; }
   .meal-grid { grid-template-columns: repeat(2, 1fr); }
+  /* App header mobile */
+  header { padding: 10px 12px; gap: 8px; }
+  header svg { width: 120px; height: 30px; }
+  .logo-text { display: none; }
+  .header-right { gap: 6px; }
+  .profile-btn { padding: 6px 10px; font-size: 11px; gap: 4px; }
+  .saved-recipes-btn { padding: 5px 8px; font-size: 10px; }
+  .progress-bar { gap: 3px; }
+  .pip { height: 6px; }
 }

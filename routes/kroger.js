@@ -91,7 +91,7 @@ router.get("/api/kroger/search", async (req, res) => {
     if (!r.ok) { console.error(`Kroger search error: ${r.status} for "${term}"`); return []; }
     const data = await r.json();
     return (data.data || []).map(p => ({
-      upc: p.items?.[0]?.upc || "",
+      upc: p.upc || p.items?.[0]?.itemId || p.productId || "",
       name: p.description || "",
       brand: p.brand || "",
       price: p.items?.[0]?.price?.regular || 0,

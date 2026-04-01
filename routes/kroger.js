@@ -74,7 +74,7 @@ router.get("/api/stores", async (req, res) => {
       hours: loc.hours?.open24 ? "Open 24 hrs" : "",
     }));
     res.json({ stores });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err.message); res.status(500).json({ error: "Something went wrong. Please try again." }); }
 });
 
 // ══ KROGER PRODUCT SEARCH ════════════════════════════════════════════════════
@@ -164,7 +164,7 @@ router.get("/api/deals", async (req, res) => {
     await setCachedDeals(cacheKey, unique);
     console.log(`Kroger: saved ${unique.length} deals for location ${locationId}`);
     res.json({ deals: unique });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err.message); res.status(500).json({ error: "Something went wrong. Please try again." }); }
 });
 
 // ══ COUPONS API ═══════════════════════════════════════════════════════════════
@@ -200,7 +200,7 @@ router.get("/api/coupons", async (req, res) => {
       }));
     }
     res.json({ coupons, boostDeals });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err.message); res.status(500).json({ error: "Something went wrong. Please try again." }); }
 });
 
 // ══ CART API ══════════════════════════════════════════════════════════════════
@@ -219,7 +219,7 @@ router.post("/api/cart", async (req, res) => {
     });
     if (!r.ok) throw new Error(await r.text());
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err.message); res.status(500).json({ error: "Something went wrong. Please try again." }); }
 });
 
 export default router;

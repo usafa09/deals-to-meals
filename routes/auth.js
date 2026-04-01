@@ -81,7 +81,7 @@ router.get("/api/profile", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   const krogerData = await getKrogerToken(user.id);
   const isConnected = !!krogerData || !!data.kroger_connected;
   res.json({ ...data, kroger_connected: isConnected, kroger_profile: krogerData?.profile || null });
@@ -95,7 +95,7 @@ router.patch("/api/profile", async (req, res) => {
   for (const key of allowed) { if (req.body[key] !== undefined) updates[key] = req.body[key]; }
   updates.updated_at = new Date().toISOString();
   const { data, error } = await supabase.from("profiles").update(updates).eq("id", user.id).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json(data);
 });
 
@@ -128,7 +128,7 @@ router.get("/api/lists", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { data, error } = await supabase.from("saved_lists").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json({ lists: data });
 });
 
@@ -138,7 +138,7 @@ router.post("/api/lists", async (req, res) => {
   const { name, items } = req.body;
   if (!name || !items) return res.status(400).json({ error: "name and items required" });
   const { data, error } = await supabase.from("saved_lists").insert({ user_id: user.id, name, items }).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json(data);
 });
 
@@ -146,7 +146,7 @@ router.delete("/api/lists/:id", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { error } = await supabase.from("saved_lists").delete().eq("id", req.params.id).eq("user_id", user.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json({ success: true });
 });
 
@@ -156,7 +156,7 @@ router.get("/api/lists/share/:id", async (req, res) => {
     const { data, error } = await supabase.from("saved_lists").select("name, items, created_at").eq("id", req.params.id).single();
     if (error || !data) return res.status(404).json({ error: "List not found" });
     res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error(e.message); res.status(500).json({ error: "Something went wrong." }); }
 });
 
 export default router;

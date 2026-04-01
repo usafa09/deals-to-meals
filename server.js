@@ -88,6 +88,9 @@ app.use("/api/recipes/ai", expensiveLimiter);
 app.use("/api/extract-store", expensiveLimiter);
 app.use("/api/extract-ad", expensiveLimiter);
 app.use("/api/contact", contactLimiter);
+app.use("/api/admin/login", authLimiter);
+app.use("/api/kroger/search", expensiveLimiter);
+app.use("/api/nearby-stores", expensiveLimiter);
 app.use("/auth/", authLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────

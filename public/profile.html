@@ -7,7 +7,7 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-41675D42V1');
+    gtag('config', 'G-41675D42V1', { anonymize_ip: true });
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Account – Dishcount</title>
@@ -371,8 +371,8 @@ function renderProfile() {
   </div>`;
 
   const header = `<div class="profile-header">
-    <div class="profile-avatar">${p.avatar_url ? `<img src="${p.avatar_url}" alt="avatar" />` : initials}</div>
-    <div><div class="profile-name">${p.full_name || "My Account"}</div><div class="profile-email">${currentUser.email}</div></div>
+    <div class="profile-avatar">${p.avatar_url ? `<img src="${escapeHtml(p.avatar_url)}" alt="avatar" />` : initials}</div>
+    <div><div class="profile-name">${escapeHtml(p.full_name || "My Account")}</div><div class="profile-email">${escapeHtml(currentUser.email)}</div></div>
     <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
   </div>`;
 

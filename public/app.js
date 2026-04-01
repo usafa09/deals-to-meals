@@ -115,15 +115,15 @@ function resetApp() {
 }
 let cookingInterval = null;
 const COOKING_MESSAGES = [
-  { emoji: "🍳", text: "Preheating the oven..." },
-  { emoji: "🔪", text: "Chopping ingredients..." },
-  { emoji: "🧈", text: "Melting the butter..." },
-  { emoji: "🥘", text: "Simmering the sauce..." },
-  { emoji: "🧂", text: "Adding seasoning..." },
-  { emoji: "🍲", text: "Stirring the pot..." },
-  { emoji: "👨‍🍳", text: "Taste-testing..." },
-  { emoji: "🍽️", text: "Plating the dishes..." },
-  { emoji: "✨", text: "Adding the finishing touches..." },
+  { emoji: "🍳", text: "Preheating the oven\u2026" },
+  { emoji: "🔪", text: "Chopping ingredients\u2026" },
+  { emoji: "🧈", text: "Melting the butter\u2026" },
+  { emoji: "🥘", text: "Simmering the sauce\u2026" },
+  { emoji: "🧂", text: "Adding seasoning\u2026" },
+  { emoji: "🍲", text: "Stirring the pot\u2026" },
+  { emoji: "👨‍🍳", text: "Taste-testing\u2026" },
+  { emoji: "🍽️", text: "Plating the dishes\u2026" },
+  { emoji: "✨", text: "Adding the finishing touches\u2026" },
 ];
 function showLoading(text, sub="") {
   document.getElementById("loadingText").textContent=text;
@@ -677,7 +677,7 @@ async function saveRecipe(){
     const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
     if(res.ok){state.savedRecipeIds.add(r.title);document.getElementById("saveBtn").textContent="❤️ Saved!";document.getElementById("saveBtn").classList.add("saved");showToast("Recipe saved!","success");}
     else{const err=await res.json().catch(()=>({}));console.error("saveRecipe API error:",res.status,err);showToast(err.error||"Could not save recipe — try signing in again");}
-  }catch(e){console.error("saveRecipe error:",e);showToast("Could not save recipe: "+e.message);}
+  }catch(e){console.error("saveRecipe error:",e);showToast("Could not save recipe. Please try again.");}
 }
 
 // ── Shopping List — Slide-out Panel ──────────────────────────────────────────
@@ -689,7 +689,7 @@ function slAddItem(item) {
   saveShoppingListToStorage(); updateShoppingBadge(); return true;
 }
 function slRemoveItem(id) { state.shoppingList = state.shoppingList.filter(i => i.id !== id); saveShoppingListToStorage(); updateShoppingBadge(); renderSlideoutList(); }
-function slClear() { state.shoppingList = []; saveShoppingListToStorage(); updateShoppingBadge(); renderSlideoutList(); showToast("Shopping list cleared", "success"); }
+function slClear() { state.shoppingList = []; saveShoppingListToStorage(); updateShoppingBadge(); renderSlideoutList(); showToast("Shopping list cleared!", "success"); }
 function updateShoppingBadge() {
   const count = state.shoppingList.length;
   const text = "🛒 " + count;

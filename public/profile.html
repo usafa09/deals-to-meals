@@ -172,6 +172,7 @@ const STORES = [
 let currentUser  = null;
 let userProfile  = null;
 let savedRecipes = [];
+let savedLists = [];
 let activeTab    = "signin";
 
 function showToast(msg, type="success") {
@@ -232,12 +233,14 @@ window.addEventListener("load", initApp);
 async function loadProfileData() {
   try {
     const token = (await sb.auth.getSession()).data.session?.access_token;
-    const [profileRes, recipesRes] = await Promise.all([
+    const [profileRes, recipesRes, listsRes] = await Promise.all([
       fetch("/api/profile",        { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/recipes/saved",  { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/lists",          { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     if (profileRes.ok)  userProfile  = await profileRes.json();
     if (recipesRes.ok)  { const d = await recipesRes.json(); savedRecipes = d.recipes || []; }
+    if (listsRes.ok)    { const d = await listsRes.json(); savedLists = d.lists || []; }
   } catch (err) { console.error("loadProfileData error:", err); }
 }
 
@@ -448,7 +451,32 @@ function renderProfile() {
               </div>
               <div class="recipe-item-actions">
                 <button class="recipe-action-btn view" onclick="viewRecipe('${r.id}')">📋 View</button>
+                <button class="recipe-action-btn view" onclick="addRecipeToList('${r.id}')" style="background:#FFF8E8;color:#8B6914;border-color:#E8D5B0">🛒 Add to List</button>
                 <button class="recipe-action-btn delete" onclick="deleteRecipe('${r.id}')">🗑️ Remove</button>
+              </div>
+            </div>
+          </div>
+        `).join("")}</div>`}
+    </div>
+
+    <!-- Saved Lists -->
+    <div class="section" id="savedListsSection">
+      <div class="section-header">
+        <div class="section-title">📋 Saved Shopping Lists</div>
+      </div>
+      ${savedLists.length === 0
+        ? `<div class="empty-state">No saved lists yet — build a shopping list and tap 💾 Save to keep it!</div>`
+        : `<div style="display:flex;flex-direction:column;gap:10px">${savedLists.map(l => `
+          <div class="card" style="padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:700;font-size:15px">${escapeHtml(l.name)}</div>
+                <div style="font-size:12px;color:var(--muted)">${(l.items||[]).length} items · ${new Date(l.created_at).toLocaleDateString()}</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button onclick="loadSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--green-mid);border-radius:8px;background:var(--green-light);color:var(--green-dark);font-size:11px;font-weight:700;cursor:pointer">Load</button>
+                <button onclick="shareSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--sand);border-radius:8px;background:white;color:var(--text);font-size:11px;font-weight:700;cursor:pointer">Share</button>
+                <button onclick="deleteSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--red);border-radius:8px;background:#FFF0F0;color:var(--red);font-size:11px;font-weight:700;cursor:pointer">Delete</button>
               </div>
             </div>
           </div>
@@ -581,6 +609,84 @@ async function disconnectKroger() {
 async function signOut() {
   await sb.auth.signOut();
   renderAuth();
+}
+
+// ── Shopping List from Saved Recipes ─────────────────────────────────────────
+function addRecipeToList(id) {
+  const recipe = savedRecipes.find(r => r.id === id);
+  if (!recipe) return;
+  const ings = recipe.ingredients || [];
+  if (!ings.length) { showToast("No ingredients found for this recipe", "error"); return; }
+  // Show modal with checkboxes
+  const modal = document.createElement("div");
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px";
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `<div style="background:white;border-radius:20px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-weight:700;font-size:17px;color:#2d6a4f">🛒 Add to Shopping List</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#999">✕</button>
+    </div>
+    <p style="font-size:13px;color:#9ca38f;margin-bottom:12px">${escapeHtml(recipe.title)}</p>
+    <div id="recipeIngList">${ings.map((name, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e8e0d0">
+      <input type="checkbox" checked id="rIng${i}" style="width:16px;height:16px;accent-color:#40916c" />
+      <label for="rIng${i}" style="font-size:14px;cursor:pointer">${escapeHtml(typeof name === "string" ? name : name.name || name)}</label>
+    </div>`).join("")}</div>
+    <button onclick="doAddRecipeToList('${id}', this.closest('[style*=fixed]'))" style="width:100%;margin-top:16px;padding:14px;border:none;border-radius:12px;background:#d97706;color:white;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Add Selected to List</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+function doAddRecipeToList(id, modal) {
+  const recipe = savedRecipes.find(r => r.id === id);
+  const ings = recipe?.ingredients || [];
+  const list = JSON.parse(localStorage.getItem("dishcount-shopping-list") || "[]");
+  let count = 0;
+  ings.forEach((name, i) => {
+    const cb = document.getElementById(`rIng${i}`);
+    if (!cb?.checked) return;
+    const itemName = typeof name === "string" ? name : (name.name || String(name));
+    if (list.some(x => x.name === itemName && x.recipeTitle === recipe.title)) return;
+    list.push({ id: Date.now() + Math.random(), name: itemName, price: "", store: "", source: "recipe-ingredient", recipeTitle: recipe.title, upc: "" });
+    count++;
+  });
+  localStorage.setItem("dishcount-shopping-list", JSON.stringify(list));
+  modal.remove();
+  showToast(`Added ${count} items to shopping list!`);
+}
+
+// ── Saved Lists Actions ──────────────────────────────────────────────────────
+function loadSavedList(id) {
+  const list = savedLists.find(l => l.id === id);
+  if (!list) return;
+  localStorage.setItem("dishcount-shopping-list", JSON.stringify(list.items || []));
+  showToast(`Loaded "${list.name}" (${(list.items||[]).length} items)`);
+}
+function shareSavedList(id) {
+  const list = savedLists.find(l => l.id === id);
+  if (!list) return;
+  let text = list.name + "\n" + "=".repeat(30) + "\n";
+  (list.items || []).forEach(i => { text += `[ ] ${i.name}${i.price ? " - $" + String(i.price).replace(/^\$/,"") : ""}${i.store ? " (" + i.store + ")" : ""}\n`; });
+  if (navigator.share) {
+    navigator.share({ title: list.name, text }).catch(() => {});
+  } else {
+    const subject = encodeURIComponent(list.name);
+    const body = encodeURIComponent(text);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  }
+}
+async function deleteSavedList(id) {
+  if (!confirm("Delete this list?")) return;
+  const token = await getToken();
+  const res = await fetch(`/api/lists/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+  if (res.ok) {
+    savedLists = savedLists.filter(l => l.id !== id);
+    renderProfile();
+    showToast("List deleted");
+  } else showToast("Could not delete", "error");
+}
+
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 </script>
 </body>

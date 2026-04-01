@@ -682,10 +682,45 @@ function renderSlideoutList() {
   }
   body.innerHTML = html;
 }
-function copySlideoutList() {
+function getListAsText() {
   let text = "Shopping List\n" + "=".repeat(30) + "\n";
-  state.shoppingList.forEach(i => { text += `[ ] ${i.name}${i.price ? " — $" + String(i.price).replace(/^\$/,"") : ""}${i.store ? " (" + i.store + ")" : ""}\n`; });
-  navigator.clipboard.writeText(text).then(() => showToast("Copied!", "success")).catch(() => showToast("Could not copy"));
+  state.shoppingList.forEach(i => { text += `[ ] ${i.name}${i.price ? " - $" + String(i.price).replace(/^\$/,"") : ""}${i.store ? " (" + i.store + ")" : ""}\n`; });
+  return text;
+}
+function copySlideoutList() {
+  navigator.clipboard.writeText(getListAsText()).then(() => showToast("Copied!", "success")).catch(() => showToast("Could not copy"));
+}
+function textSlideoutList() {
+  if (!state.shoppingList.length) { showToast("Shopping list is empty"); return; }
+  const text = getListAsText();
+  if (navigator.share) {
+    navigator.share({ title: "My Dishcount Shopping List", text }).catch(() => {});
+  } else {
+    const smsBody = encodeURIComponent(text);
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+      window.open(`sms:?body=${smsBody}`);
+    } else {
+      navigator.clipboard.writeText(text).then(() => showToast("Copied to clipboard (text sharing available on mobile)", "success")).catch(() => showToast("Could not copy"));
+    }
+  }
+}
+function emailSlideoutList() {
+  if (!state.shoppingList.length) { showToast("Shopping list is empty"); return; }
+  const subject = encodeURIComponent("My Dishcount Shopping List");
+  const body = encodeURIComponent(getListAsText());
+  window.open(`mailto:?subject=${subject}&body=${body}`);
+}
+async function saveSlideoutList() {
+  if (!state.shoppingList.length) { showToast("Shopping list is empty"); return; }
+  let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
+  if (!session) { showToast("Sign in to save lists"); return; }
+  const name = prompt("Name this list:", "Week of " + new Date().toLocaleDateString());
+  if (!name) return;
+  try {
+    const res = await fetch("/api/lists", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ name, items: state.shoppingList }) });
+    if (res.ok) showToast("List saved!", "success");
+    else { const d = await res.json().catch(()=>({})); showToast(d.error || "Could not save list"); }
+  } catch(e) { showToast("Could not save list"); }
 }
 async function addListToKrogerCart() {
   if (!state.selectedBrands.includes("Kroger")) { window.location.href = "/auth/kroger"; return; }

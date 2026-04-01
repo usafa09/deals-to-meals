@@ -120,4 +120,32 @@ router.post("/api/contact", async (req, res) => {
   }
 });
 
+// ══ SAVED LISTS API ══════════════════════════════════════════════════════════
+
+router.get("/api/lists", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const { data, error } = await supabase.from("saved_lists").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ lists: data });
+});
+
+router.post("/api/lists", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const { name, items } = req.body;
+  if (!name || !items) return res.status(400).json({ error: "name and items required" });
+  const { data, error } = await supabase.from("saved_lists").insert({ user_id: user.id, name, items }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+router.delete("/api/lists/:id", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const { error } = await supabase.from("saved_lists").delete().eq("id", req.params.id).eq("user_id", user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 export default router;

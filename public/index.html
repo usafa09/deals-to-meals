@@ -305,10 +305,13 @@
   <div class="slideout-body" id="slideoutBody"></div>
   <div class="slideout-footer">
     <button onclick="addListToKrogerCart()" class="btn btn-primary" style="font-size:14px;padding:12px;border-radius:12px">&#128722; Add to Kroger Cart</button>
-    <div style="display:flex;gap:8px">
-      <button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:13px;padding:10px;flex:1">&#128203; Copy List</button>
-      <button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;padding:10px">Clear</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:12px;padding:8px 12px;flex:1;min-width:0">&#128203; Copy</button>
+      <button onclick="textSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:8px 12px;flex:1;min-width:0">&#128241; Text</button>
+      <button onclick="emailSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:8px 12px;flex:1;min-width:0">&#128231; Email</button>
+      <button onclick="saveSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:8px 12px;flex:1;min-width:0">&#128190; Save</button>
     </div>
+    <div style="text-align:center"><button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;padding:6px">Clear All</button></div>
   </div>
 </div>
 

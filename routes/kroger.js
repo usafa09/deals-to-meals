@@ -1,8 +1,8 @@
 import { Router } from "express";
 import fetch from "node-fetch";
 import {
-  getUser, getAppToken, refreshKrogerToken, validateZip, detectPerLb,
-  krogerTokens, getCachedDeals, setCachedDeals,
+  getUser, getAppToken, getKrogerToken, saveKrogerToken, validateZip, detectPerLb,
+  getCachedDeals, setCachedDeals,
   KROGER_API_BASE, DEAL_CATEGORIES,
 } from "../lib/utils.js";
 
@@ -172,15 +172,9 @@ router.get("/api/deals", async (req, res) => {
 router.get("/api/coupons", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
-  const krogerData = krogerTokens.get(user.id);
+  const krogerData = await getKrogerToken(user.id);
   if (!krogerData) return res.status(401).json({ error: "Kroger not connected" });
   try {
-    if (Date.now() >= krogerData.expiresAt) {
-      const refreshed = await refreshKrogerToken(krogerData.refreshToken);
-      krogerData.accessToken = refreshed.access_token;
-      krogerData.expiresAt = Date.now() + refreshed.expires_in * 1000;
-      krogerTokens.set(user.id, krogerData);
-    }
     const [couponRes, boostRes] = await Promise.all([
       fetch(`${KROGER_API_BASE}/loyalty/profiles/coupons`, {
         headers: { Authorization: `Bearer ${krogerData.accessToken}`, Accept: "application/json" },
@@ -214,15 +208,9 @@ router.get("/api/coupons", async (req, res) => {
 router.post("/api/cart", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
-  const krogerData = krogerTokens.get(user.id);
-  if (!krogerData) return res.status(401).json({ error: "Kroger not connected" });
+  const krogerData = await getKrogerToken(user.id);
+  if (!krogerData) return res.status(401).json({ error: "Kroger not connected or token expired" });
   try {
-    if (Date.now() >= krogerData.expiresAt) {
-      const refreshed = await refreshKrogerToken(krogerData.refreshToken);
-      krogerData.accessToken = refreshed.access_token;
-      krogerData.expiresAt = Date.now() + refreshed.expires_in * 1000;
-      krogerTokens.set(user.id, krogerData);
-    }
     const { items } = req.body;
     const r = await fetch(`${KROGER_API_BASE}/cart/add`, {
       method: "PUT",

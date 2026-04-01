@@ -2,8 +2,8 @@ import { Router } from "express";
 import crypto from "crypto";
 import fetch from "node-fetch";
 import {
-  supabase, getUser,
-  krogerTokens, oauthStates,
+  supabase, getUser, saveKrogerToken, getKrogerToken,
+  oauthStates,
   KROGER_TOKEN_URL, KROGER_AUTH_URL, KROGER_API_BASE, REDIRECT_URI, APP_URL,
 } from "../lib/utils.js";
 
@@ -49,12 +49,13 @@ router.get("/auth/kroger/callback", async (req, res) => {
     });
     let krogerProfile = {};
     if (profileRes.ok) krogerProfile = (await profileRes.json()).data || {};
-    krogerTokens.set(userId, {
+    const tokenData = {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + tokens.expires_in * 1000,
       profile: krogerProfile,
-    });
+    };
+    await saveKrogerToken(userId, tokenData);
     if (userId !== "anonymous") {
       await supabase.from("profiles").update({ kroger_connected: true }).eq("id", userId);
     }
@@ -68,7 +69,7 @@ router.get("/auth/kroger/callback", async (req, res) => {
 router.get("/auth/kroger/disconnect", async (req, res) => {
   const user = await getUser(req);
   if (user) {
-    krogerTokens.delete(user.id);
+    await supabase.from("kroger_tokens").delete().eq("user_id", user.id);
     await supabase.from("profiles").update({ kroger_connected: false }).eq("id", user.id);
   }
   res.json({ success: true });
@@ -81,10 +82,8 @@ router.get("/api/profile", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (error) return res.status(500).json({ error: error.message });
-  const krogerData = krogerTokens.get(user.id);
-  // Check both in-memory token AND database flag (token may be lost after deploy)
+  const krogerData = await getKrogerToken(user.id);
   const isConnected = !!krogerData || !!data.kroger_connected;
-  console.log(`Profile ${user.id}: krogerTokens=${!!krogerData}, db_flag=${!!data.kroger_connected}, connected=${isConnected}`);
   res.json({ ...data, kroger_connected: isConnected, kroger_profile: krogerData?.profile || null });
 });
 

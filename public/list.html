@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-41675D42V1"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-41675D42V1');</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shopping List — Dishcount</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { background: var(--cream); min-height: 100vh; display: flex; flex-direction: column; }
+    .list-main { flex: 1; max-width: 600px; margin: 80px auto 40px; padding: 24px 16px; width: 100%; }
+    .list-card { background: white; border: 2px solid var(--sand); border-radius: 20px; padding: 28px; }
+    .list-title { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 700; color: var(--green-dark); margin-bottom: 4px; }
+    .list-meta { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    .list-group-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; }
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0ede6; font-size: 14px; min-height: 44px; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-name { flex: 1; }
+    .list-item-price { font-weight: 700; color: var(--orange); white-space: nowrap; margin-left: 12px; }
+    .list-item-store { font-size: 11px; color: var(--muted); }
+    .list-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .list-actions button { flex: 1; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; min-height: 48px; border: 2px solid var(--sand); background: white; color: var(--text); transition: all 0.2s; }
+    .list-actions button:hover { border-color: var(--green-mid); }
+    .list-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .list-empty .emoji { font-size: 48px; margin-bottom: 12px; }
+    @media (max-width: 500px) {
+      .list-main { margin-top: 70px; padding: 16px 12px; }
+      .list-card { padding: 20px 16px; }
+      .list-title { font-size: 20px; }
+      .list-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="landing-nav">
+  <div class="landing-nav-inner">
+    <a href="/" class="landing-nav-logo">
+      <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+            <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+            <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          </g>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+        </text>
+      </svg>
+      <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="/">Home</a>
+      <a href="/about.html">About</a>
+    </div>
+    <a href="/" class="landing-nav-signin">Find Deals</a>
+  </div>
+</nav>
+
+<div class="list-main" id="listMain">
+  <div style="text-align:center;padding:40px;color:var(--muted)">Loading list...</div>
+</div>
+
+<footer class="landing-footer">
+  <p>Dishcount — Meals from Deals &middot; <a href="/about.html">About</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+  <p>&copy; 2026 Dishcount. All rights reserved.</p>
+</footer>
+
+<script>
+function escapeHtml(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+async function loadList() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (!id) { showEmpty("No list specified"); return; }
+  try {
+    const res = await fetch(`/api/lists/share/${id}`);
+    if (!res.ok) { showEmpty("List not found"); return; }
+    const data = await res.json();
+    renderList(data);
+  } catch (e) { showEmpty("Could not load list"); }
+}
+
+function showEmpty(msg) {
+  document.getElementById("listMain").innerHTML = `<div class="list-empty"><div class="emoji">📋</div><p>${escapeHtml(msg)}</p><p style="margin-top:12px"><a href="/" style="color:var(--green-mid);font-weight:700;text-decoration:none">Find deals near you →</a></p></div>`;
+}
+
+function renderList(data) {
+  const items = data.items || [];
+  const groups = { "Sale Items": [], "Recipe Ingredients": [], "Other": [] };
+  items.forEach(i => {
+    if (i.source === "deal") groups["Sale Items"].push(i);
+    else if (i.source === "recipe-ingredient") groups["Recipe Ingredients"].push(i);
+    else groups["Other"].push(i);
+  });
+
+  let itemsHtml = "";
+  for (const [group, arr] of Object.entries(groups)) {
+    if (!arr.length) continue;
+    itemsHtml += `<div class="list-group-title">${group}</div>`;
+    arr.forEach(item => {
+      itemsHtml += `<div class="list-item">
+        <div><div class="list-item-name">${escapeHtml(item.name)}</div>${item.store ? `<div class="list-item-store">${escapeHtml(item.store)}</div>` : ""}</div>
+        ${item.price ? `<div class="list-item-price">$${escapeHtml(String(item.price).replace(/^\$/,""))}</div>` : ""}
+      </div>`;
+    });
+  }
+
+  document.getElementById("listMain").innerHTML = `<div class="list-card">
+    <div class="list-title">${escapeHtml(data.name)}</div>
+    <div class="list-meta">${items.length} items · Shared from Dishcount</div>
+    ${itemsHtml}
+    <div class="list-actions">
+      <button onclick="copyList()">📋 Copy List</button>
+      <button onclick="emailList()">📧 Email List</button>
+    </div>
+  </div>`;
+  window._listData = data;
+}
+
+function getListText() {
+  const d = window._listData; if (!d) return "";
+  let t = d.name + "\n" + "=".repeat(30) + "\n";
+  (d.items||[]).forEach(i => { t += "[ ] " + i.name + (i.price ? " - $" + String(i.price).replace(/^\$/,"") : "") + (i.store ? " (" + i.store + ")" : "") + "\n"; });
+  return t;
+}
+
+function copyList() {
+  navigator.clipboard.writeText(getListText()).then(() => {
+    const btn = event.target; btn.textContent = "Copied!"; setTimeout(() => btn.textContent = "📋 Copy List", 1500);
+  }).catch(() => alert("Could not copy"));
+}
+
+function emailList() {
+  const d = window._listData; if (!d) return;
+  const text = getListText() + "\nView online: " + window.location.href;
+  window.open(`mailto:?subject=${encodeURIComponent(d.name)}&body=${encodeURIComponent(text)}`);
+}
+
+loadList();
+</script>
+</body>
+</html>

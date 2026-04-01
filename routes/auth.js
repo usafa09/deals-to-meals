@@ -148,4 +148,13 @@ router.delete("/api/lists/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// Public share endpoint — no auth required
+router.get("/api/lists/share/:id", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("saved_lists").select("name, items, created_at").eq("id", req.params.id).single();
+    if (error || !data) return res.status(404).json({ error: "List not found" });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;

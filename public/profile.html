@@ -215,17 +215,11 @@ async function initApp() {
     renderAuth();
   }
 
-  // Clear URL params AFTER reading session (preserve hash)
+  // Set active tab from hash
   const hash = window.location.hash;
-  window.history.replaceState({}, "", "/profile.html" + hash);
-
-  // Auto-scroll to saved recipes if #saved hash present
-  if (hash === "#saved") {
-    setTimeout(() => {
-      const savedSection = document.querySelector('[data-section="saved"]') || document.getElementById("savedRecipesSection");
-      if (savedSection) savedSection.scrollIntoView({ behavior: "smooth" });
-    }, 500);
-  }
+  if (hash === "#saved") activeProfileTab = "saved";
+  else if (hash === "#lists") activeProfileTab = "lists";
+  else activeProfileTab = "profile";
 }
 
 window.addEventListener("load", initApp);
@@ -328,161 +322,106 @@ function showAuthSuccessMsg(msg) {
   el.textContent = msg; el.style.display = "block";
 }
 
-// ── Profile UI ────────────────────────────────────────────────────────────────
+// ── Profile UI with Tabs ─────────────────────────────────────────────────────
+let activeProfileTab = "profile";
+
+function setProfileTab(tab) {
+  activeProfileTab = tab;
+  window.history.replaceState({}, "", "/profile.html" + (tab==="saved"?"#saved":tab==="lists"?"#lists":""));
+  renderProfile();
+}
+
 function renderProfile() {
-  const p        = userProfile || {};
+  const p = userProfile || {};
   const initials = ((p.full_name || currentUser.email || "?")[0]).toUpperCase();
-  const dietaryPrefs = p.dietary_preferences   || [];
-  const favTypes     = p.favorite_recipe_types || [];
+  const dietaryPrefs = p.dietary_preferences || [];
+  const favTypes = p.favorite_recipe_types || [];
+  const tab = activeProfileTab;
 
-  document.getElementById("main").innerHTML = `
-    <div class="profile-header">
-      <div class="profile-avatar">
-        ${p.avatar_url ? `<img src="${p.avatar_url}" alt="avatar" />` : initials}
-      </div>
-      <div>
-        <div class="profile-name">${p.full_name || "My Account"}</div>
-        <div class="profile-email">${currentUser.email}</div>
-      </div>
-      <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
-    </div>
+  const tabs = `<div style="display:flex;gap:8px;margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
+    <button onclick="setProfileTab('profile')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='profile'?'var(--green-dark)':'var(--sand)'};background:${tab==='profile'?'var(--green-dark)':'white'};color:${tab==='profile'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">👤 Profile</button>
+    <button onclick="setProfileTab('saved')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='saved'?'var(--green-dark)':'var(--sand)'};background:${tab==='saved'?'var(--green-dark)':'white'};color:${tab==='saved'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">❤️ Recipes (${savedRecipes.length})</button>
+    <button onclick="setProfileTab('lists')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='lists'?'var(--green-dark)':'var(--sand)'};background:${tab==='lists'?'var(--green-dark)':'white'};color:${tab==='lists'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">📋 Lists (${savedLists.length})</button>
+  </div>`;
 
-    <!-- Grocery Store Accounts -->
+  const header = `<div class="profile-header">
+    <div class="profile-avatar">${p.avatar_url ? `<img src="${p.avatar_url}" alt="avatar" />` : initials}</div>
+    <div><div class="profile-name">${p.full_name || "My Account"}</div><div class="profile-email">${currentUser.email}</div></div>
+    <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
+  </div>`;
+
+  let content = "";
+
+  if (tab === "profile") {
+    content = `
     <div class="section">
-      <div class="section-header">
-        <div class="section-title">🏪 Grocery Store Accounts</div>
-      </div>
-      ${STORES.map(store => `
-        <div class="store-connection">
-          <div class="store-logo">${store.emoji}</div>
-          <div class="store-info">
-            <h3>${store.name}</h3>
-            <p>${store.available
-              ? (p.kroger_connected && store.id==="kroger"
-                  ? "Connected — digital coupons & cart active"
-                  : store.desc)
-              : store.desc}</p>
-          </div>
-          <div class="store-status">
-            ${store.available
-              ? (p.kroger_connected && store.id==="kroger"
-                  ? `<span class="connected-badge">✓ Connected</span>
-                     <button class="connect-store-btn disconnect" onclick="disconnectKroger()">Disconnect</button>`
-                  : `<button class="connect-store-btn connect" onclick="connectKroger()">Connect</button>`)
-              : `<span class="coming-soon-badge">Coming Soon</span>`}
-          </div>
-        </div>
-      `).join("")}
+      <div class="section-header"><div class="section-title">🏪 Kroger Account</div></div>
+      ${STORES.map(store => `<div class="store-connection">
+        <div class="store-logo">${store.emoji}</div>
+        <div class="store-info"><h3>${store.name}</h3><p>${p.kroger_connected && store.id==="kroger" ? "Connected — digital coupons & cart active" : store.desc}</p></div>
+        <div class="store-status">${p.kroger_connected && store.id==="kroger"
+          ? `<span class="connected-badge">✓ Connected</span><button class="connect-store-btn disconnect" onclick="disconnectKroger()">Disconnect</button>`
+          : `<button class="connect-store-btn connect" onclick="connectKroger()">Connect</button>`}</div>
+      </div>`).join("")}
     </div>
-
-    <!-- Personal Info -->
     <div class="section">
-      <div class="section-header">
-        <div class="section-title">👤 Personal Info</div>
-        <button class="section-save" onclick="savePersonalInfo()">Save</button>
-      </div>
+      <div class="section-header"><div class="section-title">👤 Personal Info</div><button class="section-save" onclick="savePersonalInfo()">Save</button></div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="fullName" value="${p.full_name||""}" placeholder="Your name" />
+        <div class="form-group"><label>Full Name</label><input type="text" id="fullName" value="${p.full_name||""}" placeholder="Your name" /></div>
+        <div class="form-group"><label>Household Size</label><select id="householdSize">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${(p.household_size||2)==n?"selected":""}>${n} ${n===1?"person":"people"}</option>`).join("")}</select></div>
+      </div>
+      <div class="form-group"><label>Preferred Grocery Store</label><select id="preferredStore"><option value="">No preference</option>${STORES.filter(s=>s.available).map(s=>`<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`).join("")}</select></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">🥗 Dietary Preferences</div><button class="section-save" onclick="saveDietary()">Save</button></div>
+      <div class="chips-group" id="dietaryChips">${DIETARY_OPTIONS.map(d=>`<div class="chip ${dietaryPrefs.includes(d)?"selected":""}" onclick="toggleChip(this)">${d}</div>`).join("")}</div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">🍽️ Favorite Recipe Types</div><button class="section-save" onclick="saveFavoriteTypes()">Save</button></div>
+      <div class="chips-group" id="recipeTypeChips">${RECIPE_TYPES.map(t=>`<div class="chip ${favTypes.includes(t)?"selected":""}" onclick="toggleChip(this)">${t}</div>`).join("")}</div>
+    </div>`;
+  } else if (tab === "saved") {
+    content = savedRecipes.length === 0
+      ? `<div class="empty-state">No saved recipes yet — generate some meals from this week's deals and tap ❤️ to save your favorites!</div>`
+      : savedRecipes.map(r => `<div style="border:2px solid var(--sand);border-radius:14px;margin-bottom:8px;overflow:hidden">
+        <div onclick="toggleRecipeAccordion('${r.id}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;min-height:44px;background:white">
+          <span style="font-size:20px">${r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak/i)?"🥩":r.title.match(/pasta/i)?"🍝":r.title.match(/soup/i)?"🍲":"🍽️"}</span>
+          <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.title)}</div>
+          <div style="font-size:12px;color:var(--muted)">${[r.time,r.store_name].filter(Boolean).join(" · ")} · ${new Date(r.created_at).toLocaleDateString()}</div></div>
+          <span id="arrow-${r.id}" style="color:var(--muted);font-size:14px;flex-shrink:0">▼</span>
         </div>
-        <div class="form-group">
-          <label>Household Size</label>
-          <select id="householdSize">
-            ${[1,2,3,4,5,6,7,8].map(n =>
-              `<option value="${n}" ${(p.household_size||2)==n?"selected":""}>${n} ${n===1?"person":"people"}</option>`
-            ).join("")}
-          </select>
+        <div id="detail-${r.id}" style="display:none;padding:0 16px 16px;background:var(--cream);border-top:1px solid var(--sand)">
+          ${r.ingredients?.length?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Ingredients</div>${(r.ingredients||[]).map(i=>`<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0ede6">${escapeHtml(typeof i==="string"?i:i.name||i)}</div>`).join("")}</div>`:""}
+          ${r.steps?.length?`<div style="margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Instructions</div>${(r.steps||[]).map((s,i)=>`<div style="font-size:13px;padding:6px 0;display:flex;gap:8px"><span style="font-weight:700;color:var(--green-dark)">${i+1}.</span><span>${escapeHtml(s)}</span></div>`).join("")}</div>`:""}
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button onclick="addRecipeToList('${r.id}')" style="padding:10px 16px;border:2px solid var(--orange);border-radius:10px;background:var(--orange-light);color:#8B6914;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">🛒 Add to List</button>
+            <button onclick="deleteRecipe('${r.id}')" style="padding:10px 16px;border:2px solid var(--red);border-radius:10px;background:#FFF0F0;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">🗑️ Remove</button>
+          </div>
         </div>
-      </div>
-      <div class="form-group">
-        <label>Preferred Grocery Store</label>
-        <select id="preferredStore">
-          <option value="">No preference</option>
-          ${STORES.filter(s=>s.available).map(s =>
-            `<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`
-          ).join("")}
-        </select>
-      </div>
-    </div>
-
-    <!-- Dietary Preferences -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-title">🥗 Dietary Preferences</div>
-        <button class="section-save" onclick="saveDietary()">Save</button>
-      </div>
-      <div class="chips-group" id="dietaryChips">
-        ${DIETARY_OPTIONS.map(d =>
-          `<div class="chip ${dietaryPrefs.includes(d)?"selected":""}" onclick="toggleChip(this)">${d}</div>`
-        ).join("")}
-      </div>
-    </div>
-
-    <!-- Favorite Recipe Types -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-title">🍽️ Favorite Recipe Types</div>
-        <button class="section-save" onclick="saveFavoriteTypes()">Save</button>
-      </div>
-      <div class="chips-group" id="recipeTypeChips">
-        ${RECIPE_TYPES.map(t =>
-          `<div class="chip ${favTypes.includes(t)?"selected":""}" onclick="toggleChip(this)">${t}</div>`
-        ).join("")}
-      </div>
-    </div>
-
-    <!-- Saved Recipes -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-title">❤️ Saved Recipes</div>
-      </div>
-      ${savedRecipes.length === 0
-        ? `<div class="empty-state">No saved recipes yet — generate some meals from this week's deals and tap ❤️ to save your favorites!</div>`
-        : `<div class="recipe-grid">${savedRecipes.map(r => `
-          <div class="recipe-item" id="recipe-${r.id}">
-            ${r.image
-              ? `<img class="recipe-item-img" src="${r.image}" alt="${r.title}" onerror="this.style.display='none'" />`
-              : `<div class="recipe-item-img-placeholder">🍽️</div>`}
-            <div class="recipe-item-body">
-              <div class="recipe-item-info">
-                <h3>${r.title}</h3>
-                <p>${[r.time, r.servings ? r.servings+" servings" : "", r.store_name].filter(Boolean).join(" · ")}</p>
-              </div>
-              <div class="recipe-item-actions">
-                <button class="recipe-action-btn view" onclick="viewRecipe('${r.id}')">📋 View</button>
-                <button class="recipe-action-btn view" onclick="addRecipeToList('${r.id}')" style="background:#FFF8E8;color:#8B6914;border-color:#E8D5B0">🛒 Add to List</button>
-                <button class="recipe-action-btn delete" onclick="deleteRecipe('${r.id}')">🗑️ Remove</button>
-              </div>
-            </div>
+      </div>`).join("");
+  } else if (tab === "lists") {
+    content = savedLists.length === 0
+      ? `<div class="empty-state">No saved lists yet — build a shopping list and tap 💾 Save to keep it!</div>`
+      : savedLists.map(l => `<div style="border:2px solid var(--sand);border-radius:14px;margin-bottom:8px;overflow:hidden">
+        <div onclick="toggleListAccordion('${l.id}')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;min-height:44px;background:white">
+          <span style="font-size:20px">📋</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:14px">${escapeHtml(l.name)}</div>
+          <div style="font-size:12px;color:var(--muted)">${(l.items||[]).length} items · ${new Date(l.created_at).toLocaleDateString()}</div></div>
+          <span id="larrow-${l.id}" style="color:var(--muted);font-size:14px;flex-shrink:0">▼</span>
+        </div>
+        <div id="ldetail-${l.id}" style="display:none;padding:0 16px 16px;background:var(--cream);border-top:1px solid var(--sand)">
+          ${(()=>{const items=l.items||[];const groups={"Sale Items":items.filter(i=>i.source==="deal"),"Recipe Ingredients":items.filter(i=>i.source==="recipe-ingredient"),"Other":items.filter(i=>i.source!=="deal"&&i.source!=="recipe-ingredient")};let h="";for(const[g,arr]of Object.entries(groups)){if(!arr.length)continue;h+=`<div style="margin-top:10px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">${g}</div>`;arr.forEach(i=>{h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0ede6;font-size:13px"><span>${escapeHtml(i.name)}</span><span style="color:var(--orange);font-weight:700">${i.price?"$"+String(i.price).replace(/^\$/,""):""}</span></div>`;});h+=`</div>`;}return h;})()}
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button onclick="loadSavedList('${l.id}')" style="padding:10px 16px;border:2px solid var(--green-mid);border-radius:10px;background:var(--green-light);color:var(--green-dark);font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">📥 Load List</button>
+            <button onclick="shareListLink('${l.id}')" style="padding:10px 16px;border:2px solid var(--sand);border-radius:10px;background:white;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">🔗 Share</button>
+            <button onclick="emailSavedList('${l.id}')" style="padding:10px 16px;border:2px solid var(--sand);border-radius:10px;background:white;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">📧 Email</button>
+            <button onclick="deleteSavedList('${l.id}')" style="padding:10px 16px;border:2px solid var(--red);border-radius:10px;background:#FFF0F0;color:var(--red);font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:'DM Sans',sans-serif">🗑️ Delete</button>
           </div>
-        `).join("")}</div>`}
-    </div>
+        </div>
+      </div>`).join("");
+  }
 
-    <!-- Saved Lists -->
-    <div class="section" id="savedListsSection">
-      <div class="section-header">
-        <div class="section-title">📋 Saved Shopping Lists</div>
-      </div>
-      ${savedLists.length === 0
-        ? `<div class="empty-state">No saved lists yet — build a shopping list and tap 💾 Save to keep it!</div>`
-        : `<div style="display:flex;flex-direction:column;gap:10px">${savedLists.map(l => `
-          <div class="card" style="padding:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div>
-                <div style="font-weight:700;font-size:15px">${escapeHtml(l.name)}</div>
-                <div style="font-size:12px;color:var(--muted)">${(l.items||[]).length} items · ${new Date(l.created_at).toLocaleDateString()}</div>
-              </div>
-              <div style="display:flex;gap:6px">
-                <button onclick="loadSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--green-mid);border-radius:8px;background:var(--green-light);color:var(--green-dark);font-size:11px;font-weight:700;cursor:pointer">Load</button>
-                <button onclick="shareSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--sand);border-radius:8px;background:white;color:var(--text);font-size:11px;font-weight:700;cursor:pointer">Share</button>
-                <button onclick="deleteSavedList('${l.id}')" style="padding:5px 10px;border:1px solid var(--red);border-radius:8px;background:#FFF0F0;color:var(--red);font-size:11px;font-weight:700;cursor:pointer">Delete</button>
-              </div>
-            </div>
-          </div>
-        `).join("")}</div>`}
-    </div>
-  `;
+  document.getElementById("main").innerHTML = header + tabs + content;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -660,18 +599,33 @@ function loadSavedList(id) {
   localStorage.setItem("dishcount-shopping-list", JSON.stringify(list.items || []));
   showToast(`Loaded "${list.name}" (${(list.items||[]).length} items)`);
 }
-function shareSavedList(id) {
+function toggleRecipeAccordion(id) {
+  const el = document.getElementById(`detail-${id}`);
+  const arrow = document.getElementById(`arrow-${id}`);
+  if (!el) return;
+  const open = el.style.display === "none";
+  el.style.display = open ? "block" : "none";
+  if (arrow) arrow.textContent = open ? "▲" : "▼";
+}
+function toggleListAccordion(id) {
+  const el = document.getElementById(`ldetail-${id}`);
+  const arrow = document.getElementById(`larrow-${id}`);
+  if (!el) return;
+  const open = el.style.display === "none";
+  el.style.display = open ? "block" : "none";
+  if (arrow) arrow.textContent = open ? "▲" : "▼";
+}
+function shareListLink(id) {
+  const url = window.location.origin + "/list.html?id=" + id;
+  navigator.clipboard.writeText(url).then(() => showToast("Link copied!")).catch(() => showToast("Could not copy"));
+}
+function emailSavedList(id) {
   const list = savedLists.find(l => l.id === id);
   if (!list) return;
   let text = list.name + "\n" + "=".repeat(30) + "\n";
   (list.items || []).forEach(i => { text += `[ ] ${i.name}${i.price ? " - $" + String(i.price).replace(/^\$/,"") : ""}${i.store ? " (" + i.store + ")" : ""}\n`; });
-  if (navigator.share) {
-    navigator.share({ title: list.name, text }).catch(() => {});
-  } else {
-    const subject = encodeURIComponent(list.name);
-    const body = encodeURIComponent(text);
-    window.open(`mailto:?subject=${subject}&body=${body}`);
-  }
+  text += "\nShared from Dishcount — " + window.location.origin + "/list.html?id=" + id;
+  window.open(`mailto:?subject=${encodeURIComponent(list.name)}&body=${encodeURIComponent(text)}`);
 }
 async function deleteSavedList(id) {
   if (!confirm("Delete this list?")) return;

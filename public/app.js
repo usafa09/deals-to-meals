@@ -27,6 +27,8 @@ function updateAuthUI(session) {
     if (btn) btn.classList.remove("logged-in");
     const savedBtn = document.getElementById("savedRecipesBtn");
     if (savedBtn) savedBtn.style.display = "none";
+    const listsBtn = document.getElementById("listsBtn");
+    if (listsBtn) listsBtn.style.display = "none";
     const landingSavedBtn = document.getElementById("landingSavedBtn");
     if (landingSavedBtn) landingSavedBtn.style.display = "none";
     const landingSignin = document.getElementById("landingSigninBtn");
@@ -46,6 +48,8 @@ function updateAuthUI(session) {
     if (btn) btn.classList.add("logged-in");
     const savedBtn = document.getElementById("savedRecipesBtn");
     if (savedBtn) savedBtn.style.display = "flex";
+    const listsBtn = document.getElementById("listsBtn");
+    if (listsBtn) listsBtn.style.display = "flex";
     const landingSavedBtn = document.getElementById("landingSavedBtn");
     if (landingSavedBtn) landingSavedBtn.style.display = "flex";
     const landingSignin = document.getElementById("landingSigninBtn");
@@ -690,19 +694,11 @@ function getListAsText() {
 function copySlideoutList() {
   navigator.clipboard.writeText(getListAsText()).then(() => showToast("Copied!", "success")).catch(() => showToast("Could not copy"));
 }
-function textSlideoutList() {
-  if (!state.shoppingList.length) { showToast("Shopping list is empty"); return; }
-  const text = getListAsText();
-  if (navigator.share) {
-    navigator.share({ title: "My Dishcount Shopping List", text }).catch(() => {});
-  } else {
-    const smsBody = encodeURIComponent(text);
-    if (/Mobi|Android/i.test(navigator.userAgent)) {
-      window.open(`sms:?body=${smsBody}`);
-    } else {
-      navigator.clipboard.writeText(text).then(() => showToast("Copied to clipboard (text sharing available on mobile)", "success")).catch(() => showToast("Could not copy"));
-    }
-  }
+function goToLists() {
+  sb.auth.getSession().then(({data}) => {
+    if (data?.session) window.location.href = "/profile.html#lists";
+    else showToast("Sign in to save lists");
+  });
 }
 function emailSlideoutList() {
   if (!state.shoppingList.length) { showToast("Shopping list is empty"); return; }

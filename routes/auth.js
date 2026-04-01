@@ -1,6 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import fetch from "node-fetch";
+import { trackStat } from "./gamification.js";
 import {
   supabase, getUser, saveKrogerToken, getKrogerToken,
   oauthStates,
@@ -58,6 +59,7 @@ router.get("/auth/kroger/callback", async (req, res) => {
     await saveKrogerToken(userId, tokenData);
     if (userId !== "anonymous") {
       await supabase.from("profiles").update({ kroger_connected: true }).eq("id", userId);
+      trackStat(userId, "kroger_connected").catch(() => {});
     }
     res.redirect(`${APP_URL}/?kroger=success`);
   } catch (err) {
@@ -139,6 +141,7 @@ router.post("/api/lists", async (req, res) => {
   if (!name || !items) return res.status(400).json({ error: "name and items required" });
   const { data, error } = await supabase.from("saved_lists").insert({ user_id: user.id, name, items }).select().single();
   if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
+  trackStat(user.id, "list_created").catch(() => {});
   res.json(data);
 });
 

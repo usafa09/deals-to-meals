@@ -44,6 +44,26 @@ sb.auth.onAuthStateChange((event, session) => {
 sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
 
 // Handle Kroger OAuth return — restore state and show success
+// ── Founding Member Banner ───────────────────────────────────────────────────
+(async function loadFoundingBanner() {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data?.session) return; // signed in, don't show
+    const res = await fetch("/api/founding-spots");
+    if (!res.ok) return;
+    const d = await res.json();
+    const banner = document.getElementById("foundingBanner");
+    const text = document.getElementById("foundingText");
+    if (!banner || !text) return;
+    if (d.remaining > 0) {
+      text.innerHTML = `\u{1F31F} ${d.remaining}/${d.total} Founding Member spots remaining \u2014 <a href="/profile.html">Sign up to claim yours!</a>`;
+    } else {
+      text.textContent = "\u{1F31F} All 250 Founding Member badges have been claimed!";
+    }
+    banner.style.display = "";
+  } catch {}
+})();
+
 (function handleKrogerReturn() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("kroger") === "success") {
@@ -662,6 +682,7 @@ async function searchRecipes() {
     state.recipes=data.recipes;
     state.recipeOffset=8;
     renderRecipeGrid(); goTo(6);
+    if (data.badges) handleBadgeResponse(data.badges);
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
@@ -781,6 +802,7 @@ function renderModal(r){
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
         <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>
+        <button class="modal-btn" onclick="shareRecipe('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#E8F0F8;color:#2D4A6A;border:2px solid #90CAF9">🔗 Share</button>
       </div></div>`;
 }
 
@@ -1207,3 +1229,53 @@ function addCheckedToList() {
   renderModal(r);
 }
 loadShoppingList();
+
+// ── Badge Popup ─────────────────────────────────────────────────────────────
+function showBadgePopup(badge, levelUp) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px";
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  const isSavings = badge.id?.startsWith("saver_");
+  overlay.innerHTML = `<div style="background:white;border-radius:24px;padding:36px;max-width:340px;width:100%;text-align:center;animation:slideUp 0.3s ease;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="font-size:64px;margin-bottom:12px;animation:cookBounce 0.6s ease-in-out infinite alternate">${escapeHtml(badge.emoji)}</div>
+    <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:var(--green-dark);margin-bottom:6px">${escapeHtml(badge.name)}</div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:12px">${escapeHtml(badge.desc)}</div>
+    <div style="font-size:18px;font-weight:800;color:var(--orange);margin-bottom:12px">+${badge.xp} XP!</div>
+    ${levelUp ? `<div style="font-size:16px;font-weight:700;color:var(--green-dark);margin-bottom:12px">Level Up! You're now a ${escapeHtml(levelUp.name)} 🎉</div>` : ""}
+    <button onclick="this.closest('[style*=fixed]').remove()" style="padding:12px 32px;border:none;border-radius:50px;background:var(--orange);color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:48px">Nice!</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 6000);
+}
+
+function handleBadgeResponse(result) {
+  if (!result?.newBadges?.length) return;
+  result.newBadges.forEach((b, i) => {
+    setTimeout(() => showBadgePopup(b, i === 0 ? result.newLevel : null), i * 1500);
+  });
+}
+
+// ── Social Share ────────────────────────────────────────────────────────────
+function shareRecipe(title) {
+  const text = `Check out this recipe from Dishcount — ${title}! Made from this week's grocery deals. 🛒`;
+  const url = "https://dishcount.co";
+  if (navigator.share) {
+    navigator.share({ title, text, url }).catch(() => {});
+  } else {
+    const encoded = encodeURIComponent(text + " " + url);
+    const modal = document.createElement("div");
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px";
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `<div style="background:white;border-radius:20px;padding:28px;max-width:320px;width:100%;text-align:center">
+      <div style="font-weight:700;font-size:18px;color:var(--green-dark);margin-bottom:16px">Share Recipe</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="navigator.clipboard.writeText('${escapeHtml(text)} ${url}');showToast('Copied!','success');this.closest('[style*=fixed]').remove()" style="padding:12px;border:2px solid var(--sand);border-radius:12px;background:white;font-size:14px;font-weight:600;cursor:pointer;min-height:44px">📋 Copy Link</button>
+        <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encoded}" target="_blank" style="padding:12px;border:2px solid #1877F2;border-radius:12px;background:#E7F3FF;color:#1877F2;font-size:14px;font-weight:600;text-decoration:none;min-height:44px;display:flex;align-items:center;justify-content:center">Facebook</a>
+        <a href="https://twitter.com/intent/tweet?text=${encoded}" target="_blank" style="padding:12px;border:2px solid #1DA1F2;border-radius:12px;background:#E8F5FD;color:#1DA1F2;font-size:14px;font-weight:600;text-decoration:none;min-height:44px;display:flex;align-items:center;justify-content:center">X / Twitter</a>
+        <a href="https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encoded}" target="_blank" style="padding:12px;border:2px solid #E60023;border-radius:12px;background:#FFF0F0;color:#E60023;font-size:14px;font-weight:600;text-decoration:none;min-height:44px;display:flex;align-items:center;justify-content:center">Pinterest</a>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="margin-top:12px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">Close</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+}

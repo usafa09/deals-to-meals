@@ -26,7 +26,13 @@
       "Bash(grep -l \"favicon.ico\" public/*.html)",
       "Bash(grep -l \"favicon.svg\" public/*.html)",
       "Bash(node -e \"import\\(''''./public/app.js''''\\).catch\\(\\(\\)=>{}\\)\")",
-      "Bash(Olive Oil\" and \"pepper → No good match found\":*)"
+      "Bash(Olive Oil\" and \"pepper → No good match found\":*)",
+      "Bash(grep -rl \"PRIVATE KEY\\\\|BEGIN RSA\" --include=*.pem --include=*.key --include=*.js --include=*.html --include=*.json .)",
+      "Read(//c/Users/billm/deals-to-meals/**)",
+      "Bash(find . -name *.pem -not -path */node_modules/* -not -path */.git/* 2)",
+      "Bash(/dev/null echo:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git log:*)"
     ]
   }
 }

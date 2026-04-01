@@ -1,5 +1,6 @@
 import { Router } from "express";
 import fetch from "node-fetch";
+import { trackStat } from "./gamification.js";
 import {
   supabase, getUser,
   recipeCache, aiRecipeCache,
@@ -29,6 +30,7 @@ router.post("/api/recipes/saved", async (req, res) => {
     user_id: user.id, title, emoji, time, servings, difficulty, ingredients, steps, store_name, image,
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
+  trackStat(user.id, "recipe_saved").catch(() => {});
   res.json(data);
 });
 
@@ -612,7 +614,15 @@ IMPORTANT ingredient type rules:
     console.log(`AI recipes generated: ${recipes.length} recipes, ${inputTokens}+${outputTokens} tokens, ~$${cost.toFixed(4)}`);
     logApiUsage("anthropic", "recipes-ai", inputTokens, outputTokens, cost);
 
-    res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) } });
+    // Track gamification stats
+    const user = await getUser(req);
+    if (user) {
+      const totalSavings = recipes.reduce((s, r) => s + (r.totalSavings || 0), 0);
+      const badgeResult = await trackStat(user.id, "recipe_generated", { count: recipes.length, savings: totalSavings, mealType: req.body.style });
+      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult });
+    } else {
+      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) } });
+    }
   } catch (err) {
     logError("POST /api/recipes/ai", err.message);
     res.status(500).json({ error: err.message });

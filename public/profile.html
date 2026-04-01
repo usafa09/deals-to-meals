@@ -245,6 +245,7 @@ async function initApp() {
   const hash = window.location.hash;
   if (hash === "#saved") activeProfileTab = "saved";
   else if (hash === "#lists") activeProfileTab = "lists";
+  else if (hash === "#badges") activeProfileTab = "badges";
   else activeProfileTab = "profile";
 }
 
@@ -253,14 +254,18 @@ window.addEventListener("load", initApp);
 async function loadProfileData() {
   try {
     const token = (await sb.auth.getSession()).data.session?.access_token;
-    const [profileRes, recipesRes, listsRes] = await Promise.all([
+    const [profileRes, recipesRes, listsRes, badgesRes, statsRes] = await Promise.all([
       fetch("/api/profile",        { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/recipes/saved",  { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/lists",          { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/badges",         { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/stats",          { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     if (profileRes.ok)  userProfile  = await profileRes.json();
     if (recipesRes.ok)  { const d = await recipesRes.json(); savedRecipes = d.recipes || []; }
     if (listsRes.ok)    { const d = await listsRes.json(); savedLists = d.lists || []; }
+    if (badgesRes.ok)   { const d = await badgesRes.json(); userBadges = d.badges || []; }
+    if (statsRes.ok)    { userStatData = await statsRes.json(); }
   } catch (err) { console.error("loadProfileData error:", err); }
 }
 
@@ -351,9 +356,12 @@ function showAuthSuccessMsg(msg) {
 // ── Profile UI with Tabs ─────────────────────────────────────────────────────
 let activeProfileTab = "profile";
 
+let userBadges = [];
+let userStatData = {};
+
 function setProfileTab(tab) {
   activeProfileTab = tab;
-  window.history.replaceState({}, "", "/profile.html" + (tab==="saved"?"#saved":tab==="lists"?"#lists":""));
+  window.history.replaceState({}, "", "/profile.html" + (tab==="saved"?"#saved":tab==="lists"?"#lists":tab==="badges"?"#badges":""));
   renderProfile();
 }
 
@@ -368,6 +376,7 @@ function renderProfile() {
     <button onclick="setProfileTab('profile')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='profile'?'var(--green-dark)':'var(--sand)'};background:${tab==='profile'?'var(--green-dark)':'white'};color:${tab==='profile'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">👤 Profile</button>
     <button onclick="setProfileTab('saved')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='saved'?'var(--green-dark)':'var(--sand)'};background:${tab==='saved'?'var(--green-dark)':'white'};color:${tab==='saved'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">❤️ Recipes (${savedRecipes.length})</button>
     <button onclick="setProfileTab('lists')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='lists'?'var(--green-dark)':'var(--sand)'};background:${tab==='lists'?'var(--green-dark)':'white'};color:${tab==='lists'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">📋 Lists (${savedLists.length})</button>
+    <button onclick="setProfileTab('badges')" style="padding:10px 20px;border-radius:12px;border:2px solid ${tab==='badges'?'var(--green-dark)':'var(--sand)'};background:${tab==='badges'?'var(--green-dark)':'white'};color:${tab==='badges'?'white':'var(--text)'};font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;min-height:44px">🏆 Badges</button>
   </div>`;
 
   const header = `<div class="profile-header">
@@ -445,6 +454,29 @@ function renderProfile() {
           </div>
         </div>
       </div>`).join("");
+  }
+
+  } else if (tab === "badges") {
+    const s = userStatData;
+    const level = s.levelName || "Newbie";
+    const xp = s.xp || 0;
+    const nextXp = s.nextLevel?.xpNeeded || 1100;
+    const xpPct = Math.min(100, Math.round((xp / nextXp) * 100));
+    content = `<div style="background:var(--green-light);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center">
+      <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Level ${s.level || 1}</div>
+      <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:800;color:var(--green-dark);margin-bottom:8px">${escapeHtml(level)}</div>
+      <div style="background:white;border-radius:10px;height:12px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${xpPct}%;background:var(--green-mid);border-radius:10px;transition:width 0.3s"></div></div>
+      <div style="font-size:12px;color:var(--muted)">${xp} / ${nextXp} XP${s.nextLevel ? " to " + escapeHtml(s.nextLevel.name) : " (Max Level!)"}</div>
+      ${s.streak_weeks ? `<div style="margin-top:10px;font-size:16px">${"🔥".repeat(Math.min(s.streak_weeks, 5))} ${s.streak_weeks} week streak!</div>` : ""}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${userBadges.map(b => `
+      <div style="background:${b.earned ? "white" : "#f5f5f0"};border:2px solid ${b.earned ? "var(--green-mid)" : "var(--sand)"};border-radius:14px;padding:16px;text-align:center;${b.earned ? "box-shadow:0 0 12px rgba(64,145,108,0.2)" : "opacity:0.6"}">
+        <div style="font-size:32px;margin-bottom:6px;${b.earned ? "" : "filter:grayscale(1)"}">${b.earned ? escapeHtml(b.emoji) : "🔒"}</div>
+        <div style="font-size:13px;font-weight:700;color:${b.earned ? "var(--green-dark)" : "var(--muted)"}">${escapeHtml(b.name)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${escapeHtml(b.desc)}</div>
+        ${b.earned ? `<div style="font-size:10px;color:var(--orange);margin-top:4px">+${b.xp} XP</div>` : ""}
+      </div>`).join("")}
+    </div>`;
   }
 
   document.getElementById("main").innerHTML = header + tabs + content;

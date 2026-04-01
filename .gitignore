@@ -1,2 +1,4 @@
 .env 
 node_modules/
+walmart_private_key.pem
+walmart_public_key.pem

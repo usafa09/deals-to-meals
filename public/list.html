@@ -106,22 +106,43 @@ function showEmpty(msg) {
 
 function renderList(data) {
   const items = data.items || [];
-  const groups = { "Sale Items": [], "Recipe Ingredients": [], "Other": [] };
-  items.forEach(i => {
-    if (i.source === "deal") groups["Sale Items"].push(i);
-    else if (i.source === "recipe-ingredient") groups["Recipe Ingredients"].push(i);
-    else groups["Other"].push(i);
-  });
-
   let itemsHtml = "";
-  for (const [group, arr] of Object.entries(groups)) {
-    if (!arr.length) continue;
-    itemsHtml += `<div class="list-group-title">${group}</div>`;
+
+  // Recipes section
+  const recipeMap = {};
+  items.filter(i => i.source === "recipe-ingredient" && i.recipeTitle).forEach(i => {
+    if (!recipeMap[i.recipeTitle]) recipeMap[i.recipeTitle] = [];
+    recipeMap[i.recipeTitle].push(i);
+  });
+  for (const [title, ings] of Object.entries(recipeMap)) {
+    itemsHtml += `<div class="list-group-title">🍽️ ${escapeHtml(title)} (${ings.length} items)</div>`;
+    ings.forEach(item => {
+      itemsHtml += `<div class="list-item"><div class="list-item-name">${escapeHtml(item.name)}</div>
+        ${item.price ? `<div class="list-item-price">$${escapeHtml(String(item.price).replace(/^\$/,""))}</div>` : ""}</div>`;
+    });
+  }
+
+  // Store sections
+  const dealItems = items.filter(i => i.source === "deal");
+  const storeMap = {};
+  dealItems.forEach(i => { const s = i.store||"Other"; if(!storeMap[s])storeMap[s]=[]; storeMap[s].push(i); });
+  for (const [store, arr] of Object.entries(storeMap)) {
+    itemsHtml += `<div class="list-group-title">🏪 ${escapeHtml(store)} (${arr.length} items)</div>`;
     arr.forEach(item => {
       itemsHtml += `<div class="list-item">
-        <div><div class="list-item-name">${escapeHtml(item.name)}</div>${item.store ? `<div class="list-item-store">${escapeHtml(item.store)}</div>` : ""}</div>
+        <div><div class="list-item-name">${escapeHtml(item.name)}</div>${item.category ? `<div class="list-item-store">${escapeHtml(item.category)}</div>` : ""}</div>
         ${item.price ? `<div class="list-item-price">$${escapeHtml(String(item.price).replace(/^\$/,""))}</div>` : ""}
       </div>`;
+    });
+  }
+
+  // Other items
+  const otherItems = items.filter(i => i.source !== "deal" && i.source !== "recipe-ingredient");
+  if (otherItems.length) {
+    itemsHtml += `<div class="list-group-title">Other Items</div>`;
+    otherItems.forEach(item => {
+      itemsHtml += `<div class="list-item"><div class="list-item-name">${escapeHtml(item.name)}</div>
+        ${item.price ? `<div class="list-item-price">$${escapeHtml(String(item.price).replace(/^\$/,""))}</div>` : ""}</div>`;
     });
   }
 

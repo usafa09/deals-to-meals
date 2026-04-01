@@ -326,6 +326,7 @@ function renderKrogerLocations() {
 }
 function pickKrogerLocation(id) {
   state.selectedKrogerId=id;
+  try { localStorage.setItem("dishcount-kroger-location", id); } catch(e) {}
   document.querySelectorAll("[id^='kloc-']").forEach(el=>el.classList.remove("selected"));
   document.getElementById(`kloc-${id}`).classList.add("selected");
   document.getElementById("krogerBtn").disabled=false;
@@ -458,7 +459,7 @@ function renderSaleItems() {
       </div></div>`;}).join("");
 }
 function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}
-function addDealToList(id){const d=state.deals.find(x=>x.id===id);if(!d)return;const added=slAddItem({name:d.name,price:d.salePrice||"",store:d.storeName||d.source||"",source:"deal",recipeTitle:"",upc:d.upc||""});if(added)showToast("Added to list!","success");else showToast("Already in list","success");}
+function addDealToList(id){const d=state.deals.find(x=>x.id===id);if(!d)return;const added=slAddItem({name:d.name,price:d.salePrice||"",store:d.storeName||d.source||"",source:"deal",recipeTitle:"",upc:d.upc||"",category:d.category||""});if(added)showToast("Added to list!","success");else showToast("Already in list","success");}
 function filterSaleStore(s){state.saleStoreFilter=s;renderSaleItems();}
 function filterSaleCategory(c){state.saleCategoryFilter=c;renderSaleItems();}
 
@@ -659,31 +660,86 @@ function closeSlideout() {
   document.getElementById("slideoutOverlay")?.classList.remove("open");
   document.body.style.overflow = "";
 }
+const CATEGORY_EMOJI = {"meat":"🥩","chicken":"🥩","beef":"🥩","pork":"🥩","seafood":"🐟","produce":"🥬","vegetables":"🥬","fruit":"🍎","dairy":"🧀","cheese":"🧀","eggs":"🧀","frozen":"🧊","pantry":"🥫","snacks":"🍿","beverages":"☕","bakery":"🍞","deli":"🥪"};
+function getCatEmoji(cat) { const c=(cat||"").toLowerCase(); for(const[k,e]of Object.entries(CATEGORY_EMOJI)){if(c.includes(k))return e;} return "🏷️"; }
+
 function renderSlideoutList() {
   const list = state.shoppingList;
   const body = document.getElementById("slideoutBody");
   if (!body) return;
   if (!list.length) { body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">🛒</div><p>Your shopping list is empty</p><p style="font-size:13px;margin-top:8px">Add items from the deals screen or recipe ingredients</p></div>'; return; }
-  const groups = { "Sale Items": [], "Recipe Ingredients": [], "Other Items": [] };
-  list.forEach(item => {
-    if (item.source === "deal") groups["Sale Items"].push(item);
-    else if (item.source === "recipe-ingredient") groups["Recipe Ingredients"].push(item);
-    else groups["Other Items"].push(item);
-  });
+
   let html = "";
-  for (const [group, items] of Object.entries(groups)) {
-    if (!items.length) continue;
-    html += `<div style="padding:0 16px;margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${group}</div>`;
-    items.forEach(item => {
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sand)">
-        <div style="flex:1"><div style="font-size:14px;font-weight:600">${escapeHtml(item.name)}</div>
-        ${item.store?`<div style="font-size:11px;color:var(--muted)">${escapeHtml(item.store)}</div>`:""}
-        ${item.recipeTitle?`<div style="font-size:10px;color:var(--muted);font-style:italic">${escapeHtml(item.recipeTitle)}</div>`:""}</div>
-        ${item.price?`<span style="font-weight:700;color:var(--orange);font-size:13px;white-space:nowrap">$${escapeHtml(String(item.price).replace(/^\$/,""))}</span>`:""}
-        <button onclick="slRemoveItem(${item.id})" style="background:none;border:none;cursor:pointer;font-size:16px;color:#ccc;padding:4px">✕</button></div>`;
+
+  // RECIPES section
+  const recipeMap = {};
+  list.filter(i => i.source === "recipe-ingredient" && i.recipeTitle).forEach(item => {
+    if (!recipeMap[item.recipeTitle]) recipeMap[item.recipeTitle] = [];
+    recipeMap[item.recipeTitle].push(item);
+  });
+  if (Object.keys(recipeMap).length) {
+    html += `<div style="padding:0 16px 8px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px">Recipes</div>`;
+    for (const [title, items] of Object.entries(recipeMap)) {
+      html += `<div style="border:2px solid var(--sand);border-radius:12px;margin-bottom:8px;overflow:hidden">
+        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="display:flex;align-items:center;justify-content:space-between;padding:12px;cursor:pointer;background:white;min-height:44px">
+          <div style="font-weight:700;font-size:14px">${escapeHtml(title)}</div>
+          <span style="font-size:11px;color:var(--muted);background:var(--green-light);padding:2px 8px;border-radius:8px">${items.length} items</span>
+        </div>
+        <div style="display:none;padding:0 12px 12px;background:var(--cream)">`;
+      items.forEach(item => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0ede6;min-height:40px">
+          <div style="flex:1;font-size:13px">${escapeHtml(item.name)}</div>
+          ${item.price?`<span style="font-weight:700;color:var(--orange);font-size:12px">$${escapeHtml(String(item.price).replace(/^\$/,""))}</span>`:""}
+          <button onclick="slRemoveItem(${item.id})" style="background:none;border:none;cursor:pointer;font-size:14px;color:#ccc;padding:2px">✕</button></div>`;
+      });
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // STORE sections (deal items grouped by store then category)
+  const dealItems = list.filter(i => i.source === "deal");
+  const storeMap = {};
+  dealItems.forEach(item => {
+    const store = item.store || "Other";
+    if (!storeMap[store]) storeMap[store] = {};
+    const cat = item.category || "Other";
+    if (!storeMap[store][cat]) storeMap[store][cat] = [];
+    storeMap[store][cat].push(item);
+  });
+  for (const [store, cats] of Object.entries(storeMap)) {
+    const count = Object.values(cats).flat().length;
+    html += `<div style="padding:0 16px 8px">
+      <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;cursor:pointer;border-bottom:2px solid var(--sand);min-height:44px">
+        <div style="font-weight:700;font-size:15px">${escapeHtml(store)}</div>
+        <span style="font-size:11px;color:var(--muted)">${count} items</span>
+      </div>
+      <div>`;
+    for (const [cat, items] of Object.entries(cats)) {
+      html += `<div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 4px">${getCatEmoji(cat)} ${escapeHtml(cat)}</div>`;
+      items.forEach(item => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0ede6;min-height:40px">
+          <div style="flex:1;font-size:13px">${escapeHtml(item.name)}</div>
+          ${item.price?`<span style="font-weight:700;color:var(--orange);font-size:12px">$${escapeHtml(String(item.price).replace(/^\$/,""))}</span>`:""}
+          <button onclick="slRemoveItem(${item.id})" style="background:none;border:none;cursor:pointer;font-size:14px;color:#ccc;padding:2px">✕</button></div>`;
+      });
+    }
+    html += `</div></div>`;
+  }
+
+  // OTHER items
+  const otherItems = list.filter(i => i.source !== "deal" && i.source !== "recipe-ingredient");
+  if (otherItems.length) {
+    html += `<div style="padding:0 16px 8px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:12px 0 6px">Other Items</div>`;
+    otherItems.forEach(item => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0ede6;min-height:40px">
+        <div style="flex:1;font-size:13px">${escapeHtml(item.name)}</div>
+        ${item.price?`<span style="font-weight:700;color:var(--orange);font-size:12px">$${escapeHtml(String(item.price).replace(/^\$/,""))}</span>`:""}
+        <button onclick="slRemoveItem(${item.id})" style="background:none;border:none;cursor:pointer;font-size:14px;color:#ccc;padding:2px">✕</button></div>`;
     });
     html += `</div>`;
   }
+
   body.innerHTML = html;
 }
 function getListAsText() {
@@ -719,21 +775,67 @@ async function saveSlideoutList() {
   } catch(e) { showToast("Could not save list"); }
 }
 async function addListToKrogerCart() {
-  if (!state.selectedBrands.includes("Kroger")) { window.location.href = "/auth/kroger"; return; }
-  let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) { showToast("Sign in first"); return; }
+  let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
   if (!session) { showToast("Sign in to add to cart"); window.location.href = "/profile.html"; return; }
-  const upcSet = new Set(); const items = [];
+
+  // Check Kroger connection
+  try {
+    const profileRes = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      if (!profile.kroger_connected) {
+        showToast("Connect your Kroger account first");
+        window.location.href = `/auth/kroger?userId=${session.user.id}`;
+        return;
+      }
+    }
+  } catch(e) {}
+
+  const locationId = state.selectedKrogerId || localStorage.getItem("dishcount-kroger-location") || "";
+  const cartBtn = document.querySelector(".slideout-footer .btn-primary");
+  if (cartBtn) { cartBtn.disabled = true; cartBtn.textContent = "Adding items..."; }
+
+  const upcSet = new Set(); const items = []; const notFound = [];
+
   for (const item of state.shoppingList) {
+    // 1. Direct UPC
     if (item.upc && !upcSet.has(item.upc)) { upcSet.add(item.upc); items.push({ upc: item.upc, quantity: 1 }); continue; }
-    const match = state.deals.find(d => d.upc && d.source === "kroger" && d.name.toLowerCase().includes((item.name||"").toLowerCase().split(" ").filter(w=>w.length>3)[0]||"NOMATCH"));
-    if (match?.upc && !upcSet.has(match.upc)) { upcSet.add(match.upc); items.push({ upc: match.upc, quantity: 1 }); }
+    // 2. Match from loaded deals
+    const dealMatch = (state.deals||[]).find(d => d.upc && d.source === "kroger" && d.name.toLowerCase().includes((item.name||"").toLowerCase().split(" ").filter(w=>w.length>3)[0]||"NOMATCH"));
+    if (dealMatch?.upc && !upcSet.has(dealMatch.upc)) { upcSet.add(dealMatch.upc); items.push({ upc: dealMatch.upc, quantity: 1 }); continue; }
+    // 3. Search Kroger API
+    if (locationId) {
+      try {
+        const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(item.name)}&locationId=${locationId}`);
+        if (searchRes.ok) {
+          const { product } = await searchRes.json();
+          if (product?.upc && !upcSet.has(product.upc)) { upcSet.add(product.upc); items.push({ upc: product.upc, quantity: 1 }); continue; }
+        }
+      } catch(e) {}
+    }
+    notFound.push(item.name);
   }
-  if (!items.length) { showToast("No matching Kroger products found for these items"); return; }
+
+  if (!items.length) {
+    showToast("No matching Kroger products found");
+    if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
+    return;
+  }
+
   try {
     const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ items }) });
-    if (res.ok) showToast(`Added ${items.length} of ${state.shoppingList.length} items to Kroger cart!`, "success");
-    else throw new Error("Cart error");
-  } catch(e) { showToast("Could not add to cart — connect Kroger in profile"); }
+    if (res.ok) {
+      let msg = `Added ${items.length} of ${state.shoppingList.length} items to Kroger cart!`;
+      if (notFound.length) msg += ` ${notFound.length} not found: ${notFound.slice(0,3).join(", ")}${notFound.length>3?"...":""}`;
+      showToast(msg, "success");
+    } else {
+      const err = await res.json().catch(()=>({}));
+      if (err.error?.includes("expired") || err.error?.includes("token")) {
+        showToast("Kroger session expired. Please reconnect.");
+      } else { showToast("Could not add to cart — try reconnecting Kroger"); }
+    }
+  } catch(e) { showToast("Could not add to cart"); }
+  if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
 }
 
 // Shopping list tab in recipe modal

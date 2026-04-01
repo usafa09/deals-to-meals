@@ -77,6 +77,32 @@ router.get("/api/stores", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ KROGER PRODUCT SEARCH ════════════════════════════════════════════════════
+
+router.get("/api/kroger/search", async (req, res) => {
+  const { query, locationId } = req.query;
+  if (!query || !locationId) return res.status(400).json({ error: "query and locationId required" });
+  try {
+    const token = await getAppToken();
+    const r = await fetch(
+      `${KROGER_API_BASE}/products?filter.term=${encodeURIComponent(query)}&filter.locationId=${locationId}&filter.limit=5`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+    );
+    if (!r.ok) return res.status(r.status).json({ error: "Kroger API error" });
+    const data = await r.json();
+    const products = (data.data || []).map(p => ({
+      upc: p.items?.[0]?.upc || "",
+      name: p.description,
+      brand: p.brand || "",
+      price: p.items?.[0]?.price?.regular || 0,
+      image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
+    }));
+    // Prefer Kroger/Simple Truth brand
+    const krogerBrand = products.find(p => /kroger|simple truth/i.test(p.brand));
+    res.json({ product: krogerBrand || products[0] || null, results: products.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ══ DEALS API (Kroger) ════════════════════════════════════════════════════════
 
 router.get("/api/deals", async (req, res) => {

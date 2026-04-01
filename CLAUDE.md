@@ -1,4 +1,4 @@
-# CLAUDE.md — Dishcount (Deals to Meals)
+# CLAUDE.md — Dishcount
 
 ## What this app does
 

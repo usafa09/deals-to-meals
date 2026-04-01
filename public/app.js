@@ -707,10 +707,29 @@ function closeSlideout() {
 const CATEGORY_EMOJI = {"meat":"🥩","chicken":"🥩","beef":"🥩","pork":"🥩","seafood":"🐟","produce":"🥬","vegetables":"🥬","fruit":"🍎","dairy":"🧀","cheese":"🧀","eggs":"🧀","frozen":"🧊","pantry":"🥫","snacks":"🍿","beverages":"☕","bakery":"🍞","deli":"🥪"};
 function getCatEmoji(cat) { const c=(cat||"").toLowerCase(); for(const[k,e]of Object.entries(CATEGORY_EMOJI)){if(c.includes(k))return e;} return "🏷️"; }
 
+const KROGER_FAMILY = new Set(["kroger","ralphs","fred meyer","fry's","harris teeter","king soopers","smith's","qfc","mariano's","pick 'n save","pick n save","metro market","dillons","baker's","pay less","gerbes","jay c","food 4 less","foods co","owen's"]);
+function isKrogerFamily(store) { return KROGER_FAMILY.has((store||"").toLowerCase()); }
+
+function updateKrogerCartButton() {
+  const btn = document.getElementById("krogerCartBtn");
+  if (!btn) return;
+  const list = state.shoppingList;
+  const hasRecipeIngredients = list.some(i => i.source === "recipe-ingredient");
+  const krogerStores = [...new Set(list.filter(i => i.store && isKrogerFamily(i.store)).map(i => i.store))];
+  const showButton = hasRecipeIngredients || krogerStores.length > 0;
+  btn.style.display = showButton ? "" : "none";
+  if (krogerStores.length === 1) {
+    btn.textContent = "🛒 Add to " + krogerStores[0] + " Cart";
+  } else {
+    btn.textContent = "🛒 Add to Kroger Cart";
+  }
+}
+
 function renderSlideoutList() {
   const list = state.shoppingList;
   const body = document.getElementById("slideoutBody");
   if (!body) return;
+  updateKrogerCartButton();
   if (!list.length) { body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">🛒</div><p>Your shopping list is empty</p><p style="font-size:13px;margin-top:8px">Add items from the deals screen or recipe ingredients</p></div>'; return; }
 
   let html = "";

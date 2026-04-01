@@ -19,19 +19,14 @@
     /* Variables inherited from /styles.css */
     body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
 
-    .profile-header { background: var(--dark); padding: 14px 28px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
-    .profile-header .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .profile-header .logo-tagline { font-size: 11px; color: #b0bfb3; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
-    .header-right { margin-left: auto; }
-    .back-home { padding: 9px 22px; background: rgba(255,255,255,0.08); color: #e8f0ea; border: 2px solid var(--green-mid); border-radius: 20px; font-size: 14px; font-weight: 700; text-decoration: none; transition: all 0.2s; }
-    .back-home:hover { background: var(--green-mid); color: white; }
+    /* Nav inherited from /styles.css landing-nav classes */
 
     main { max-width: 680px; margin: 0 auto; padding: 32px 20px 80px; }
 
     .auth-card { background: white; border: 2px solid var(--sand); border-radius: 24px; padding: 40px; max-width: 440px; margin: 40px auto; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
     .auth-logo  { text-align: center; font-size: 52px; margin-bottom: 12px; }
-    .auth-title { font-family: 'Lora', serif; font-size: 26px; text-align: center; color: var(--green-dark); margin-bottom: 6px; }
-    .auth-sub   { font-family: 'Lora', serif; font-style: italic; text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .auth-title { font-family: 'Outfit', sans-serif; font-size: 26px; text-align: center; color: var(--green-dark); margin-bottom: 6px; }
+    .auth-sub   { font-family: 'Outfit', sans-serif; font-style: italic; text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 28px; }
     .auth-tabs  { display: flex; background: #F5F0E8; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
     .auth-tab   { flex: 1; padding: 9px; text-align: center; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--muted); }
     .auth-tab.active { background: white; color: var(--green-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -59,14 +54,14 @@
     .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
     .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--green-dark); display: flex; align-items: center; justify-content: center; font-size: 26px; color: white; font-weight: 700; flex-shrink: 0; overflow: hidden; }
     .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .profile-name  { font-family: 'Lora', serif; font-size: 22px; color: var(--green-dark); }
+    .profile-name  { font-family: 'Outfit', sans-serif; font-size: 22px; color: var(--green-dark); }
     .profile-email { font-size: 14px; color: var(--muted); margin-top: 2px; }
     .sign-out-btn  { margin-left: auto; padding: 8px 16px; background: transparent; border: 2px solid #EEE; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; color: #888; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
     .sign-out-btn:hover { border-color: var(--red); color: var(--red); }
 
     .section { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 22px; margin-bottom: 16px; }
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .section-title { font-family: 'Lora', serif; font-size: 17px; color: var(--green-dark); }
+    .section-title { font-family: 'Outfit', sans-serif; font-size: 17px; color: var(--green-dark); }
     .section-save  { padding: 7px 16px; background: var(--green-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
     .section-save:hover { filter: brightness(1.1); }
 
@@ -137,25 +132,38 @@
 </head>
 <body>
 
-<div class="profile-header">
-  <a class="logo" href="/">
-    <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
-      <g transform="translate(4, 2)">
-        <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
-        <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
-        <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
-      </g>
-      <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
-        <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
-      </text>
-    </svg>
-    <span class="logo-tagline">MEALS FROM DEALS</span>
-  </a>
-  <div class="header-right"><a class="back-home" href="/">&#8592; Back to App</a></div>
-</div>
+<nav class="landing-nav">
+  <div class="landing-nav-inner">
+    <a href="/" class="landing-nav-logo">
+      <svg width="168" height="43" viewBox="0 0 200 50" style="flex-shrink:0">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+            <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+            <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          </g>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#e8f0ea">ish</tspan><tspan fill="#fbbf24">count</tspan>
+        </text>
+      </svg>
+      <span class="landing-nav-tagline">MEALS FROM DEALS</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="/">Home</a>
+      <a href="/about.html">About</a>
+    </div>
+    <a href="/" class="landing-nav-signin">&#8592; Back to App</a>
+  </div>
+</nav>
 
 <div class="toast" id="toast"></div>
-<main id="main"><div class="spinner-wrap"><div class="spinner"></div></div></main>
+<main id="main" style="padding-top:80px"><div class="spinner-wrap"><div class="spinner"></div></div></main>
 
 <script>
 // ── Config — replace these with your actual Supabase values ──────────────────
@@ -654,5 +662,9 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 </script>
+<footer class="landing-footer">
+  <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+  <p>&copy; 2026 Dishcount. All rights reserved.</p>
+</footer>
 </body>
 </html>

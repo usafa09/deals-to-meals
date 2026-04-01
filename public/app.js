@@ -474,9 +474,16 @@ function renderSaleItems() {
   const krogerBanner = document.getElementById("krogerConnectBanner");
   if (krogerBanner) {
     const hasCoupons = state.coupons.length > 0 || state.boostDeals.length > 0;
-    const hasKF = state.selectedBrands.some(b => isKrogerFamily(b));
+    const krogerBrandName = state.selectedBrands.find(b => isKrogerFamily(b)) || "Kroger";
+    const hasKF = !!krogerBrandName && isKrogerFamily(krogerBrandName);
     const showBanner = hasKF && !hasCoupons && !state.krogerConnected;
     krogerBanner.style.display = showBanner ? "flex" : "none";
+    if (showBanner) {
+      const p = krogerBanner.querySelector("p");
+      const a = krogerBanner.querySelector("a");
+      if (p) p.innerHTML = `🔗 Connect your ${escapeHtml(krogerBrandName)} account to unlock digital coupons and save even more!`;
+      if (a) a.textContent = `Connect ${krogerBrandName}`;
+    }
   }
 
   const ic=Object.values(state.dealStates).filter(v=>v==="include").length;

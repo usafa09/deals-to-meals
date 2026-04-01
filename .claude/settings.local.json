@@ -21,7 +21,8 @@
       "Bash(npm run:*)",
       "Bash(curl -s http://localhost:5000/api/aldi/deals)",
       "Bash(curl -s http://localhost:5000/api/contact -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"test\"\"\"\",\"\"\"\"email\"\"\"\":\"\"\"\"t@t.com\"\"\"\",\"\"\"\"topic\"\"\"\":\"\"\"\"x\"\"\"\",\"\"\"\"message\"\"\"\":\"\"\"\"y\"\"\"\"}')",
-      "Bash(grep -rin \"deals to meals\" --include=\"*.{js,html,md}\" .)"
+      "Bash(grep -rin \"deals to meals\" --include=\"*.{js,html,md}\" .)",
+      "Bash(Soopers account to unlock digital coupons and save even more!\"\\):*)"
     ]
   }
 }

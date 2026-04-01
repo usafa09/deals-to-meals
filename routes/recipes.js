@@ -6,7 +6,7 @@ import {
   SPOONACULAR_BASE, CACHE_TTL,
   DAILY_POINT_LIMIT, POINTS_PER_SEARCH,
   getDailyPoints, addDailyPoints, checkAndResetPoints,
-  getCacheKey, findDeal, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
+  getCacheKey, findDeal, logApiUsage, logError, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
 } from "../lib/utils.js";
 
 const router = Router();
@@ -610,10 +610,11 @@ IMPORTANT ingredient type rules:
     const outputTokens = data.usage?.output_tokens || 0;
     const cost = (inputTokens * 1 + outputTokens * 5) / 1000000;
     console.log(`AI recipes generated: ${recipes.length} recipes, ${inputTokens}+${outputTokens} tokens, ~$${cost.toFixed(4)}`);
+    logApiUsage("anthropic", "recipes-ai", inputTokens, outputTokens, cost);
 
     res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) } });
   } catch (err) {
-    console.error("AI recipe error:", err.message);
+    logError("POST /api/recipes/ai", err.message);
     res.status(500).json({ error: err.message });
   }
 });

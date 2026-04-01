@@ -5,7 +5,7 @@ import {
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, extractingStores,
-  storesWithDealsCache, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL,
+  storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
 import { fetchWalmartDeals } from "./walmart.js";
@@ -26,6 +26,7 @@ router.get("/api/nearby-stores", async (req, res) => {
     if (cached) {
       const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart");
       console.log(`Nearby stores for ${zip} (${miles}mi): ${filtered.length} stores [cached]`);
+      logSearch(zip, filtered.length, 0);
       return res.json({ stores: filtered, cached: true });
     }
 
@@ -147,6 +148,7 @@ router.get("/api/nearby-stores", async (req, res) => {
     await setCachedStores(zip, enrichedStores, cacheKey);
     console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);
 
+    logSearch(zip, enrichedStores.length, 0);
     res.json({ stores: enrichedStores, cached: false });
   } catch (err) {
     console.error("Nearby stores error:", err.message);
@@ -323,6 +325,7 @@ router.get("/api/deals/regional", async (req, res) => {
     ];
 
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
+    logSearch(zip, results.sources.length, allDeals.length);
 
     res.json({
       zip3,
@@ -584,6 +587,7 @@ Rules:
     if (unique.length > 0) {
       await setCachedDeals(`ad-extract:${storeId}`, unique);
       console.log(`On-demand: ${storeName} — ${unique.length} deals cached`);
+      logApiUsage("anthropic", "extract-store", 0, 0, maxPages * 0.003); // ~$0.003 per page estimate
     } else {
       console.log(`On-demand: ${storeName} — no deals extracted`);
     }

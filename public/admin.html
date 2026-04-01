@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Dishcount</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --green-dark: #2d6a4f;
+      --green-mid: #40916c;
+      --green-light: #d8f3dc;
+      --orange: #d97706;
+      --cream: #fffdf7;
+      --dark: #1a2e1f;
+      --sand: #e8e0d0;
+      --text: #2d3a2e;
+      --muted: #9ca38f;
+      --red: #D32F2F;
+      --sidebar-w: 240px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #f4f1ec; color: var(--text); min-height: 100vh; }
+    h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+
+    /* ─── LOGIN ─── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; background: var(--cream); padding: 20px;
+    }
+    .login-card {
+      background: white; border: 2px solid var(--sand); border-radius: 24px;
+      padding: 48px 40px; max-width: 420px; width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.08); text-align: center;
+    }
+    .login-card h1 { font-size: 26px; font-weight: 700; color: var(--green-dark); margin: 16px 0 6px; }
+    .login-card .sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+    .login-card input {
+      width: 100%; padding: 14px 16px; font-size: 16px; border: 2px solid var(--sand);
+      border-radius: 12px; outline: none; background: var(--cream);
+      font-family: 'DM Sans', sans-serif; text-align: center;
+      letter-spacing: 3px; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .login-card input:focus { border-color: var(--green-mid); }
+    .login-card button {
+      width: 100%; padding: 14px; background: var(--orange); color: white;
+      border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
+      font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
+      min-height: 40px;
+    }
+    .login-card button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+
+    /* ─── DASHBOARD LAYOUT ─── */
+    #dashboard { display: none; }
+    #dashboard.active { display: flex; min-height: 100vh; }
+
+    /* ─── SIDEBAR ─── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--dark); color: white;
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+      display: flex; flex-direction: column; transition: transform 0.3s;
+    }
+    .sidebar-logo {
+      padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logo h2 { font-size: 20px; font-weight: 700; color: #d8f3dc; }
+    .sidebar-logo span { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+    .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+    .sidebar-nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 20px; color: rgba(255,255,255,0.65); text-decoration: none;
+      font-size: 14px; font-weight: 500; transition: all 0.15s; position: relative;
+    }
+    .sidebar-nav a:hover { color: white; background: rgba(255,255,255,0.06); }
+    .sidebar-nav a.active {
+      color: white; background: rgba(64,145,108,0.25);
+      border-right: 3px solid var(--green-mid);
+    }
+    .sidebar-nav a .badge {
+      background: var(--red); color: white; font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px; margin-left: auto;
+    }
+    .sidebar-bottom {
+      padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-bottom a {
+      display: flex; align-items: center; gap: 8px;
+      color: rgba(255,255,255,0.5); text-decoration: none; font-size: 13px;
+      transition: color 0.15s;
+    }
+    .sidebar-bottom a:hover { color: var(--red); }
+
+    /* ─── MAIN ─── */
+    .main {
+      margin-left: var(--sidebar-w); flex: 1; min-height: 100vh;
+      padding: 28px 32px 60px; background: #f4f1ec;
+    }
+    .main-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .main-header h1 { font-size: 24px; font-weight: 700; color: var(--dark); }
+    .main-header .refresh-btn {
+      background: white; border: 1.5px solid var(--sand); border-radius: 10px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; color: var(--text); transition: all 0.15s;
+    }
+    .main-header .refresh-btn:hover { border-color: var(--green-mid); color: var(--green-dark); }
+
+    /* ─── MOBILE TOPBAR ─── */
+    .topbar {
+      display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px;
+      background: var(--dark); z-index: 99; align-items: center; padding: 0 16px;
+    }
+    .topbar .hamburger {
+      background: none; border: none; color: white; font-size: 24px; cursor: pointer;
+      padding: 4px 8px;
+    }
+    .topbar h2 { color: #d8f3dc; font-size: 16px; margin-left: 12px; }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
+    }
+
+    /* ─── CARDS ─── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: white; border-radius: 14px; padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05); position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    }
+    .stat-card.green::before { background: var(--green-mid); }
+    .stat-card.orange::before { background: var(--orange); }
+    .stat-card.red::before { background: var(--red); }
+    .stat-card.blue::before { background: #2563eb; }
+    .stat-card .number { font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 800; color: var(--dark); }
+    .stat-card .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ─── TABLES ─── */
+    .table-wrap {
+      background: white; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05); margin-bottom: 24px;
+    }
+    .table-wrap .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid #eee;
+    }
+    .table-wrap .table-header h3 { font-size: 16px; font-weight: 700; color: var(--dark); }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      text-align: left; padding: 12px 16px; background: #fafaf6; color: var(--muted);
+      font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    thead th:hover { color: var(--text); }
+    tbody tr { border-bottom: 1px solid #f0ede6; transition: background 0.1s; }
+    tbody tr:nth-child(even) { background: #fdfcf9; }
+    tbody tr:hover { background: var(--green-light); }
+    td { padding: 11px 16px; vertical-align: middle; }
+
+    /* ─── BADGES ─── */
+    .badge-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      font-family: 'DM Sans', sans-serif; cursor: pointer; border: none;
+      min-height: 40px; transition: all 0.15s;
+    }
+    .btn-primary { background: var(--green-dark); color: white; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-orange { background: var(--orange); color: white; }
+    .btn-orange:hover { filter: brightness(1.1); }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-danger:hover { filter: brightness(1.1); }
+    .btn-outline {
+      background: white; border: 1.5px solid var(--sand); color: var(--text);
+    }
+    .btn-outline:hover { border-color: var(--green-mid); color: var(--green-dark); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; min-height: 32px; border-radius: 8px; }
+
+    /* ─── FORM INPUTS ─── */
+    .input {
+      padding: 10px 14px; border: 1.5px solid var(--sand); border-radius: 10px;
+      font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none;
+      background: white; transition: border-color 0.15s; min-height: 40px;
+    }
+    .input:focus { border-color: var(--green-mid); }
+    select.input { cursor: pointer; }
+
+    /* ─── CHART BARS ─── */
+    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 8px 0; }
+    .bar-chart .bar {
+      flex: 1; background: var(--green-mid); border-radius: 4px 4px 0 0;
+      min-width: 8px; position: relative; transition: height 0.3s;
+    }
+    .bar-chart .bar:hover { background: var(--green-dark); }
+    .bar-chart .bar .bar-label {
+      position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+      font-size: 9px; color: var(--muted); white-space: nowrap;
+    }
+    .bar-chart .bar .bar-value {
+      position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap;
+    }
+
+    /* ─── EXPANDED ROW ─── */
+    .expanded-row { background: #f9f8f4 !important; }
+    .expanded-detail {
+      padding: 16px 20px; background: #f4f2ec; font-size: 13px;
+      border-bottom: 2px solid var(--sand);
+    }
+    .expanded-detail pre {
+      background: var(--dark); color: #d8f3dc; padding: 12px; border-radius: 8px;
+      overflow-x: auto; font-size: 12px; margin-top: 8px;
+    }
+
+    /* ─── TOOLS SECTION ─── */
+    .tool-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .tool-card {
+      background: white; border-radius: 14px; padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+    .tool-card h4 { font-size: 15px; margin-bottom: 10px; color: var(--dark); }
+    .tool-card p { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+    /* ─── LOADING ─── */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2.5px solid var(--sand); border-top-color: var(--green-mid);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; padding: 40px 0; justify-content: center; }
+
+    /* ─── TOAST ─── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: var(--dark); color: white;
+      padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 9999;
+      transform: translateY(100px); opacity: 0; transition: all 0.3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { background: var(--red); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.open { display: block; }
+      .topbar { display: flex; }
+      .main { margin-left: 0; padding: 72px 16px 40px; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .tool-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .stat-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div>
+      <svg width="200" height="50" viewBox="0 0 200 50">
+        <g transform="translate(4, 2)">
+          <path d="M0 0 L0 42" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M0 0 Q30 0 30 21 Q30 42 0 42" fill="none" stroke="#52b788" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="21" r="9.5" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.4"/>
+          <g transform="translate(13, 21) scale(0.9) translate(-13, -21)">
+            <line x1="9.5" y1="14" x2="9.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+            <line x1="8" y1="14" x2="8" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <line x1="11" y1="14" x2="11" y2="17" stroke="#74c69d" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>
+            <ellipse cx="16.5" cy="15" rx="2.2" ry="3" fill="none" stroke="#74c69d" stroke-width="1" opacity="0.6"/>
+            <line x1="16.5" y1="17.8" x2="16.5" y2="28" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+          </g>
+        </g>
+        <text x="38" y="31" font-family="Trebuchet MS, sans-serif" font-weight="700" font-size="24">
+          <tspan fill="#2d6a4f">ish</tspan><tspan fill="#d97706">count</tspan>
+        </text>
+      </svg>
+    </div>
+    <h1>Admin Dashboard</h1>
+    <p class="sub">Enter admin password to continue</p>
+    <input type="password" id="admin-pwd" placeholder="Password" />
+    <button onclick="doLogin()">Login</button>
+    <div class="login-error" id="login-error">Invalid password. Try again.</div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="dashboard">
+  <!-- Mobile topbar -->
+  <div class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    <h2>Dishcount Admin</h2>
+  </div>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>Dishcount</h2>
+      <span>Admin Panel</span>
+    </div>
+    <div class="sidebar-nav" id="sidebar-nav">
+      <a href="#" data-section="overview" class="active" onclick="navigate('overview',this)">&#x1F4CA; Overview</a>
+      <a href="#" data-section="users" onclick="navigate('users',this)">&#x1F465; Users</a>
+      <a href="#" data-section="messages" onclick="navigate('messages',this)">&#x1F4AC; Messages <span class="badge" id="unread-badge" style="display:none">0</span></a>
+      <a href="#" data-section="deals" onclick="navigate('deals',this)">&#x1F3F7;&#xFE0F; Deals &amp; Stores</a>
+      <a href="#" data-section="api-usage" onclick="navigate('api-usage',this)">&#x1F4B0; API Usage</a>
+      <a href="#" data-section="searches" onclick="navigate('searches',this)">&#x1F4CD; Searches</a>
+      <a href="#" data-section="errors" onclick="navigate('errors',this)">&#x26A0;&#xFE0F; Errors</a>
+      <a href="#" data-section="tools" onclick="navigate('tools',this)">&#x1F527; Tools</a>
+    </div>
+    <div class="sidebar-bottom">
+      <a href="#" onclick="signOut()">&#x1F6AA; Sign Out</a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main" id="main-content"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  FETCH HELPER
+// ═══════════════════════════════════════════════════
+async function adminFetch(url, options = {}) {
+  const token = localStorage.getItem("dishcount-admin-token");
+  const headers = { ...options.headers, "x-admin-token": token };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 403) {
+    localStorage.removeItem("dishcount-admin-token");
+    showLogin();
+    return null;
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════
+function showToast(msg, isError = false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isError ? " error" : "");
+  setTimeout(() => t.className = "toast", 3000);
+}
+
+// ═══════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════
+function showLogin() {
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("dashboard").classList.remove("active");
+}
+
+function showDashboard() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("dashboard").classList.add("active");
+  navigate("overview", document.querySelector('[data-section="overview"]'));
+}
+
+document.getElementById("admin-pwd").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+async function doLogin() {
+  const pwd = document.getElementById("admin-pwd").value;
+  const errEl = document.getElementById("login-error");
+  errEl.style.display = "none";
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pwd }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem("dishcount-admin-token", data.token || pwd);
+      showDashboard();
+    } else {
+      errEl.style.display = "block";
+      document.getElementById("admin-pwd").value = "";
+    }
+  } catch {
+    errEl.style.display = "block";
+  }
+}
+
+async function checkToken() {
+  const token = localStorage.getItem("dishcount-admin-token");
+  if (!token) { showLogin(); return; }
+  try {
+    const res = await fetch("/api/admin/verify", {
+      headers: { "x-admin-token": token },
+    });
+    if (res.ok) showDashboard();
+    else { localStorage.removeItem("dishcount-admin-token"); showLogin(); }
+  } catch {
+    showLogin();
+  }
+}
+
+function signOut() {
+  localStorage.removeItem("dishcount-admin-token");
+  showLogin();
+}
+
+// ═══════════════════════════════════════════════════
+//  SIDEBAR / NAV
+// ═══════════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("sidebar-overlay").classList.toggle("open");
+}
+
+function navigate(section, el) {
+  if (el) {
+    document.querySelectorAll(".sidebar-nav a").forEach(a => a.classList.remove("active"));
+    el.classList.add("active");
+  }
+  // Close mobile sidebar
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebar-overlay").classList.remove("open");
+
+  const main = document.getElementById("main-content");
+  main.scrollTop = 0;
+
+  const renderers = {
+    overview: renderOverview,
+    users: renderUsers,
+    messages: renderMessages,
+    deals: renderDeals,
+    "api-usage": renderApiUsage,
+    searches: renderSearches,
+    errors: renderErrors,
+    tools: renderTools,
+  };
+  (renderers[section] || renderOverview)();
+}
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function loading() {
+  return `<div class="loading-msg"><span class="spinner"></span> Loading...</div>`;
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  const days = Math.floor(hrs / 24);
+  return days + "d ago";
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function fmtDateTime(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function escHtml(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function ageBadge(dateStr) {
+  if (!dateStr) return `<span class="badge-pill badge-red">Unknown</span>`;
+  const hrs = (Date.now() - new Date(dateStr).getTime()) / 3600000;
+  if (hrs < 24) return `<span class="badge-pill badge-green">Fresh</span>`;
+  if (hrs < 72) return `<span class="badge-pill badge-yellow">Aging</span>`;
+  return `<span class="badge-pill badge-red">Stale</span>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  OVERVIEW SECTION
+// ═══════════════════════════════════════════════════
+async function renderOverview() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Overview</h1>
+      <button class="refresh-btn" onclick="renderOverview()">&#x21BB; Refresh</button>
+    </div>
+    <div class="stat-grid" id="overview-stats">${loading()}</div>
+    <div class="table-wrap" id="overview-chart-wrap">
+      <div class="table-header"><h3>User Signups (Last 30 Days)</h3></div>
+      <div style="padding:20px">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/stats");
+    if (!res) return;
+    const data = await res.json();
+
+    document.getElementById("overview-stats").innerHTML = `
+      <div class="stat-card green">
+        <div class="number">${data.totalUsers ?? "—"}</div>
+        <div class="label">Total Users</div>
+      </div>
+      <div class="stat-card green">
+        <div class="number">${data.newUsersThisWeek ?? "—"}</div>
+        <div class="label">New This Week</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="number">${data.totalMessages ?? "—"}</div>
+        <div class="label">Messages</div>
+      </div>
+      <div class="stat-card red">
+        <div class="number">${data.unreadMessages ?? "—"}</div>
+        <div class="label">Unread Messages</div>
+      </div>
+      <div class="stat-card green">
+        <div class="number">${data.cachedDeals ?? "—"}</div>
+        <div class="label">Cached Deals</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="number">${data.freshStores ?? "—"}</div>
+        <div class="label">Fresh Stores</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="number">${data.spoonacularPoints ?? "—"}</div>
+        <div class="label">Spoonacular Pts Used</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="number">$${(data.anthropicSpend ?? 0).toFixed(2)}</div>
+        <div class="label">Anthropic Spend Today</div>
+      </div>
+    `;
+
+    // Update unread badge
+    if (data.unreadMessages && data.unreadMessages > 0) {
+      const badge = document.getElementById("unread-badge");
+      badge.textContent = data.unreadMessages;
+      badge.style.display = "inline";
+    }
+
+    // Signup chart
+    const signups = data.signupsByDay || [];
+    const chartWrap = document.getElementById("overview-chart-wrap");
+    if (signups.length === 0) {
+      chartWrap.querySelector("div:last-child").innerHTML = `<p style="color:var(--muted);text-align:center;padding:20px">No signup data available</p>`;
+    } else {
+      const max = Math.max(...signups.map(d => d.count), 1);
+      chartWrap.querySelector("div:last-child").innerHTML = `
+        <div class="bar-chart" style="margin-bottom:24px">
+          ${signups.map(d => `
+            <div class="bar" style="height:${Math.max((d.count / max) * 100, 4)}%" title="${d.date}: ${d.count}">
+              <span class="bar-value">${d.count > 0 ? d.count : ""}</span>
+              <span class="bar-label">${new Date(d.date).getDate()}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+  } catch (err) {
+    document.getElementById("overview-stats").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load stats: ${escHtml(err.message)}</p>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  USERS SECTION
+// ═══════════════════════════════════════════════════
+let usersData = [];
+let usersSortCol = "joined";
+let usersSortAsc = false;
+
+async function renderUsers() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Users</h1>
+      <button class="refresh-btn" onclick="renderUsers()">&#x21BB; Refresh</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <input class="input" type="text" id="user-search" placeholder="Search by name or email..." style="width:100%;max-width:400px" oninput="filterUsers()" />
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="users-table">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/users");
+    if (!res) return;
+    usersData = await res.json();
+    if (!Array.isArray(usersData)) usersData = usersData.users || [];
+    renderUsersTable();
+  } catch (err) {
+    document.getElementById("users-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load users: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderUsersTable() {
+  const search = (document.getElementById("user-search")?.value || "").toLowerCase();
+  let filtered = usersData.filter(u => {
+    const name = (u.full_name || u.name || "").toLowerCase();
+    const email = (u.email || "").toLowerCase();
+    return name.includes(search) || email.includes(search);
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let av = a[usersSortCol], bv = b[usersSortCol];
+    if (usersSortCol === "joined" || usersSortCol === "last_active") {
+      av = av ? new Date(av).getTime() : 0;
+      bv = bv ? new Date(bv).getTime() : 0;
+    } else if (typeof av === "string") {
+      av = av.toLowerCase(); bv = (bv || "").toLowerCase();
+    }
+    if (av < bv) return usersSortAsc ? -1 : 1;
+    if (av > bv) return usersSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const arrow = col => usersSortCol === col ? (usersSortAsc ? " &#9650;" : " &#9660;") : "";
+
+  document.getElementById("users-table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortUsers('full_name')">Name${arrow("full_name")}</th>
+          <th onclick="sortUsers('email')">Email${arrow("email")}</th>
+          <th onclick="sortUsers('joined')">Joined${arrow("joined")}</th>
+          <th>Kroger</th>
+          <th onclick="sortUsers('recipes')">Recipes${arrow("recipes")}</th>
+          <th onclick="sortUsers('last_active')">Last Active${arrow("last_active")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.length === 0 ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No users found</td></tr>` :
+          filtered.map((u, i) => `
+            <tr style="cursor:pointer" onclick="toggleUserRow(${i})" id="user-row-${i}">
+              <td><strong>${escHtml(u.full_name || u.name || "—")}</strong></td>
+              <td>${escHtml(u.email || "—")}</td>
+              <td>${fmtDate(u.joined || u.created_at)}</td>
+              <td>${u.kroger_connected ? '<span class="badge-pill badge-green">Yes</span>' : '<span class="badge-pill badge-yellow">No</span>'}</td>
+              <td>${u.recipes ?? u.saved_recipes ?? "—"}</td>
+              <td>${timeAgo(u.last_active || u.last_sign_in_at)}</td>
+            </tr>
+            <tr id="user-detail-${i}" style="display:none">
+              <td colspan="6" class="expanded-detail">
+                <strong>Household size:</strong> ${u.household_size || "—"} &nbsp;|&nbsp;
+                <strong>Diet:</strong> ${u.dietary_preferences || "—"} &nbsp;|&nbsp;
+                <strong>Preferred store:</strong> ${u.preferred_store || "—"} &nbsp;|&nbsp;
+                <strong>Favorite recipes:</strong> ${u.favorite_recipe_types || "—"}
+              </td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function sortUsers(col) {
+  if (usersSortCol === col) usersSortAsc = !usersSortAsc;
+  else { usersSortCol = col; usersSortAsc = true; }
+  renderUsersTable();
+}
+
+function filterUsers() { renderUsersTable(); }
+
+function toggleUserRow(i) {
+  const detail = document.getElementById("user-detail-" + i);
+  const row = document.getElementById("user-row-" + i);
+  if (detail.style.display === "none") {
+    detail.style.display = "table-row";
+    row.classList.add("expanded-row");
+  } else {
+    detail.style.display = "none";
+    row.classList.remove("expanded-row");
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  MESSAGES SECTION
+// ═══════════════════════════════════════════════════
+let messagesData = [];
+
+async function renderMessages() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Messages</h1>
+      <button class="refresh-btn" onclick="renderMessages()">&#x21BB; Refresh</button>
+    </div>
+    <div style="margin-bottom:16px">
+      <select class="input" id="msg-topic-filter" onchange="renderMessagesTable()">
+        <option value="">All Topics</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="messages-table">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/messages");
+    if (!res) return;
+    messagesData = await res.json();
+    if (!Array.isArray(messagesData)) messagesData = messagesData.messages || [];
+
+    // Populate topic filter
+    const topics = [...new Set(messagesData.map(m => m.topic).filter(Boolean))];
+    const sel = document.getElementById("msg-topic-filter");
+    topics.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+
+    renderMessagesTable();
+  } catch (err) {
+    document.getElementById("messages-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load messages: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderMessagesTable() {
+  const topicFilter = document.getElementById("msg-topic-filter")?.value || "";
+  let filtered = messagesData;
+  if (topicFilter) filtered = filtered.filter(m => m.topic === topicFilter);
+
+  document.getElementById("messages-table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Topic</th>
+          <th>Message</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.length === 0 ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No messages</td></tr>` :
+          filtered.map((m, i) => `
+            <tr id="msg-row-${m.id}" style="cursor:pointer;${m.read ? '' : 'font-weight:600'}" onclick="toggleMsgRow('${m.id}')">
+              <td>${fmtDateTime(m.created_at)}</td>
+              <td>${escHtml(m.name || "—")}</td>
+              <td>${escHtml(m.email || "—")}</td>
+              <td>${escHtml(m.topic || "—")}</td>
+              <td>${escHtml((m.message || "").substring(0, 80))}${(m.message||"").length > 80 ? "..." : ""}</td>
+              <td>${m.read ? '<span class="badge-pill badge-green">Read</span>' : '<span class="badge-pill badge-red">Unread</span>'}</td>
+              <td style="white-space:nowrap" onclick="event.stopPropagation()">
+                <button class="btn btn-sm btn-outline" onclick="toggleMsgRead('${m.id}', ${!m.read})">${m.read ? "Mark Unread" : "Mark Read"}</button>
+                ${m.email ? `<a class="btn btn-sm btn-primary" href="mailto:${escHtml(m.email)}" style="text-decoration:none;color:white;margin-left:4px">Reply</a>` : ""}
+                <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteMsg('${m.id}')">Delete</button>
+              </td>
+            </tr>
+            <tr id="msg-detail-${m.id}" style="display:none">
+              <td colspan="7" class="expanded-detail">
+                <strong>Full Message:</strong><br>
+                <p style="white-space:pre-wrap;margin-top:8px">${escHtml(m.message)}</p>
+              </td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function toggleMsgRow(id) {
+  const detail = document.getElementById("msg-detail-" + id);
+  if (detail.style.display === "none") detail.style.display = "table-row";
+  else detail.style.display = "none";
+}
+
+async function toggleMsgRead(id, read) {
+  const res = await adminFetch(`/api/admin/messages/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ read }),
+  });
+  if (res && res.ok) {
+    const msg = messagesData.find(m => String(m.id) === String(id));
+    if (msg) msg.read = read;
+    renderMessagesTable();
+    showToast(read ? "Marked as read" : "Marked as unread");
+  } else {
+    showToast("Failed to update message", true);
+  }
+}
+
+async function deleteMsg(id) {
+  if (!confirm("Delete this message?")) return;
+  const res = await adminFetch(`/api/admin/messages/${id}`, { method: "DELETE" });
+  if (res && res.ok) {
+    messagesData = messagesData.filter(m => String(m.id) !== String(id));
+    renderMessagesTable();
+    showToast("Message deleted");
+  } else {
+    showToast("Failed to delete message", true);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  DEALS & STORES SECTION
+// ═══════════════════════════════════════════════════
+async function renderDeals() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Deals &amp; Stores</h1>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-orange" onclick="extractAllPopular()">Extract All Popular</button>
+        <button class="refresh-btn" onclick="renderDeals()">&#x21BB; Refresh</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="deals-table">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/cache-status");
+    if (!res) return;
+    const data = await res.json();
+    const entries = Array.isArray(data) ? data : (data.entries || data.caches || []);
+
+    document.getElementById("deals-table").innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Store / Cache Key</th>
+            <th>Deals</th>
+            <th>Last Updated</th>
+            <th>Age</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.length === 0 ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No cached deals</td></tr>` :
+            entries.map(e => `
+              <tr>
+                <td><strong>${escHtml(e.cache_key || e.store || e.key || "—")}</strong></td>
+                <td>${e.deal_count ?? e.deals ?? e.count ?? "—"}</td>
+                <td>${fmtDateTime(e.fetched_at || e.updated_at)}</td>
+                <td>${timeAgo(e.fetched_at || e.updated_at)}</td>
+                <td>${ageBadge(e.fetched_at || e.updated_at)}</td>
+                <td style="white-space:nowrap">
+                  <button class="btn btn-sm btn-primary" onclick="refreshStore('${escHtml(e.cache_key || e.store || e.key || "")}')">Refresh</button>
+                  <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteCache('${escHtml(e.cache_key || e.store || e.key || "")}')">Delete</button>
+                </td>
+              </tr>
+            `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    document.getElementById("deals-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load cache status: ${escHtml(err.message)}</p>`;
+  }
+}
+
+async function refreshStore(key) {
+  showToast("Refreshing " + key + "...");
+  // Extract store name from cache key like "ad-extract:storename"
+  const storeName = key.replace(/^ad-extract:/, "").replace(/^kroger:/, "");
+  try {
+    const res = await adminFetch("/api/extract-store", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store: storeName }),
+    });
+    if (res && res.ok) showToast("Extraction started for " + storeName);
+    else showToast("Failed to refresh " + storeName, true);
+  } catch { showToast("Failed to refresh store", true); }
+}
+
+async function deleteCache(key) {
+  if (!confirm("Delete cache entry: " + key + "?")) return;
+  try {
+    const res = await adminFetch("/api/admin/cache-cleanup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    if (res && res.ok) { showToast("Cache entry deleted"); renderDeals(); }
+    else showToast("Failed to delete cache", true);
+  } catch { showToast("Failed to delete cache", true); }
+}
+
+async function extractAllPopular() {
+  if (!confirm("Extract deals for all popular stores? This may take several minutes and use API credits.")) return;
+  showToast("Starting bulk extraction...");
+  try {
+    const res = await adminFetch("/api/admin/extract-all", { method: "POST" });
+    if (res && res.ok) showToast("Bulk extraction started");
+    else showToast("Failed to start bulk extraction", true);
+  } catch { showToast("Failed to start extraction", true); }
+}
+
+// ═══════════════════════════════════════════════════
+//  API USAGE SECTION
+// ═══════════════════════════════════════════════════
+async function renderApiUsage() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>API Usage</h1>
+      <button class="refresh-btn" onclick="renderApiUsage()">&#x21BB; Refresh</button>
+    </div>
+    <div class="stat-grid" id="api-stats">${loading()}</div>
+    <div class="table-wrap" id="api-chart-wrap">
+      <div class="table-header"><h3>Daily Spend (Last 14 Days)</h3></div>
+      <div style="padding:20px" id="api-chart">${loading()}</div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header"><h3>Recent API Calls</h3></div>
+      <div class="table-scroll" id="api-calls-table">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/api-usage");
+    if (!res) return;
+    const data = await res.json();
+
+    document.getElementById("api-stats").innerHTML = `
+      <div class="stat-card blue">
+        <div class="number">${data.spoonacularToday ?? "—"}</div>
+        <div class="label">Spoonacular Points Today</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="number">$${(data.anthropicToday ?? 0).toFixed(2)}</div>
+        <div class="label">Anthropic Spend Today</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="number">$${(data.anthropicWeek ?? 0).toFixed(2)}</div>
+        <div class="label">Anthropic This Week</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="number">$${(data.anthropicMonth ?? 0).toFixed(2)}</div>
+        <div class="label">Anthropic This Month</div>
+      </div>
+    `;
+
+    // Daily spend chart
+    const dailySpend = data.dailySpend || [];
+    if (dailySpend.length > 0) {
+      const max = Math.max(...dailySpend.map(d => d.amount), 0.01);
+      document.getElementById("api-chart").innerHTML = `
+        <div class="bar-chart" style="margin-bottom:24px">
+          ${dailySpend.map(d => `
+            <div class="bar" style="height:${Math.max((d.amount / max) * 100, 4)}%;background:var(--orange)" title="${d.date}: $${d.amount.toFixed(2)}">
+              <span class="bar-value">$${d.amount.toFixed(2)}</span>
+              <span class="bar-label">${new Date(d.date).getDate()}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } else {
+      document.getElementById("api-chart").innerHTML = `<p style="color:var(--muted);text-align:center">No spend data available</p>`;
+    }
+
+    // Recent calls table
+    const calls = data.recentCalls || [];
+    document.getElementById("api-calls-table").innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Service</th><th>Endpoint</th><th>Tokens</th><th>Cost</th></tr>
+        </thead>
+        <tbody>
+          ${calls.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No recent API calls</td></tr>` :
+            calls.map(c => `
+              <tr>
+                <td>${fmtDateTime(c.time || c.created_at)}</td>
+                <td><span class="badge-pill ${c.service === 'anthropic' ? 'badge-yellow' : 'badge-blue'}">${escHtml(c.service)}</span></td>
+                <td>${escHtml(c.endpoint || "—")}</td>
+                <td>${c.tokens ?? "—"}</td>
+                <td>${c.cost != null ? "$" + c.cost.toFixed(4) : "—"}</td>
+              </tr>
+            `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    document.getElementById("api-stats").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load API usage: ${escHtml(err.message)}</p>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SEARCHES SECTION
+// ═══════════════════════════════════════════════════
+async function renderSearches() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Search Analytics</h1>
+      <button class="refresh-btn" onclick="renderSearches()">&#x21BB; Refresh</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="search-tables">
+      <div class="table-wrap">
+        <div class="table-header"><h3>Top Zip Codes</h3></div>
+        <div class="table-scroll" id="zip-table">${loading()}</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><h3>Top Stores Selected</h3></div>
+        <div class="table-scroll" id="store-table">${loading()}</div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/search-stats");
+    if (!res) return;
+    const data = await res.json();
+
+    const zips = data.topZips || data.zips || [];
+    document.getElementById("zip-table").innerHTML = `
+      <table>
+        <thead><tr><th>Zip Code</th><th>Searches</th></tr></thead>
+        <tbody>
+          ${zips.length === 0 ? `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>` :
+            zips.map(z => `
+              <tr>
+                <td><strong>${escHtml(z.zip || z.zip_code)}</strong></td>
+                <td>${z.count ?? z.searches ?? "—"}</td>
+              </tr>
+            `).join("")}
+        </tbody>
+      </table>
+    `;
+
+    const stores = data.topStores || data.stores || [];
+    document.getElementById("store-table").innerHTML = `
+      <table>
+        <thead><tr><th>Store</th><th>Selections</th></tr></thead>
+        <tbody>
+          ${stores.length === 0 ? `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>` :
+            stores.map(s => `
+              <tr>
+                <td><strong>${escHtml(s.store || s.name)}</strong></td>
+                <td>${s.count ?? s.selections ?? "—"}</td>
+              </tr>
+            `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    document.getElementById("search-tables").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load search stats: ${escHtml(err.message)}</p>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  ERRORS SECTION
+// ═══════════════════════════════════════════════════
+let errorsData = [];
+
+async function renderErrors() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Errors</h1>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-danger" onclick="clearOldErrors()">Clear Old Errors</button>
+        <button class="refresh-btn" onclick="renderErrors()">&#x21BB; Refresh</button>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <input class="input" type="text" id="error-filter" placeholder="Filter by endpoint..." style="width:100%;max-width:400px" oninput="renderErrorsTable()" />
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="errors-table">${loading()}</div>
+    </div>
+  `;
+
+  try {
+    const res = await adminFetch("/api/admin/errors");
+    if (!res) return;
+    errorsData = await res.json();
+    if (!Array.isArray(errorsData)) errorsData = errorsData.errors || [];
+    renderErrorsTable();
+  } catch (err) {
+    document.getElementById("errors-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load errors: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderErrorsTable() {
+  const filter = (document.getElementById("error-filter")?.value || "").toLowerCase();
+  let filtered = errorsData;
+  if (filter) filtered = filtered.filter(e => (e.endpoint || "").toLowerCase().includes(filter));
+
+  document.getElementById("errors-table").innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Endpoint</th><th>Message</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        ${filtered.length === 0 ? `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">No errors</td></tr>` :
+          filtered.map((e, i) => `
+            <tr style="cursor:pointer" onclick="toggleErrorRow(${i})">
+              <td>${fmtDateTime(e.time || e.created_at || e.timestamp)}</td>
+              <td><code style="background:#f0ede6;padding:2px 6px;border-radius:4px;font-size:12px">${escHtml(e.endpoint || e.route || "—")}</code></td>
+              <td style="color:var(--red)">${escHtml((e.message || e.error || "").substring(0, 100))}</td>
+              <td><button class="btn btn-sm btn-outline">Expand</button></td>
+            </tr>
+            <tr id="error-detail-${i}" style="display:none">
+              <td colspan="4" class="expanded-detail">
+                <strong>Full error:</strong>
+                <pre>${escHtml(e.details || e.stack || e.message || e.error || "No additional details")}</pre>
+              </td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function toggleErrorRow(i) {
+  const detail = document.getElementById("error-detail-" + i);
+  if (detail.style.display === "none") detail.style.display = "table-row";
+  else detail.style.display = "none";
+}
+
+async function clearOldErrors() {
+  if (!confirm("Clear errors older than 7 days?")) return;
+  try {
+    const res = await adminFetch("/api/admin/errors", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ olderThanDays: 7 }),
+    });
+    if (res && res.ok) { showToast("Old errors cleared"); renderErrors(); }
+    else showToast("Failed to clear errors", true);
+  } catch { showToast("Failed to clear errors", true); }
+}
+
+// ═══════════════════════════════════════════════════
+//  TOOLS SECTION
+// ═══════════════════════════════════════════════════
+async function renderTools() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Tools</h1>
+    </div>
+
+    <div class="tool-grid">
+      <div class="tool-card">
+        <h4>Clear All Cache</h4>
+        <p>Remove all cached deals and store data. New data will be fetched on next request.</p>
+        <button class="btn btn-danger" onclick="clearAllCache()">Clear Cache</button>
+      </div>
+
+      <div class="tool-card">
+        <h4>Extract Store Deals</h4>
+        <p>Trigger on-demand ad extraction for a specific store.</p>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <input class="input" type="text" id="extract-store-input" placeholder="Store name (e.g. publix)" style="flex:1" />
+          <button class="btn btn-primary" onclick="extractStore()">Extract</button>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <h4>Test Endpoints</h4>
+        <p>Quick health check on key API endpoints.</p>
+        <button class="btn btn-primary" onclick="testEndpoints()">Run Tests</button>
+        <div id="test-results" style="margin-top:12px;font-size:12px"></div>
+      </div>
+
+      <div class="tool-card">
+        <h4>Server Info</h4>
+        <p>View server uptime, memory usage, and Node.js version.</p>
+        <button class="btn btn-outline" onclick="loadServerInfo()">Load Info</button>
+        <div id="server-info" style="margin-top:12px;font-size:13px"></div>
+      </div>
+
+      <div class="tool-card">
+        <h4>Spoonacular Points</h4>
+        <p>Check daily Spoonacular API point usage and remaining quota.</p>
+        <button class="btn btn-outline" onclick="checkPoints()">Check Points</button>
+        <div id="points-info" style="margin-top:12px;font-size:13px"></div>
+      </div>
+
+      <div class="tool-card">
+        <h4>External Dashboards</h4>
+        <p>Quick links to service dashboards.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+          <a href="https://dashboard.render.com" target="_blank" class="btn btn-outline" style="text-decoration:none;text-align:center;justify-content:center">Render Dashboard</a>
+          <a href="https://supabase.com/dashboard" target="_blank" class="btn btn-outline" style="text-decoration:none;text-align:center;justify-content:center">Supabase Dashboard</a>
+          <a href="https://console.anthropic.com" target="_blank" class="btn btn-outline" style="text-decoration:none;text-align:center;justify-content:center">Anthropic Console</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function clearAllCache() {
+  if (!confirm("This will clear ALL cached deal data. Are you sure?")) return;
+  try {
+    const res = await adminFetch("/api/admin/cache-cleanup", { method: "POST" });
+    if (res && res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showToast("Cache cleared" + (data.deleted ? ` (${data.deleted} entries)` : ""));
+    } else showToast("Failed to clear cache", true);
+  } catch { showToast("Failed to clear cache", true); }
+}
+
+async function extractStore() {
+  const store = document.getElementById("extract-store-input").value.trim();
+  if (!store) { showToast("Enter a store name", true); return; }
+  showToast("Extracting deals for " + store + "...");
+  try {
+    const res = await adminFetch("/api/extract-store", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store }),
+    });
+    if (res && res.ok) showToast("Extraction started for " + store);
+    else {
+      const errData = await res.json().catch(() => ({}));
+      showToast("Extraction failed: " + (errData.error || "Unknown error"), true);
+    }
+  } catch { showToast("Failed to start extraction", true); }
+}
+
+async function testEndpoints() {
+  const resultsEl = document.getElementById("test-results");
+  resultsEl.innerHTML = '<span class="spinner"></span> Running tests...';
+
+  const endpoints = [
+    { name: "Health", url: "/api/admin/cache-status", method: "GET" },
+    { name: "Nearby Stores", url: "/api/nearby-stores?zip=45432&radius=10", method: "GET" },
+    { name: "ALDI Deals", url: "/api/aldi/deals", method: "GET" },
+    { name: "Spoonacular Points", url: "/api/points", method: "GET" },
+  ];
+
+  const results = [];
+  for (const ep of endpoints) {
+    const start = Date.now();
+    try {
+      const res = await adminFetch(ep.url);
+      const elapsed = Date.now() - start;
+      results.push({ name: ep.name, ok: res && res.ok, status: res ? res.status : "ERR", time: elapsed });
+    } catch (err) {
+      results.push({ name: ep.name, ok: false, status: "ERR", time: 0 });
+    }
+  }
+
+  resultsEl.innerHTML = results.map(r => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="color:${r.ok ? 'var(--green-mid)' : 'var(--red)'}; font-weight:700">${r.ok ? "PASS" : "FAIL"}</span>
+      <span>${r.name}</span>
+      <span style="color:var(--muted);margin-left:auto">${r.time}ms</span>
+    </div>
+  `).join("");
+}
+
+async function loadServerInfo() {
+  const el = document.getElementById("server-info");
+  el.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await adminFetch("/api/admin/server-info");
+    if (!res) return;
+    const data = await res.json();
+    el.innerHTML = `
+      <div style="display:grid;gap:6px">
+        <div><strong>Uptime:</strong> ${data.uptime ? formatUptime(data.uptime) : "—"}</div>
+        <div><strong>Memory:</strong> ${data.memoryUsage ? (data.memoryUsage.rss / 1024 / 1024).toFixed(1) + " MB RSS" : (data.memory || "—")}</div>
+        <div><strong>Node:</strong> ${data.nodeVersion || data.node || "—"}</div>
+        <div><strong>Platform:</strong> ${data.platform || "—"}</div>
+        <div><strong>Environment:</strong> ${data.env || data.environment || "—"}</div>
+      </div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<span style="color:var(--red)">Failed to load: ${escHtml(err.message)}</span>`;
+  }
+}
+
+function formatUptime(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const parts = [];
+  if (d > 0) parts.push(d + "d");
+  if (h > 0) parts.push(h + "h");
+  parts.push(m + "m");
+  return parts.join(" ");
+}
+
+async function checkPoints() {
+  const el = document.getElementById("points-info");
+  el.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await adminFetch("/api/points");
+    if (!res) return;
+    const data = await res.json();
+    el.innerHTML = `
+      <div style="display:grid;gap:6px">
+        <div><strong>Used today:</strong> ${data.used ?? data.pointsUsed ?? "—"} / 200</div>
+        <div><strong>Remaining:</strong> ${data.remaining ?? (200 - (data.used ?? data.pointsUsed ?? 0))}</div>
+        <div><strong>Status:</strong> ${(data.used ?? data.pointsUsed ?? 0) >= 180 ?
+          '<span class="badge-pill badge-red">Near Limit</span>' :
+          '<span class="badge-pill badge-green">OK</span>'}</div>
+      </div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<span style="color:var(--red)">Failed to load: ${escHtml(err.message)}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+checkToken();
+</script>
+</body>
+</html>

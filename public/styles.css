@@ -373,6 +373,7 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 /* ── Mobile responsive ── */
 /* ── Mobile header fixes — prevent overlap ── */
 @media (max-width: 480px) {
+  .logo-tagline { display: none; }
   .landing-nav-inner { display: flex; padding: 10px 12px; }
   .nav-left { flex-shrink: 0; width: 40px; }
   .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }

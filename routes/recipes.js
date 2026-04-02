@@ -454,7 +454,7 @@ IMPORTANT ingredient type rules:
       }
     }
 
-    const recipes = (parsed.recipes || []).map((r, idx) => {
+    let recipes = (parsed.recipes || []).map((r, idx) => {
       const usedSaleItems = [];
       let totalSavings = 0;
       let saleCost = 0;

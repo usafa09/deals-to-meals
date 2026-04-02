@@ -243,15 +243,65 @@ const shuffledTips = [...COOKING_TIPS].sort(() => Math.random() - 0.5);
 let tipIdx = 0;
 function getNextTip() { const tip = shuffledTips[tipIdx % shuffledTips.length]; tipIdx++; return tip; }
 
+const MALE_CHEF_SVG = `<svg width="140" height="195" viewBox="0 0 140 195">
+  <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
+  <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
+  <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>
+  <line x1="58" y1="6" x2="58" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="70" y1="6" x2="70" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="82" y1="6" x2="82" y2="64" stroke="#ddd" stroke-width="1.5"/>
+  <ellipse cx="70" cy="8" rx="18" ry="7" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M44 68 Q70 74 96 68" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M52 78 Q58 72 64 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <path d="M76 78 Q82 72 88 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <path d="M56 90 Q70 100 84 90" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="50" y="104" width="40" height="56" rx="6" fill="white" stroke="black" stroke-width="3"/>
+  <circle cx="60" cy="116" r="2" fill="black"/><circle cx="80" cy="116" r="2" fill="black"/>
+  <circle cx="60" cy="128" r="2" fill="black"/><circle cx="80" cy="128" r="2" fill="black"/>
+  <circle cx="60" cy="140" r="2" fill="black"/><circle cx="80" cy="140" r="2" fill="black"/>
+  <line x1="70" y1="104" x2="70" y2="160" stroke="black" stroke-width="1.5"/>
+  <path d="M50 112 Q34 108 26 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>
+  <g class="chef-right-arm"><path d="M90 112 Q106 108 114 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/><circle cx="114" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/></g>
+  <circle cx="26" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M58 160 L52 186" stroke="black" stroke-width="4" stroke-linecap="round"/><path d="M82 160 L88 186" stroke="black" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="49" cy="188" rx="10" ry="5" fill="black"/><ellipse cx="91" cy="188" rx="10" ry="5" fill="black"/>
+</svg>`;
+
+const FEMALE_CHEF_SVG = `<svg width="140" height="195" viewBox="0 0 140 195">
+  <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
+  <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
+  <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>
+  <line x1="58" y1="6" x2="58" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="70" y1="6" x2="70" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="82" y1="6" x2="82" y2="64" stroke="#ddd" stroke-width="1.5"/>
+  <ellipse cx="70" cy="8" rx="18" ry="7" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M44 68 Q70 74 96 68" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M44 72 Q40 78 38 90 Q36 96 40 98" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <path d="M96 72 Q100 78 102 90 Q104 96 100 98" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <path d="M52 78 Q58 72 64 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <line x1="64" y1="76" x2="67" y2="73" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="63" y1="74" x2="66" y2="71" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M76 78 Q82 72 88 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  <line x1="88" y1="76" x2="91" y2="73" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="87" y1="74" x2="90" y2="71" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M56 90 Q70 100 84 90" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="50" y="104" width="40" height="56" rx="6" fill="white" stroke="black" stroke-width="3"/>
+  <circle cx="60" cy="116" r="2" fill="black"/><circle cx="80" cy="116" r="2" fill="black"/>
+  <circle cx="60" cy="128" r="2" fill="black"/><circle cx="80" cy="128" r="2" fill="black"/>
+  <circle cx="60" cy="140" r="2" fill="black"/><circle cx="80" cy="140" r="2" fill="black"/>
+  <line x1="70" y1="104" x2="70" y2="160" stroke="black" stroke-width="1.5"/>
+  <path d="M50 112 Q34 108 26 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>
+  <g class="chef-right-arm"><path d="M90 112 Q106 108 114 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/><circle cx="114" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/></g>
+  <circle cx="26" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/>
+  <path d="M58 160 L52 186" stroke="black" stroke-width="4" stroke-linecap="round"/><path d="M82 160 L88 186" stroke="black" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="49" cy="188" rx="10" ry="5" fill="black"/><ellipse cx="91" cy="188" rx="10" ry="5" fill="black"/>
+</svg>`;
+
 const CHEF_ACTIVITIES = [
-  { cls: "chef-stir", text: "Stirring the pot\u2026" },
-  { cls: "chef-chop", text: "Chopping ingredients\u2026" },
-  { cls: "chef-taste", text: "Tasting for flavor\u2026" },
-  { cls: "chef-flip", text: "Flipping with flair\u2026" },
-  { cls: "chef-season", text: "Adding seasoning\u2026" },
-  { cls: "chef-stir", text: "Simmering the sauce\u2026" },
-  { cls: "chef-dance", text: "Doing a happy dance\u2026" },
-  { cls: "chef-read", text: "Reading the recipe\u2026" },
+  { cls: "chef-anim-stir", text: "Stirring the pot\u2026" },
+  { cls: "chef-anim-chop", text: "Chopping ingredients\u2026" },
+  { cls: "chef-anim-taste", text: "Tasting for flavor\u2026" },
+  { cls: "chef-anim-season", text: "Adding seasoning\u2026" },
+  { cls: "chef-anim-flip", text: "Flipping with flair\u2026" },
+  { cls: "chef-anim-stir", text: "Simmering the sauce\u2026" },
+  { cls: "chef-anim-dance", text: "Doing a happy dance\u2026" },
+  { cls: "chef-anim-thumbs", text: "Looking good!\u2026" },
 ];
 let chefIdx = 0;
 
@@ -271,12 +321,16 @@ function showCookingLoading() {
   const textEl = document.getElementById("loadingText");
   const subEl = document.getElementById("loadingSub");
   if (spinner) spinner.style.display = "none";
-  if (chef) chef.style.display = "block";
+  // Pick random chef
+  if (chef) {
+    chef.innerHTML = Math.random() < 0.5 ? MALE_CHEF_SVG : FEMALE_CHEF_SVG;
+    chef.style.display = "block";
+  }
   subEl.textContent = "Our AI chef is crafting your recipes";
   chefIdx = 0;
   const updateChef = () => {
     const a = CHEF_ACTIVITIES[chefIdx % CHEF_ACTIVITIES.length];
-    if (chef) { chef.className = "chef-container " + a.cls; }
+    if (chef) chef.className = a.cls;
     textEl.textContent = a.text;
     chefIdx++;
   };
@@ -304,7 +358,7 @@ function hideLoading() {
   const chef = document.getElementById("chefContainer");
   const tipEl = document.getElementById("loadingTip");
   if (spinner) spinner.style.display = "";
-  if (chef) { chef.style.display = "none"; chef.className = "chef-container"; }
+  if (chef) { chef.style.display = "none"; chef.className = ""; chef.innerHTML = ""; }
   if (tipEl) tipEl.textContent = "";
 }
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }

@@ -200,7 +200,8 @@ router.post("/api/recipes/search", async (req, res) => {
 // ══ CLAUDE AI RECIPE GENERATION ══════════════════════════════════════════════
 
 router.post("/api/recipes/ai", async (req, res) => {
-  const { ingredients, style, diets, wantItems, haveItems, offset } = req.body;
+  const { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
+  const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -315,13 +316,22 @@ router.post("/api/recipes/ai", async (req, res) => {
       "Slow Cooker": "Dump-and-go crockpot recipes. 6-8 hour cook time, minimal prep. Think pulled pork, chicken tacos, soups, stews, pot roast. Set it and forget it.",
     };
 
-    const styleDesc = styleGuide[style] || "Budget-friendly family meals.";
+    const styleDesc = styleGuide[style] || "";
+    const MEAL_TYPE_GUIDES = {
+      "Breakfast": "MEAL TYPE: BREAKFAST. Only suggest traditional breakfast foods: eggs, pancakes, oatmeal, toast, breakfast burritos, smoothie bowls, french toast, omelets, frittatas, hash browns, breakfast sandwiches, waffles, bacon & eggs, yogurt parfaits. Do NOT suggest desserts, brownies, cookies, candy, marshmallows, cake, or pie. Every recipe must be something people eat for breakfast.",
+      "Lunch": "MEAL TYPE: LUNCH. Suggest lunch-appropriate foods: sandwiches, wraps, salads, soups, burgers, quesadillas, grain bowls, pasta salads. Do NOT suggest desserts or heavy dinner-only dishes.",
+      "Dinner": "MEAL TYPE: DINNER. Suggest dinner-appropriate foods: main courses with protein and sides, casseroles, stir-fries, pasta dishes, roasts, tacos, soups, stews. Do NOT suggest desserts or breakfast foods.",
+      "Snack": "MEAL TYPE: SNACK. Suggest snack-sized items: dips, trail mix, energy bites, veggie trays, popcorn variations, cheese plates, bruschetta.",
+      "Dessert": "MEAL TYPE: DESSERT. Suggest sweet treats: cookies, brownies, cakes, pies, ice cream, pudding, fruit desserts.",
+      "Appetizer": "MEAL TYPE: APPETIZER. Suggest starters: bruschetta, dips, sliders, spring rolls, stuffed mushrooms, cheese boards.",
+    };
+    const mealTypeGuide = MEAL_TYPE_GUIDES[effectiveMealType] || MEAL_TYPE_GUIDES["Dinner"];
     const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/8)+1}. Generate 8 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
 
     const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas based on what's on sale this week.
 
-RECIPE STYLE: ${style}
-${styleDesc}
+${mealTypeGuide}
+${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
 HERE ARE THE ITEMS ON SALE THIS WEEK:
 ${saleItemsList}
@@ -600,6 +610,17 @@ IMPORTANT ingredient type rules:
         allIngredients: processedIngredients,
       };
     });
+
+    // Post-filter: remove inappropriate recipes for the meal type
+    const BREAKFAST_BLACKLIST = ["brownie","cake","cookie","candy","marshmallow","fudge","pie","cupcake","ice cream","sundae","cheesecake","tart","truffle","s'more","frosting","pudding"];
+    const DINNER_BLACKLIST = ["smoothie","cereal","granola","overnight oats","parfait"];
+    const beforeFilter = recipes.length;
+    if (effectiveMealType === "Breakfast") {
+      recipes = recipes.filter(r => !BREAKFAST_BLACKLIST.some(w => r.title.toLowerCase().includes(w)));
+    } else if (effectiveMealType === "Lunch" || effectiveMealType === "Dinner") {
+      recipes = recipes.filter(r => !BREAKFAST_BLACKLIST.some(w => r.title.toLowerCase().includes(w)));
+    }
+    if (beforeFilter !== recipes.length) console.log(`Meal type filter: removed ${beforeFilter - recipes.length} inappropriate recipes for ${effectiveMealType}`);
 
     recipes.sort((a, b) => b.totalSavings - a.totalSavings);
 

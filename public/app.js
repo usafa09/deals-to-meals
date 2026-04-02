@@ -264,7 +264,20 @@ let state = {
   selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
 };
 
+// Clone app screens from <template> on first use (keeps them out of static HTML for crawlers)
+var _appScreensLoaded = false;
+function ensureAppScreens() {
+  if (_appScreensLoaded) return;
+  const tpl = document.getElementById("appScreensTemplate");
+  const container = document.getElementById("appScreens");
+  if (tpl && container && !container.children.length) {
+    container.appendChild(tpl.content.cloneNode(true));
+  }
+  _appScreensLoaded = true;
+}
+
 function goTo(step) {
+  ensureAppScreens();
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(`screen${step}`).classList.add("active");
   // Toggle landing nav vs app header, and show/hide app screens container

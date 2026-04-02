@@ -149,7 +149,7 @@ app.get('/.well-known/security.txt', (req, res) => {
 });
 app.get(['/profile.html', '/admin.html'], (req, res, next) => {
   res.set('Cache-Control', 'no-store');
-  res.set('X-Robots-Tag', 'noindex');
+  res.set('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
 app.use(express.static(join(__dirname, "public")));

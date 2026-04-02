@@ -26,7 +26,13 @@ const app = express();
 app.use(helmet({
   contentSecurityPolicy: false, // CSP would break inline scripts on other pages
   crossOriginEmbedderPolicy: false,
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 // ── CORS — restrict to known origins ────────────────────────────────────────
 const allowedOrigins = [
@@ -124,6 +130,12 @@ app.use("/api/leaderboard", gamificationLimiter);
 app.use("/api/challenges", gamificationLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────
+app.use('/.well-known', express.static(join(__dirname, 'public', '.well-known')));
+app.get(['/profile.html', '/admin.html'], (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Robots-Tag', 'noindex');
+  next();
+});
 app.use(express.static(join(__dirname, "public")));
 
 // ── Mount route modules ─────────────────────────────────────────────────────

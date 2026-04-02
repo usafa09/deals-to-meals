@@ -1,0 +1,4 @@
+Contact: mailto:security@dishcount.co
+Preferred-Languages: en
+Canonical: https://dishcount.co/.well-known/security.txt
+Expires: 2027-04-02T00:00:00.000Z

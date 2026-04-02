@@ -37,7 +37,11 @@
       "Bash(git reflog:*)",
       "Bash(git gc:*)",
       "Bash(desserts, brownies, cookies, candy, marshmallows\":*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(curl -sL -o public/images/how-choose-stores.jpg \"https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400&h=250&fit=crop\")",
+      "Bash(curl -sL -o public/images/how-browse-deals.jpg \"https://images.pexels.com/photos/16211537/pexels-photo-16211537.jpeg?w=400&h=250&fit=crop\")",
+      "Bash(curl -sL -o public/images/how-get-recipes.jpg \"https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&h=250&fit=crop\")",
+      "Bash(curl -sL -o public/images/og-hero.jpg \"https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&h=630&fit=crop\")"
     ]
   }
 }

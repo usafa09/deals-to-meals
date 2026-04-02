@@ -105,7 +105,7 @@ const RECIPE_STYLES = [
   { id:"Healthy & Light", icon:"🥗", label:"Healthy & Light", sub:"Under 500 cal/serving" },
   { id:"Slow Cooker", icon:"🫕", label:"Slow Cooker", sub:"Set it and forget it" },
 ];
-const DIET_FILTERS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Paleo","Low Calorie","High Fiber","Pescetarian","Mediterranean","Halal","Kosher"];
+const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie"];
 
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
@@ -773,7 +773,38 @@ function lazyLoadRecipeImages() {
 
 // ── Recipe Modal ──────────────────────────────────────────────────────────────
 function getCartLabel(){return"📋 Shopping List";}
-function openModal(i){state.currentRecipe={...state.recipes[i],index:i};renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
+let modalServings = 4;
+let modalOrigServings = 4;
+
+function formatAmount(n) {
+  if (n <= 0) return "";
+  const frac = n - Math.floor(n);
+  const whole = Math.floor(n);
+  let fracStr = "";
+  if (frac >= 0.2 && frac <= 0.3) fracStr = "\u00BC";
+  else if (frac >= 0.3 && frac <= 0.4) fracStr = "\u2153";
+  else if (frac >= 0.45 && frac <= 0.55) fracStr = "\u00BD";
+  else if (frac >= 0.6 && frac <= 0.7) fracStr = "\u2154";
+  else if (frac >= 0.7 && frac <= 0.8) fracStr = "\u00BE";
+  else if (frac > 0.05) fracStr = frac.toFixed(1).replace("0.", ".");
+  if (whole > 0 && fracStr) return whole + " " + fracStr;
+  if (whole > 0) return String(whole);
+  if (fracStr) return fracStr;
+  return n.toFixed(1).replace(/\.0$/, "");
+}
+
+function adjustServings(delta) {
+  modalServings = Math.max(1, Math.min(20, modalServings + delta));
+  document.getElementById("servingsCount").textContent = modalServings;
+  // Rescale ingredients
+  const ratio = modalServings / modalOrigServings;
+  document.querySelectorAll("[data-orig-amount]").forEach(el => {
+    const orig = parseFloat(el.dataset.origAmount);
+    if (orig > 0) el.textContent = formatAmount(orig * ratio);
+  });
+}
+
+function openModal(i){state.currentRecipe={...state.recipes[i],index:i};modalServings=state.currentRecipe.servings||4;modalOrigServings=modalServings;renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
 function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("modalOverlay").classList.contains("show"))closeModal();});
@@ -807,7 +838,17 @@ function renderModal(r){
         return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
       ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">🎟️ Digital Coupons</div><div style="display:flex;flex-direction:column;gap:8px">${r.couponsToClip.map(c=>`<div class="coupon-card"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px">${c.clipped?"✅":"🎟️"} ${escapeHtml(c.description)}</span><span style="font-weight:800;color:var(--orange);white-space:nowrap">-$${parseFloat(c.savings).toFixed(2)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${c.clipped?"Already clipped":"Clip in Kroger app to save"}</div></div>`).join("")}</div></div>`:""}
-      <div class="modal-section"><div class="modal-section-title">📋 All Ingredients</div><div class="ing-list">${(r.allIngredients||[]).map((ing,idx)=>{
+      <div class="modal-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="modal-section-title" style="margin-bottom:0">📋 All Ingredients</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:13px;color:var(--muted)">Servings:</span>
+            <button onclick="adjustServings(-1)" style="width:32px;height:32px;border-radius:50%;border:2px solid var(--green-mid);background:white;color:var(--green-dark);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center">&minus;</button>
+            <span id="servingsCount" style="font-size:20px;font-weight:800;color:var(--green-dark);min-width:24px;text-align:center">${r.servings||4}</span>
+            <button onclick="adjustServings(1)" style="width:32px;height:32px;border-radius:50%;border:2px solid var(--green-mid);background:white;color:var(--green-dark);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+          </div>
+        </div>
+        <div class="ing-list">${(r.allIngredients||[]).map((ing,idx)=>{
         const type=ing.type||"PANTRY";
         const isOnSale=type==="SALE"&&ing.onSale;
         const isOnHand=type==="ON_HAND";
@@ -817,7 +858,11 @@ function renderModal(r){
         const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
         const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
         const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
-        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${escapeHtml(ing.name)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
+        // Parse leading amount for scaling
+        const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
+        const origAmt = amtMatch ? eval(amtMatch[1].replace(/(\d+)\/(\d+)/,"$1/$2")) : 0;
+        const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
       <div class="modal-actions">

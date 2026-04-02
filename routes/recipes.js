@@ -66,52 +66,27 @@ router.post("/api/recipes/search", async (req, res) => {
     }
 
     const typeStr = MEAL_TYPE_MAP[mealType] || "main course";
-    const isKidFriendly = diets?.includes("Kid Friendly");
     const dietStr = diets?.length
-      ? diets.filter(d => d !== "Kid Friendly" && DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
+      ? diets.filter(d => DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
       : "";
 
-    let searchParams;
-
-    if (isKidFriendly) {
-      searchParams = new URLSearchParams({
-        apiKey,
-        query: KID_QUERIES[mealType] || "pasta chicken rice",
-        type: typeStr,
-        number: "50",
-        offset: String(offset),
-        maxReadyTime: "45",
-        sort: "popularity",
-        sortDirection: "desc",
-        addRecipeInformation: "true",
-        fillIngredients: "true",
-        instructionsRequired: "true",
-        excludeIngredients: "alcohol,wine,beer,chili,cayenne,jalapeno,sriracha,wasabi,anchovies,liver,habanero",
-      });
-    } else {
-      const skipBrandWords = new Set(["appleton","farms","happy","fremont","fish","simply","nature","carlini","cattlemens","ranch","southern","grove","stonemill","bakers","corner","specially","selected","park","street","deli","casa","mamita","mama","cozzis","millville","brookdale","reggano","savoritz","emporium","friendly","barissimo","choceur","clancys","moser","roth","elevation","health","ade","northern","catch","poppi","bremer","never","any","market","kitchen","aldi"]);
-      const cleanIngName = (name) => name.toLowerCase().replace(/[^a-z\s]/g," ").split(" ").filter(w => w.length > 2 && !skipBrandWords.has(w)).slice(0, 5).join(" ");
-      const ingredientStr = ingredients.slice(0, 20).map(i => cleanIngName(i.name)).join(",");
-      searchParams = new URLSearchParams({
-        apiKey,
-        includeIngredients: ingredientStr,
-        type: typeStr,
-        number: "50",
-        offset: String(offset),
-        sort: "max-used-ingredients",
-        sortDirection: "desc",
-        addRecipeInformation: "true",
-        fillIngredients: "true",
-        instructionsRequired: "true",
-      });
-      if (dietStr) searchParams.set("diet", dietStr);
-      const excludeSet = new Set();
-      if (diets?.includes("Halal")) ["pork","bacon","lard","gelatin","alcohol","wine","beer"].forEach(i => excludeSet.add(i));
-      if (diets?.includes("Kosher")) ["pork","shellfish","bacon","lard"].forEach(i => excludeSet.add(i));
-      if (excludeSet.size > 0) searchParams.set("excludeIngredients", [...excludeSet].join(","));
-      if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
-      if (diets?.includes("High Fiber")) searchParams.set("minFiber", "8");
-    }
+    const skipBrandWords = new Set(["appleton","farms","happy","fremont","fish","simply","nature","carlini","cattlemens","ranch","southern","grove","stonemill","bakers","corner","specially","selected","park","street","deli","casa","mamita","mama","cozzis","millville","brookdale","reggano","savoritz","emporium","friendly","barissimo","choceur","clancys","moser","roth","elevation","health","ade","northern","catch","poppi","bremer","never","any","market","kitchen","aldi"]);
+    const cleanIngName = (name) => name.toLowerCase().replace(/[^a-z\s]/g," ").split(" ").filter(w => w.length > 2 && !skipBrandWords.has(w)).slice(0, 5).join(" ");
+    const ingredientStr = ingredients.slice(0, 20).map(i => cleanIngName(i.name)).join(",");
+    const searchParams = new URLSearchParams({
+      apiKey,
+      includeIngredients: ingredientStr,
+      type: typeStr,
+      number: "50",
+      offset: String(offset),
+      sort: "max-used-ingredients",
+      sortDirection: "desc",
+      addRecipeInformation: "true",
+      fillIngredients: "true",
+      instructionsRequired: "true",
+    });
+    if (dietStr) searchParams.set("diet", dietStr);
+    if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
 
     await addDailyPoints(POINTS_PER_SEARCH);
     const updatedPoints = await getDailyPoints();
@@ -233,10 +208,6 @@ router.post("/api/recipes/ai", async (req, res) => {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
         exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","fish","seafood","crab","lobster","clam","mussel","anchov"]
       },
-      "Vegan": {
-        rule: "VEGAN: NO animal products whatsoever. No meat, fish, dairy, eggs, butter, cheese, cream, honey.",
-        exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","fish","seafood","milk","cheese","butter","yogurt","cream","egg","honey","whey","casein","gelatin","lard"]
-      },
       "Gluten-Free": {
         rule: "GLUTEN-FREE: No wheat, barley, rye, or regular pasta/bread/flour. Use rice, potatoes, corn, gluten-free alternatives.",
         exclude: ["bread","pasta","spaghetti","noodle","flour tortilla","cracker","cookie","cake","pie crust","croissant","bagel","muffin","pancake mix","biscuit","pretzel","wheat","barley","rye","couscous"]
@@ -245,29 +216,7 @@ router.post("/api/recipes/ai", async (req, res) => {
         rule: "DAIRY-FREE: No milk, cheese, butter, cream, yogurt, sour cream, ice cream, or any dairy product.",
         exclude: ["milk","cheese","butter","yogurt","cream","sour cream","ice cream","whipped cream","half and half","cottage cheese","cream cheese"]
       },
-      "Keto": {
-        rule: "KETO: Very low carb (under 20g net carbs per serving). No bread, pasta, rice, potatoes, sugar, corn, or beans.",
-        exclude: ["bread","pasta","rice","potato","sugar","corn","beans","cereal","oatmeal","flour","tortilla","chip","cracker","juice","soda"]
-      },
-      "Paleo": {
-        rule: "PALEO: No grains, dairy, legumes, refined sugar, or processed foods.",
-        exclude: ["bread","pasta","rice","cheese","milk","yogurt","butter","beans","lentil","peanut","soy","corn","cereal","oatmeal","sugar"]
-      },
       "Low Calorie": { rule: "LOW CALORIE: Each serving must be under 500 calories. Lean proteins, lots of vegetables, minimal oil/butter/cheese.", exclude: [] },
-      "High Fiber": { rule: "HIGH FIBER: Each serving should have 8+ grams of fiber. Prioritize beans, lentils, whole grains, vegetables.", exclude: [] },
-      "Pescetarian": {
-        rule: "PESCETARIAN: No meat or poultry. Fish and seafood ARE allowed. No chicken, beef, pork, turkey, bacon, ham, sausage.",
-        exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat"]
-      },
-      "Mediterranean": { rule: "MEDITERRANEAN: Focus on olive oil, fish, whole grains, vegetables, legumes, nuts. Limit red meat.", exclude: [] },
-      "Halal": {
-        rule: "HALAL: No pork, bacon, ham, lard, or alcohol/wine in cooking.",
-        exclude: ["pork","bacon","ham","lard","pepperoni","salami","prosciutto"]
-      },
-      "Kosher": {
-        rule: "KOSHER: No pork or shellfish. Do not mix meat and dairy in the same recipe.",
-        exclude: ["pork","bacon","ham","shrimp","crab","lobster","clam","mussel","oyster","scallop"]
-      },
     };
 
     let filteredIngredients = [...ingredients];

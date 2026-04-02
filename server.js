@@ -40,6 +40,17 @@ app.use(helmet({
 }));
 app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' https://images.pexels.com https://images.unsplash.com https://www.google-analytics.com data: blob:",
+    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://api.kroger.com https://www.google-analytics.com https://analytics.google.com",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'"
+  ].join('; '));
   next();
 });
 

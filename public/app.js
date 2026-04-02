@@ -33,8 +33,8 @@ function updateAuthUI(session) {
   if (!session?.user) {
     setText("profileBtnText", "Sign In");
     setText("landingSigninBtn", "Sign In");
-    setHref("profileBtn", "/login.html");
-    setHref("landingSigninBtn", "/login.html");
+    setHref("profileBtn", "/profile.html");
+    setHref("landingSigninBtn", "/profile.html");
     const btn = document.getElementById("profileBtn"); if (btn) btn.classList.remove("logged-in");
     return;
   }
@@ -812,8 +812,15 @@ function renderSaleItems() {
     <button class="sale-filter-btn ${state.saleCategoryFilter==='all'?'active':''}" onclick="filterSaleCategory('all')">All</button>
     ${catGroups.map(c=>`<button class="sale-filter-btn ${state.saleCategoryFilter===c?'active':''}" onclick="filterSaleCategory('${escapeHtml(c).replace(/'/g,"&#039;")}')">${escapeHtml(c)}</button>`).join("")}`;
 
+  // Paginate: show only first N deals
+  const DEALS_PER_PAGE = 50;
+  if (!state.dealsDisplayed) state.dealsDisplayed = DEALS_PER_PAGE;
+  const visibleDeals = deals.slice(0, state.dealsDisplayed);
+
   document.getElementById("dealsTitle").textContent=`This week's deals (${deals.length})`;
-  document.getElementById("saleGrid").innerHTML=deals.map(d=>{
+  const dealsCountEl = document.getElementById("dealsShowing");
+  if (dealsCountEl) dealsCountEl.textContent = deals.length > DEALS_PER_PAGE ? `Showing ${Math.min(state.dealsDisplayed, deals.length)} of ${deals.length} deals` : "";
+  document.getElementById("saleGrid").innerHTML=visibleDeals.map(d=>{
     const ds=state.dealStates[d.id]||"";
     const cls=ds==="include"?"include":ds==="exclude"?"exclude":"";
     const badge=ds==="include"?"✓ Include":ds==="exclude"?"✗ Exclude":"";
@@ -834,11 +841,23 @@ function renderSaleItems() {
         <div class="sale-card-store">${escapeHtml(store)}${d.adSourceUrl?` · <a href="${escapeHtml(d.adSourceUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
         ${ds==="include"?`<button onclick="event.stopPropagation();addDealToList('${escapeHtml(d.id)}')" style="margin-top:4px;padding:3px 8px;border:1px solid var(--green-mid);border-radius:6px;background:var(--green-light);color:var(--green-dark);font-size:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🛒 Add to List</button>`:""}
       </div></div>`;}).join("");
+
+  // Show More button
+  const showMoreEl = document.getElementById("dealsShowMore");
+  if (showMoreEl) {
+    if (state.dealsDisplayed < deals.length) {
+      showMoreEl.style.display = "";
+      showMoreEl.textContent = `Show More Deals (${deals.length - state.dealsDisplayed} remaining)`;
+    } else {
+      showMoreEl.style.display = "none";
+    }
+  }
 }
+function showMoreDeals() { state.dealsDisplayed = (state.dealsDisplayed || 50) + 50; renderSaleItems(); }
 function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}
 function addDealToList(id){const d=state.deals.find(x=>x.id===id);if(!d)return;const added=slAddItem({name:d.name,price:d.salePrice||"",store:d.storeName||d.source||"",source:"deal",recipeTitle:"",upc:d.upc||"",category:d.category||""});if(added)showToast("Added to list!","success");else showToast("Already in list","success");}
-function filterSaleStore(s){state.saleStoreFilter=s;renderSaleItems();}
-function filterSaleCategory(c){state.saleCategoryFilter=c;renderSaleItems();}
+function filterSaleStore(s){state.saleStoreFilter=s;state.dealsDisplayed=50;renderSaleItems();}
+function filterSaleCategory(c){state.saleCategoryFilter=c;state.dealsDisplayed=50;renderSaleItems();}
 
 // ── Screen 5: Meal + Filters ──────────────────────────────────────────────────
 function renderMealTypes(){

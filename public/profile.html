@@ -133,6 +133,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <noscript><style>#staticAuthForm{display:block!important}</style></noscript>
 </head>
 <body>
 
@@ -160,7 +161,7 @@
 <div class="toast" id="toast"></div>
 <main id="main" style="padding-top:80px">
   <!-- Static auth form visible to crawlers and before JS loads -->
-  <div id="staticAuthForm">
+  <div id="staticAuthForm" style="display:none">
     <div style="max-width:400px;margin:60px auto;padding:24px;text-align:center">
       <h2 style="font-family:'Outfit',sans-serif;font-size:24px;color:#2d6a4f;margin-bottom:8px">Welcome to Dishcount</h2>
       <p style="color:#888;margin-bottom:24px">Sign in or create an account to save recipes, build shopping lists, and track your savings.</p>
@@ -203,16 +204,6 @@ let savedRecipes = [];
 let savedLists = [];
 let activeTab    = "signin";
 
-// Wire up static auth form (visible before JS renders the full UI)
-document.getElementById("staticSignInBtn")?.addEventListener("click", async function() {
-  const email = document.getElementById("staticEmail")?.value;
-  const pass = document.getElementById("staticPassword")?.value;
-  if (!email || !pass) return;
-  this.textContent = "Signing in..."; this.disabled = true;
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) { this.textContent = "Sign In"; this.disabled = false; showToast(error.message, "error"); }
-});
-function hideStaticAuth() { const el = document.getElementById("staticAuthForm"); if (el) el.style.display = "none"; }
 
 function showToast(msg, type="success") {
   const t = document.getElementById("toast");

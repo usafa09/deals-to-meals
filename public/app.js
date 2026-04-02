@@ -89,6 +89,14 @@ sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
   }
 })();
 
+const MEAL_TYPES = [
+  { id:"Breakfast", icon:"🍳", label:"Breakfast" },
+  { id:"Lunch", icon:"🥪", label:"Lunch" },
+  { id:"Dinner", icon:"🍽️", label:"Dinner" },
+  { id:"Snack", icon:"🍿", label:"Snack" },
+  { id:"Dessert", icon:"🍰", label:"Dessert" },
+  { id:"Appetizer", icon:"🥗", label:"Appetizer" },
+];
 const RECIPE_STYLES = [
   { id:"Quick Weeknight", icon:"🏃", label:"Quick Weeknight", sub:"30 min or less" },
   { id:"Family-Friendly", icon:"👨‍👩‍👧‍👦", label:"Family-Friendly", sub:"Kids will eat it" },
@@ -102,7 +110,7 @@ const DIET_FILTERS = ["Vegetarian","Vegan","Gluten-Free","Dairy-Free","Keto","Pa
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
-  selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
+  selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
 };
 
 function goTo(step) {
@@ -120,7 +128,7 @@ function goTo(step) {
   }
   renderProgress(step);
   window.scrollTo({ top:0, behavior:"smooth" });
-  if (step === 5) { renderStyleGrid(); renderFilterGrid(); }
+  if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); }
 }
 function renderProgress(step) {
   document.getElementById("progressBar").innerHTML = Array.from({length:6},(_,i) => {
@@ -129,7 +137,7 @@ function renderProgress(step) {
   }).join("");
 }
 function resetApp() {
-  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
   document.getElementById("zipInput").value = "";
   document.getElementById("zipBtn").disabled = true;
 }
@@ -655,8 +663,12 @@ function filterSaleStore(s){state.saleStoreFilter=s;renderSaleItems();}
 function filterSaleCategory(c){state.saleCategoryFilter=c;renderSaleItems();}
 
 // ── Screen 5: Meal + Filters ──────────────────────────────────────────────────
-function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${m.id.replace(/'/g,"\\'")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${m.label}</div><div style="font-size:11px;color:#999;margin-top:2px">${m.sub}</div></div>`).join("");document.getElementById("findRecipesBtn").disabled=!state.selectedStyle;}
-function selectStyle(id){state.selectedStyle=id;document.querySelectorAll(".meal-card").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");document.getElementById("findRecipesBtn").disabled=false;}
+function renderMealTypes(){
+  document.getElementById("mealTypeGrid").innerHTML=MEAL_TYPES.map(m=>`<div class="meal-card${state.selectedMealType===m.id?' selected':''}" onclick="selectMealType('${m.id}')" style="text-align:center;padding:18px 8px"><div class="meal-icon" style="font-size:32px">${m.icon}</div><div class="meal-label" style="font-size:15px">${m.label}</div></div>`).join("");
+}
+function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("findRecipesBtn").disabled=false;}
+function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${m.id.replace(/'/g,"\\'")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${m.label}</div><div style="font-size:11px;color:#999;margin-top:2px">${m.sub}</div></div>`).join("");}
+function selectStyle(id){state.selectedStyle=id;document.querySelectorAll("[id^='style-']").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");}
 function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${f}')">${f}</div>`).join("");}
 function toggleFilter(el,f){el.classList.toggle("selected");const i=state.selectedDiets.indexOf(f);if(i>-1)state.selectedDiets.splice(i,1);else state.selectedDiets.push(f);}
 
@@ -671,7 +683,7 @@ function getRecipePayload(offset) {
   const haveItems=(document.getElementById("haveItems")?.value||"").trim();
   return {
     ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
-    style:state.selectedStyle, diets:state.selectedDiets, wantItems, haveItems, offset:offset||0
+    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, offset:offset||0
   };
 }
 

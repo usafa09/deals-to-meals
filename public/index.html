@@ -316,16 +316,18 @@
   <!-- SCREEN 5: RECIPE STYLE + FILTERS -->
   <div class="screen" id="screen5">
     <span class="back" onclick="goTo(4)">&#8592; Change Items</span>
-    <h2 class="screen-title">What kind of meals?</h2>
-    <p class="screen-sub" id="dealsLoadedMsg">Pick a recipe style and we'll create meals from your deals</p>
+    <h2 class="screen-title">What kind of meal?</h2>
+    <p class="screen-sub" id="dealsLoadedMsg">Choose a meal type and we'll create recipes from your deals</p>
 
-    <div class="section-title" style="margin-top:0">Recipe Style</div>
+    <div class="meal-grid" id="mealTypeGrid" style="margin-bottom:20px"></div>
+
+    <div class="section-title" style="margin-top:0">Recipe Style <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
     <div class="meal-grid" id="styleGrid"></div>
 
-    <div class="section-title">Dietary Restrictions <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <div class="section-title">Dietary Preferences <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
     <div class="filter-grid" id="filterGrid"></div>
 
-    <button class="btn btn-primary" id="findRecipesBtn" disabled onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
+    <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
   </div>
 
   <!-- SCREEN 6: RECIPE GRID -->

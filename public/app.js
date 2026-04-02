@@ -1014,7 +1014,7 @@ function renderModal(r){
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
-      <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. AI-generated recipes may not account for all dietary needs.</p>
+      <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
         <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>

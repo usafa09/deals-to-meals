@@ -45,7 +45,10 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} Content-Type: %{content_type}\" http://localhost:5000/sitemap.xml)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} Content-Type: %{content_type}\" http://localhost:5000/.well-known/security.txt)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} Content-Type: %{content_type}\" http://localhost:5000/robots.txt)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(curl -sI http://localhost:5000/sitemap.xml)",
+      "Bash(curl -sI http://localhost:5000/.well-known/security.txt)",
+      "Bash(curl -sI http://localhost:5000/robots.txt)"
     ]
   }
 }

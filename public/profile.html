@@ -234,10 +234,19 @@ async function initApp() {
       await loadProfileData();
       renderProfile();
     } else {
+      // No session — redirect to login unless this is an OAuth callback
+      if (!window.location.hash.includes('access_token')) {
+        window.location.href = '/login.html';
+        return;
+      }
       renderAuth();
     }
   } catch (e) {
     console.error("Session check failed:", e);
+    if (!window.location.hash.includes('access_token')) {
+      window.location.href = '/login.html';
+      return;
+    }
     renderAuth();
   }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { supabase, getUser } from "../lib/utils.js";
-import { BADGES, LEVELS, getLevelForXP, getNextLevel } from "../lib/badges.js";
+import { BADGES, LEVELS, getLevelForXP, getNextLevel, getWeeklyChallenges, getChallengeProgress, SAVINGS_MILESTONES } from "../lib/badges.js";
 
 const router = Router();
 
@@ -98,8 +98,26 @@ export async function trackStat(userId, event, data = {}) {
     switch (event) {
       case "recipe_generated":
         updates.recipes_generated = (stats.recipes_generated || 0) + (data.count || 1);
-        if (data.savings) updates.total_savings = parseFloat(stats.total_savings || 0) + parseFloat(data.savings);
-        if (data.savings && parseFloat(data.savings) >= 10) updates.max_single_savings = Math.max(stats.max_single_savings || 0, parseFloat(data.savings));
+        if (data.savings) {
+          updates.total_savings = parseFloat(stats.total_savings || 0) + parseFloat(data.savings);
+          // Reset weekly savings on new week
+          const currentWeekId = new Date().toISOString().slice(0, 10);
+          if (stats.weekly_savings_reset !== currentWeekId.slice(0, 7)) {
+            updates.weekly_savings = parseFloat(data.savings);
+            updates.weekly_savings_reset = currentWeekId.slice(0, 7);
+          } else {
+            updates.weekly_savings = parseFloat(stats.weekly_savings || 0) + parseFloat(data.savings);
+          }
+          if (parseFloat(data.savings) >= 10) updates.max_single_savings = Math.max(stats.max_single_savings || 0, parseFloat(data.savings));
+        }
+        // Track meal type counts
+        const mt = (data.mealType || "").toLowerCase();
+        if (mt.includes("breakfast") || mt.includes("quick weeknight")) updates.breakfast_count = (stats.breakfast_count || 0) + (data.count || 1);
+        if (mt.includes("dinner") || mt.includes("comfort") || mt.includes("slow cooker")) updates.dinner_count = (stats.dinner_count || 0) + (data.count || 1);
+        if (mt.includes("lunch") || mt.includes("meal prep")) updates.lunch_count = (stats.lunch_count || 0) + (data.count || 1);
+        if (data.diets?.length) updates.diet_recipe_count = (stats.diet_recipe_count || 0) + (data.count || 1);
+        // Deal hunter score
+        if (data.dealHunterPercent >= 50) updates.deal_hunter_achieved = true;
         break;
       case "recipe_saved":
         updates.recipes_saved = (stats.recipes_saved || 0) + 1;
@@ -178,6 +196,51 @@ router.get("/api/founding-spots", async (req, res) => {
     const claimed = await getFoundingCount();
     res.json({ total: FOUNDING_LIMIT, claimed, remaining: Math.max(0, FOUNDING_LIMIT - claimed) });
   } catch (e) { res.json({ total: FOUNDING_LIMIT, claimed: 0, remaining: FOUNDING_LIMIT }); }
+});
+
+// Simple zip → city lookup (top US zips)
+const ZIP_CITIES = {"10001":"New York, NY","90210":"Beverly Hills, CA","60601":"Chicago, IL","77001":"Houston, TX","30301":"Atlanta, GA","45432":"Dayton, OH","80841":"Colorado Springs, CO","98101":"Seattle, WA","48201":"Detroit, MI","33101":"Miami, FL","85001":"Phoenix, AZ","97201":"Portland, OR","55401":"Minneapolis, MN","27601":"Raleigh, NC","84101":"Salt Lake City, UT","32801":"Orlando, FL","15201":"Pittsburgh, PA","75201":"Dallas, TX","02101":"Boston, MA","19101":"Philadelphia, PA"};
+function zipToCity(zips) {
+  if (!zips?.length) return "Unknown";
+  // Use most-searched zip
+  const counts = {};
+  zips.forEach(z => { counts[z] = (counts[z]||0)+1; });
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
+  return ZIP_CITIES[top] || (top ? `Near ${top}` : "Unknown");
+}
+
+// Leaderboard — public
+router.get("/api/leaderboard", async (req, res) => {
+  try {
+    const { data } = await supabase.from("user_stats").select("weekly_savings, level, streak_weeks, zip_codes_searched").order("weekly_savings", { ascending: false }).limit(20);
+    const board = (data || []).filter(s => parseFloat(s.weekly_savings || 0) > 0).map((s, i) => ({
+      rank: i + 1,
+      savings: parseFloat(s.weekly_savings || 0).toFixed(2),
+      level: s.level || 1,
+      streak: s.streak_weeks || 0,
+      city: zipToCity(s.zip_codes_searched),
+    }));
+    res.json({ leaderboard: board, week: new Date().toISOString().slice(0, 10) });
+  } catch (e) { res.json({ leaderboard: [] }); }
+});
+
+// Challenges — requires auth
+function getISOWeek() { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+3-(d.getDay()+6)%7); const w1 = new Date(d.getFullYear(),0,4); return 1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7); }
+
+router.get("/api/challenges", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  try {
+    const weekNum = getISOWeek();
+    const challenges = getWeeklyChallenges(weekNum);
+    const stats = await getOrCreateStats(user.id);
+    const withProgress = challenges.map(c => ({
+      ...c,
+      progress: getChallengeProgress(c, stats),
+      completed: getChallengeProgress(c, stats) >= c.target,
+    }));
+    res.json({ challenges: withProgress, week: weekNum });
+  } catch (e) { res.status(500).json({ error: "Something went wrong." }); }
 });
 
 export default router;

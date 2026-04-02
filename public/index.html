@@ -16,6 +16,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <meta property="og:title" content="Dishcount — Meals from Deals" />
   <meta property="og:description" content="Free AI-powered recipes based on your local grocery store's weekly sales. Find deals, get recipes, save money." />
   <meta property="og:image" content="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&h=630&fit=crop" />
@@ -150,6 +151,11 @@
   <!-- Founding Member Banner -->
   <section class="founding-banner" id="foundingBanner" style="display:none">
     <div class="founding-banner-inner" id="foundingText"></div>
+  </section>
+
+  <!-- Personalized Dashboard (signed in only) -->
+  <section id="personalDashboard" style="display:none;padding:20px 24px;background:var(--cream)">
+    <div style="max-width:720px;margin:0 auto" id="dashboardContent"></div>
   </section>
 
   <!-- Trust Bar -->

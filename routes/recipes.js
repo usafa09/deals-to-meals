@@ -614,14 +614,23 @@ IMPORTANT ingredient type rules:
     console.log(`AI recipes generated: ${recipes.length} recipes, ${inputTokens}+${outputTokens} tokens, ~$${cost.toFixed(4)}`);
     logApiUsage("anthropic", "recipes-ai", inputTokens, outputTokens, cost);
 
+    // Deal hunter score
+    const usedDealNames = new Set();
+    recipes.forEach(r => (r.usedSaleItems || []).forEach(i => usedDealNames.add(i.name)));
+    const totalIngredients = (req.body.ingredients || []).length;
+    const dealHunterScore = totalIngredients > 0 ? { used: usedDealNames.size, total: totalIngredients, percent: Math.round((usedDealNames.size / totalIngredients) * 100) } : null;
+
     // Track gamification stats
     const user = await getUser(req);
     if (user) {
       const totalSavings = recipes.reduce((s, r) => s + (r.totalSavings || 0), 0);
-      const badgeResult = await trackStat(user.id, "recipe_generated", { count: recipes.length, savings: totalSavings, mealType: req.body.style });
-      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult });
+      const badgeResult = await trackStat(user.id, "recipe_generated", {
+        count: recipes.length, savings: totalSavings, mealType: req.body.style,
+        diets: req.body.diets, dealHunterPercent: dealHunterScore?.percent || 0,
+      });
+      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult, dealHunterScore });
     } else {
-      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) } });
+      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, dealHunterScore });
     }
   } catch (err) {
     logError("POST /api/recipes/ai", err.message);

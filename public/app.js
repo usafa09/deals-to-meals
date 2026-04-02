@@ -683,6 +683,8 @@ async function searchRecipes() {
     state.recipeOffset=8;
     renderRecipeGrid(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
+    if (data.dealHunterScore) showDealHunterScore(data.dealHunterScore);
+    if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
@@ -1279,3 +1281,131 @@ function shareRecipe(title) {
     document.body.appendChild(modal);
   }
 }
+
+// ── Confetti ────────────────────────────────────────────────────────────────
+function fireConfetti(big) {
+  if (typeof confetti !== "function") return;
+  if (big) {
+    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+    setTimeout(() => confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0 } }), 250);
+    setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1 } }), 400);
+  } else {
+    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+  }
+}
+
+// ── Savings Milestone Check ─────────────────────────────────────────────────
+const SAVINGS_MILESTONES = [25, 50, 100, 250, 500];
+let prevTotalSavings = 0;
+function checkSavingsMilestone(newTotal) {
+  for (const m of SAVINGS_MILESTONES) {
+    if (prevTotalSavings < m && newTotal >= m) {
+      fireConfetti(true);
+      showBadgePopup({ emoji: "🎉", name: `$${m} Saved!`, desc: `You've saved $${m} on groceries with Dishcount!`, xp: 0 });
+      break;
+    }
+  }
+  prevTotalSavings = newTotal;
+}
+
+// Update handleBadgeResponse to fire mini confetti
+const _origHandleBadge = handleBadgeResponse;
+function handleBadgeResponse(result) {
+  if (result?.newBadges?.length) fireConfetti(false);
+  _origHandleBadge(result);
+  if (result?.newBadges?.some(b => b.id?.startsWith("saver_"))) fireConfetti(true);
+}
+
+// ── Deal Hunter Score Display ───────────────────────────────────────────────
+function showDealHunterScore(score) {
+  if (!score || !score.percent) return;
+  const color = score.percent > 50 ? "var(--green-mid)" : score.percent > 25 ? "var(--orange)" : "var(--red)";
+  const el = document.createElement("div");
+  el.style.cssText = "text-align:center;padding:16px;margin-bottom:16px;background:white;border:2px solid var(--sand);border-radius:14px";
+  el.innerHTML = `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">Deal Hunter Score</div>
+    <div style="font-family:'Outfit',sans-serif;font-size:32px;font-weight:800;color:${color}">${score.percent}%</div>
+    <div style="font-size:13px;color:var(--muted)">You used ${score.used} of ${score.total} selected deals!</div>`;
+  const grid = document.getElementById("recipeGrid");
+  if (grid) grid.parentNode.insertBefore(el, grid);
+}
+
+// ── Homepage Personalization ────────────────────────────────────────────────
+async function loadPersonalDashboard() {
+  try {
+    const { data: authData } = await sb.auth.getSession();
+    if (!authData?.session) return;
+    const token = authData.session.access_token;
+    const [statsRes, challengesRes, leaderboardRes, badgesRes] = await Promise.all([
+      fetch("/api/stats", { headers: { Authorization: "Bearer " + token } }),
+      fetch("/api/challenges", { headers: { Authorization: "Bearer " + token } }),
+      fetch("/api/leaderboard"),
+      fetch("/api/badges", { headers: { Authorization: "Bearer " + token } }),
+    ]);
+    const stats = statsRes.ok ? await statsRes.json() : {};
+    const challenges = challengesRes.ok ? (await challengesRes.json()).challenges || [] : [];
+    const board = leaderboardRes.ok ? (await leaderboardRes.json()).leaderboard || [] : [];
+    const badges = badgesRes.ok ? await badgesRes.json() : {};
+    prevTotalSavings = parseFloat(stats.total_savings || 0);
+
+    const streak = stats.streak_weeks || 0;
+    const fires = streak >= 8 ? "🔥🔥🔥🔥" : streak >= 5 ? "🔥🔥🔥" : streak >= 3 ? "🔥🔥" : streak >= 1 ? "🔥" : "";
+    const name = stats.full_name?.split(" ")[0] || "Chef";
+    const level = stats.levelName || "Newbie";
+    const xp = stats.xp || 0;
+    const nextXp = stats.nextLevel?.xpNeeded || 1100;
+    const xpPct = Math.min(100, Math.round((xp / nextXp) * 100));
+    const lastBadge = (badges.badges || []).filter(b => b.earned).pop();
+
+    let html = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:700;color:var(--green-dark)">Welcome back, ${escapeHtml(name)}!</div>
+      ${streak ? `<span style="font-size:14px">${fires} ${streak} week streak!</span>` : `<span style="font-size:13px;color:var(--muted)">Start your streak! Come back next week.</span>`}
+    </div>
+    <div style="background:white;border:2px solid var(--sand);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:12px;color:var(--muted)">Lv ${stats.level || 1}</div>
+      <div style="font-weight:700;font-size:14px;color:var(--green-dark)">${escapeHtml(level)}</div>
+      <div style="flex:1;background:var(--sand);border-radius:6px;height:8px;overflow:hidden"><div style="height:100%;width:${xpPct}%;background:var(--green-mid);border-radius:6px"></div></div>
+      <div style="font-size:11px;color:var(--muted)">${xp}/${nextXp} XP</div>
+    </div>`;
+
+    // Challenges
+    if (challenges.length) {
+      html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">`;
+      challenges.forEach(c => {
+        const pct = Math.min(100, Math.round((c.progress / c.target) * 100));
+        html += `<div style="background:white;border:2px solid ${c.completed?"var(--green-mid)":"var(--sand)"};border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:20px">${c.completed?"✅":c.icon}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin:4px 0">${escapeHtml(c.title)}</div>
+          <div style="background:var(--sand);border-radius:4px;height:6px;overflow:hidden;margin:4px 0"><div style="height:100%;width:${pct}%;background:${c.completed?"var(--green-mid)":"var(--orange)"}"></div></div>
+          <div style="font-size:10px;color:var(--muted)">${c.progress}/${c.target} · ${c.completed?"Done!":"+"+c.xp+" XP"}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Leaderboard snippet + last badge
+    html += `<div style="display:flex;gap:8px">`;
+    if (board.length) {
+      html += `<div style="flex:1;background:white;border:2px solid var(--sand);border-radius:10px;padding:10px;font-size:13px">
+        <div style="font-weight:700;color:var(--green-dark);margin-bottom:6px">🏆 Top Savers</div>
+        ${board.slice(0,3).map((r,i) => `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${["🥇","🥈","🥉"][i]} ${escapeHtml(r.city)}</span><span style="font-weight:700;color:var(--orange)">$${r.savings}</span></div>`).join("")}
+      </div>`;
+    }
+    if (lastBadge) {
+      html += `<div style="flex:1;background:white;border:2px solid var(--sand);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--muted)">Latest Badge</div>
+        <div style="font-size:28px;margin:4px 0">${escapeHtml(lastBadge.emoji)}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--green-dark)">${escapeHtml(lastBadge.name)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+
+    const dashboard = document.getElementById("personalDashboard");
+    const content = document.getElementById("dashboardContent");
+    if (dashboard && content) { content.innerHTML = html; dashboard.style.display = ""; }
+  } catch (e) { console.error("loadPersonalDashboard:", e); }
+}
+
+// Load dashboard on auth state change for signed-in users
+sb.auth.onAuthStateChange((event, session) => {
+  if (session?.user) setTimeout(loadPersonalDashboard, 500);
+});

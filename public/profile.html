@@ -152,7 +152,7 @@
             <path d="M16.5 12 C14 12 13.5 14.5 14.5 16.5 C15 17.5 15.8 18 15.9 18.5 L15.9 28 L17.1 28 L17.1 18.5 C17.2 18 18 17.5 18.5 16.5 C19.5 14.5 19 12 16.5 12 Z" fill="#74c69d" fill-opacity="0.6" stroke="none"/>
           </g>
         </g>
-      </svg><span class="logo-text-inline"><span class="logo-d">D</span><span class="t1">ish</span><span class="t2">count</span></span>
+      </svg><span class="logo-text-inline">Dishcount</span>
     </a>
     <div class="landing-nav-links">
       <a href="/">Home</a>
@@ -170,7 +170,21 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<main id="main" style="padding-top:80px"><div class="spinner-wrap"><div class="spinner"></div></div></main>
+<main id="main" style="padding-top:80px">
+  <!-- Static auth form visible to crawlers and before JS loads -->
+  <div id="staticAuthForm">
+    <div style="max-width:400px;margin:60px auto;padding:24px;text-align:center">
+      <h2 style="font-family:'Outfit',sans-serif;font-size:24px;color:#2d6a4f;margin-bottom:8px">Welcome to Dishcount</h2>
+      <p style="color:#888;margin-bottom:24px">Sign in or create an account to save recipes, build shopping lists, and track your savings.</p>
+      <div style="background:white;border:2px solid #e8e0d0;border-radius:16px;padding:24px">
+        <div style="margin-bottom:16px"><input type="email" id="staticEmail" placeholder="Email address" style="width:100%;padding:12px;border:2px solid #e8e0d0;border-radius:10px;font-size:15px;font-family:'DM Sans',sans-serif;box-sizing:border-box"></div>
+        <div style="margin-bottom:16px"><input type="password" id="staticPassword" placeholder="Password" style="width:100%;padding:12px;border:2px solid #e8e0d0;border-radius:10px;font-size:15px;font-family:'DM Sans',sans-serif;box-sizing:border-box"></div>
+        <button id="staticSignInBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Sign In</button>
+        <p style="margin-top:12px;font-size:13px;color:#888">Don't have an account? <a href="/profile.html#signup" style="color:#2d6a4f;font-weight:600">Create one</a></p>
+      </div>
+    </div>
+  </div>
+</main>
 
 <script>
 // ── Config — replace these with your actual Supabase values ──────────────────
@@ -200,6 +214,17 @@ let userProfile  = null;
 let savedRecipes = [];
 let savedLists = [];
 let activeTab    = "signin";
+
+// Wire up static auth form (visible before JS renders the full UI)
+document.getElementById("staticSignInBtn")?.addEventListener("click", async function() {
+  const email = document.getElementById("staticEmail")?.value;
+  const pass = document.getElementById("staticPassword")?.value;
+  if (!email || !pass) return;
+  this.textContent = "Signing in..."; this.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { this.textContent = "Sign In"; this.disabled = false; showToast(error.message, "error"); }
+});
+function hideStaticAuth() { const el = document.getElementById("staticAuthForm"); if (el) el.style.display = "none"; }
 
 function showToast(msg, type="success") {
   const t = document.getElementById("toast");

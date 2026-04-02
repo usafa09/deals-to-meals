@@ -1,6 +1,5 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-.logo-d { display: inline-block; width: 0; overflow: hidden; font-size: 0; color: transparent; }
 :root {
   --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc; --green-bright: #52b788;
   --orange: #d97706; --orange-light: #fef3c7;
@@ -16,9 +15,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .nav-left { display: flex; align-items: center; }
 .landing-nav-logo { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; text-decoration: none; gap: 0; }
 .landing-nav-logo svg { margin-right: -2px; flex-shrink: 0; }
-.landing-nav-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; }
-.landing-nav-logo .logo-text-inline .t1 { color: #e8f0ea; }
-.landing-nav-logo .logo-text-inline .t2 { color: #fbbf24; }
+.landing-nav-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; color: #e8f0ea; }
 .landing-nav-tagline { display: none; }
 .landing-nav-links { display: none; }
 .landing-nav-saved { display: none; }
@@ -175,9 +172,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 header { background: var(--dark); padding: 8px 16px; display: none; grid-template-columns: auto 1fr auto; align-items: center; position: sticky; top: 0; z-index: 100; position: relative; min-height: 48px; }
 header a.app-logo { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; text-decoration: none; gap: 0; }
 header a.app-logo svg { margin-right: -2px; }
-header a.app-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; }
-header a.app-logo .logo-text-inline .t1 { color: #e8f0ea; }
-header a.app-logo .logo-text-inline .t2 { color: #fbbf24; }
+header a.app-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; color: #e8f0ea; }
 .logo-text { display: none; }
 .header-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .progress-bar { display: flex; gap: 3px; align-items: center; }

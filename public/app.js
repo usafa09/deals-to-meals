@@ -1317,12 +1317,15 @@ async function addListToKrogerCart() {
 
   const PANTRY_SKIP = new Set(["salt","pepper","salt and pepper","salt and pepper to taste","olive oil","vegetable oil","cooking oil","canola oil","butter","sugar","flour","water","garlic","onion powder","garlic powder","paprika","cumin","chili powder","oregano","basil","thyme","cinnamon","baking powder","baking soda","cornstarch","vanilla extract","soy sauce","vinegar","hot sauce","ketchup","mustard","honey"]);
 
+  const PREP_WORDS = /\b(melted|softened|room temperature|chilled|frozen|thawed|diced|chopped|minced|sliced|crushed|grated|shredded|peeled|trimmed|drained|rinsed|cooked|uncooked|raw|fresh|dried|ground|whole|boneless|skinless|bone-in|skin-on|large|medium|small|thin|thick|finely|roughly|lightly|thinly|freshly)\b/gi;
   function cleanIngredientForSearch(name) {
     let s = name.replace(/®/g, "").replace(/\([^)]*\)/g, "").trim();
     s = s.replace(/^[\d\/\.\s]+(lb|lbs|oz|cup|cups|tbsp|tsp|tablespoon|teaspoon|slices?|pieces?|bags?|cans?|cloves?|bunch|bunches|heads?|stalks?|sprigs?|pinch|dash|large|medium|small|to taste)\b\s*/i, "");
     s = s.replace(/^[\d\/\.\-\s]+/, "").trim();
     s = s.replace(/,?\s*to taste$/i, "").trim();
     s = s.replace(/^of\s+/i, "").trim();
+    // Strip preparation words: "melted butter" → "butter", "finely diced onion" → "onion"
+    s = s.replace(PREP_WORDS, "").replace(/\s{2,}/g, " ").trim();
     return s;
   }
 

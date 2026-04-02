@@ -83,9 +83,12 @@ router.get("/api/kroger/search", async (req, res) => {
   const { query, locationId } = req.query;
   if (!query || !locationId) return res.status(400).json({ error: "query and locationId required" });
 
+  const NON_FOOD_BLACKLIST = /\b(wax|candle|scented|fragrance|air freshener|cleaner|detergent|soap|shampoo|conditioner|lotion|deodorant|toothpaste|mouthwash|tissue|paper towel|trash bag|pet food|dog food|cat food|cat litter|laundry|bleach|disinfectant|sponge|polish|incense|diffuser|potpourri|fabric softener)\b/i;
+  const NON_FOOD_DEPTS = /\b(home|household|health & beauty|health and beauty|pet|cleaning|floral|garden)\b/i;
+
   async function searchKroger(term) {
     const token = await getAppToken();
-    const url = `${KROGER_API_BASE}/products?filter.term=${encodeURIComponent(term)}&filter.locationId=${locationId}&filter.limit=5`;
+    const url = `${KROGER_API_BASE}/products?filter.term=${encodeURIComponent(term)}&filter.locationId=${locationId}&filter.limit=12&filter.fulfillment=ais`;
     console.log(`Kroger search: "${term}" at ${locationId}`);
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
     if (!r.ok) { console.error(`Kroger search error: ${r.status} for "${term}"`); return []; }
@@ -95,13 +98,31 @@ router.get("/api/kroger/search", async (req, res) => {
       name: p.description || "",
       brand: p.brand || "",
       price: p.items?.[0]?.price?.regular || 0,
+      department: p.categories?.[0] || p.aisleLocations?.[0]?.description || "",
       image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
-    })).filter(p => p.upc);
+    })).filter(p => {
+      if (!p.upc) return false;
+      // Filter out non-food items
+      if (NON_FOOD_BLACKLIST.test(p.name)) { console.log(`  Skipped non-food: "${p.name}"`); return false; }
+      if (NON_FOOD_DEPTS.test(p.department)) { console.log(`  Skipped dept "${p.department}": "${p.name}"`); return false; }
+      return true;
+    });
   }
 
   function pickBest(products) {
     if (!products.length) return null;
-    return products.find(p => /kroger|simple truth/i.test(p.brand)) || products[0];
+    // Score each product: prefer store brand, non-organic, lower price
+    return products.map(p => {
+      let score = 100;
+      const nameLower = (p.name + " " + p.brand).toLowerCase();
+      if (/\borganic\b/i.test(nameLower)) score -= 30;
+      if (/\b(artisan|craft|premium|gourmet|specialty)\b/i.test(nameLower)) score -= 15;
+      if (/\bkroger\b/i.test(p.brand)) score += 10;
+      if (/\bsimple truth\b/i.test(p.brand) && !/\borganic\b/i.test(nameLower)) score += 5;
+      // Lower price = higher score (up to 20 bonus points)
+      if (p.price > 0) score += Math.max(0, 20 - Math.round(p.price * 2));
+      return { ...p, _score: score };
+    }).sort((a, b) => b._score - a._score)[0];
   }
 
   try {

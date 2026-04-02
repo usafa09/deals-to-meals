@@ -11,14 +11,14 @@
     gtag('config', 'G-41675D42V1', { anonymize_ip: true });
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Dishcount — Meals from Deals. AI-powered recipes based on your local grocery store's weekly sales. Save time and money on dinner." />
+  <meta name="description" content="Dishcount — Turn local grocery deals into personalized meal plans. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable. Free." />
   <title>Dishcount — Meals from Deals</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <meta property="og:title" content="Dishcount — Meals from Deals" />
-  <meta property="og:description" content="Free AI-powered recipes based on your local grocery store's weekly sales. Find deals, get recipes, save money." />
+  <meta property="og:title" content="Dishcount — Turn Local Grocery Deals into Meal Plans" />
+  <meta property="og:description" content="Pick nearby stores, browse this week's sales, and get recipe ideas based on what's actually affordable." />
   <meta property="og:image" content="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1200&h=630&fit=crop" />
   <meta property="og:url" content="https://dishcount.co" />
   <meta property="og:type" content="website" />
@@ -137,11 +137,11 @@
   <section class="landing-hero">
     <div class="landing-hero-content">
       <div class="landing-badge">&#128293; Families can save $30&#8211;$50/week on groceries</div>
-      <h1 class="landing-headline">Turn this week's <span class="highlight">deals</span> into tonight's dinner</h1>
-      <p class="landing-subtitle">Enter your zip to find what's on sale at nearby stores and get <span style="white-space:nowrap">AI-powered</span> recipe ideas that maximize your savings.</p>
+      <h1 class="landing-headline">Turn Local Grocery <span class="highlight">Deals</span> into Personalized Meal Plans</h1>
+      <p class="landing-subtitle">Pick nearby stores, browse this week's sales, and get recipe ideas based on what's actually affordable.</p>
       <div class="landing-search">
         <input id="zipInput" type="text" maxlength="5" placeholder="Enter zip code" inputmode="numeric" />
-        <button id="zipBtn" disabled>Find Stores &#8594;</button>
+        <button id="zipBtn" disabled>Start Free &#8594;</button>
       </div>
       <div class="landing-distance">
         <label for="radiusSelect">Distance:</label>
@@ -184,25 +184,28 @@
       <div class="how-grid">
         <div class="how-card">
           <div class="how-num">1</div>
-          <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400&h=250&fit=crop" alt="Find your stores" loading="lazy" />
-          <h3>Find your stores</h3>
-          <p>Enter your zip code and we'll discover every grocery store near you that has deals this week.</p>
+          <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400&h=250&fit=crop" alt="Choose your stores" loading="lazy" />
+          <h3>Choose your stores</h3>
+          <p>Select the grocery stores near you so Dishcount shows deals that match where you actually shop.</p>
         </div>
         <div class="how-card">
           <div class="how-num">2</div>
-          <img src="https://images.pexels.com/photos/16211537/pexels-photo-16211537.jpeg?w=400&h=250&fit=crop" alt="Browse the deals" loading="lazy" />
-          <h3>Browse the deals</h3>
-          <p>See all the sale items across your selected stores. Mark the ones you want and exclude what you don't.</p>
+          <img src="https://images.pexels.com/photos/16211537/pexels-photo-16211537.jpeg?w=400&h=250&fit=crop" alt="See what's on sale" loading="lazy" />
+          <h3>See what's on sale</h3>
+          <p>Browse local weekly deals instead of guessing what ingredients might fit your budget.</p>
         </div>
         <div class="how-card">
           <div class="how-num">3</div>
-          <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&h=250&fit=crop" alt="Get recipes" loading="lazy" />
-          <h3>Get AI recipes</h3>
-          <p>Our AI generates delicious recipes that use what's on sale, saving you money on every meal.</p>
+          <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&h=250&fit=crop" alt="Turn deals into meals" loading="lazy" />
+          <h3>Turn deals into meals</h3>
+          <p>Get personalized recipe ideas, save favorites, and build a smarter shopping list.</p>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- Why It's Different -->
+  <p style="text-align:center;font-style:italic;font-size:18px;color:var(--green-dark);max-width:640px;margin:32px auto;padding:0 24px">Most meal planners start with recipes. Dishcount starts with savings.</p>
 
   <!-- 5. Kroger Cart Sync Hero -->
   <section class="kroger-hero">
@@ -316,8 +319,9 @@
 
   <!-- Bottom CTA -->
   <section class="bottom-cta">
-    <h2>Start saving on groceries today</h2>
-    <button class="cta-btn" onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'})">Find Deals Near Me &#8594;</button>
+    <h2>Start with what's on sale. End with a better meal plan.</h2>
+    <p style="color:#ccc;font-size:16px;margin:0 auto 20px;max-width:520px">Dishcount helps you save money on groceries by turning local deals into practical meal ideas.</p>
+    <button class="cta-btn" onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'})">Start Free &#8594;</button>
   </section>
 
   <!-- Footer -->

@@ -30,6 +30,8 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/favicon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2d6a4f" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -123,6 +125,11 @@
   </div>
 </div>
 
+<!-- Recipe Preview Modal (landing page) -->
+<div class="modal-overlay" id="previewModalOverlay" onclick="if(event.target===this){this.classList.remove('show')}">
+  <div class="modal" id="previewModal"></div>
+</div>
+
 <!-- ══ SCREEN 1: LANDING PAGE ══ -->
 <div class="screen active" id="screen1">
 
@@ -160,55 +167,7 @@
     <div style="max-width:720px;margin:0 auto" id="dashboardContent"></div>
   </section>
 
-  <!-- 2. Animated Demo Walkthrough -->
-  <section class="demo-section">
-    <h2 class="demo-heading">See it in action</h2>
-    <div class="demo-player">
-      <div class="demo-slides" id="demoSlides">
-        <div class="demo-slide active" data-step="0">
-          <div class="demo-step-label">Step 1</div>
-          <div class="demo-step-title">Enter your zip code</div>
-          <div class="demo-mockup">
-            <div class="demo-mock-search"><span class="demo-mock-zip">45432</span><span class="demo-mock-btn">Find Stores &#8594;</span></div>
-          </div>
-        </div>
-        <div class="demo-slide" data-step="1">
-          <div class="demo-step-label">Step 2</div>
-          <div class="demo-step-title">Pick your stores</div>
-          <div class="demo-mockup demo-stores-mock">
-            <div class="demo-store-card sel">&#10003; Kroger</div>
-            <div class="demo-store-card sel">&#10003; ALDI</div>
-            <div class="demo-store-card">Meijer</div>
-          </div>
-        </div>
-        <div class="demo-slide" data-step="2">
-          <div class="demo-step-label">Step 3</div>
-          <div class="demo-step-title">Browse this week's deals</div>
-          <div class="demo-mockup demo-deals-mock">
-            <div class="demo-deal"><span class="demo-deal-name">Chicken Thighs</span><span class="demo-deal-price">$1.99<small>/lb</small></span></div>
-            <div class="demo-deal"><span class="demo-deal-name">Pasta, 16oz</span><span class="demo-deal-price">$0.89</span></div>
-            <div class="demo-deal"><span class="demo-deal-name">Broccoli Crowns</span><span class="demo-deal-price">$1.29<small>/lb</small></span></div>
-          </div>
-        </div>
-        <div class="demo-slide" data-step="3">
-          <div class="demo-step-label">Step 4</div>
-          <div class="demo-step-title">Get AI-powered recipes</div>
-          <div class="demo-mockup demo-recipes-mock">
-            <div class="demo-recipe"><span class="demo-recipe-emoji">&#127835;</span><span>Garlic Chicken Pasta</span><span class="demo-recipe-tag">3 sale items</span></div>
-            <div class="demo-recipe"><span class="demo-recipe-emoji">&#129367;</span><span>Broccoli Stir Fry</span><span class="demo-recipe-tag">4 sale items</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="demo-dots" id="demoDots">
-        <button class="demo-dot active" onclick="goToDemoSlide(0)"></button>
-        <button class="demo-dot" onclick="goToDemoSlide(1)"></button>
-        <button class="demo-dot" onclick="goToDemoSlide(2)"></button>
-        <button class="demo-dot" onclick="goToDemoSlide(3)"></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- 3. Trust Bar -->
+  <!-- Trust Bar -->
   <section class="trust-bar">
     <div class="trust-bar-inner">
       <div class="trust-stat"><div class="num">80+</div><div class="lbl">Grocery chains</div></div>
@@ -250,9 +209,9 @@
     <div class="kroger-hero-inner">
       <div class="kroger-hero-text">
         <span class="kroger-hero-badge">Exclusive Feature</span>
-        <h2 class="kroger-hero-heading">Add to your Kroger cart in one tap</h2>
+        <h2 class="kroger-hero-heading">Add to your Kroger family cart in one tap</h2>
         <p class="kroger-hero-desc">Found a recipe you love? We'll search Kroger for every ingredient and add them straight to your cart for pickup or delivery. No more wandering the aisles with a paper list.</p>
-        <p class="kroger-hero-sub">Works with all 24 Kroger family stores: Kroger, King Soopers, Ralphs, Fred Meyer, Harris Teeter, Fry's, Smith's, QFC, Mariano's, and more.</p>
+        <p class="kroger-hero-sub">Works with Kroger, King Soopers, Ralphs, Fred Meyer, Harris Teeter, Fry's, Smith's, QFC, Mariano's, Pick 'n Save, Dillons, and more.</p>
         <button class="kroger-hero-cta" onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'})">Try it free &#8594;</button>
       </div>
       <div class="kroger-hero-graphic">
@@ -261,8 +220,8 @@
           <div class="kroger-phone-item added"><span>&#10003;</span> Chicken Thighs</div>
           <div class="kroger-phone-item added"><span>&#10003;</span> Broccoli Crowns</div>
           <div class="kroger-phone-item added"><span>&#10003;</span> Jasmine Rice</div>
-          <div class="kroger-phone-item adding"><span class="kroger-spinner"></span> Soy Sauce</div>
-          <div class="kroger-phone-item pending"><span>&#9675;</span> Garlic</div>
+          <div class="kroger-phone-item added"><span>&#10003;</span> Soy Sauce</div>
+          <div class="kroger-phone-item added"><span>&#10003;</span> Garlic</div>
         </div>
       </div>
     </div>
@@ -273,7 +232,7 @@
     <div class="recipe-preview-inner">
       <h2 class="recipe-preview-heading">Recipes built from this week's deals</h2>
       <div class="recipe-preview-grid">
-        <div class="recipe-preview-card">
+        <div class="recipe-preview-card" onclick="showPreviewRecipe(0)" style="cursor:pointer">
           <div class="rp-img-ph">&#127831;</div>
           <div class="rp-body">
             <div class="rp-title">Honey Garlic Chicken Thighs</div>
@@ -284,7 +243,7 @@
             <div class="rp-sale-tag">&#127991;&#65039; 3 sale items used</div>
           </div>
         </div>
-        <div class="recipe-preview-card">
+        <div class="recipe-preview-card" onclick="showPreviewRecipe(1)" style="cursor:pointer">
           <div class="rp-img-ph">&#127837;</div>
           <div class="rp-body">
             <div class="rp-title">One-Pot Pasta Primavera</div>
@@ -295,7 +254,7 @@
             <div class="rp-sale-tag">&#127991;&#65039; 5 sale items used</div>
           </div>
         </div>
-        <div class="recipe-preview-card">
+        <div class="recipe-preview-card" onclick="showPreviewRecipe(2)" style="cursor:pointer">
           <div class="rp-img-ph">&#129367;</div>
           <div class="rp-body">
             <div class="rp-title">Sheet Pan Sausage &amp; Veggies</div>
@@ -479,6 +438,69 @@
 </div>
 
 <script src="/app.js"></script>
-<script>function toggleHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.toggle("open");}}function closeHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.remove("open");}}document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");var h=document.querySelector(".hamburger");if(d&&h&&!d.contains(e.target)&&!h.contains(e.target)){d.classList.remove("open");}});</script>
+<script>
+// ── PWA Service Worker + Install Prompt ─────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then(function(reg) {
+    console.log("SW registered:", reg.scope);
+  }).catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+
+var deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", function(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  console.log("beforeinstallprompt fired — install banner ready");
+  setTimeout(showInstallBanner, 10000);
+});
+
+function showInstallBanner() {
+  if (!deferredInstallPrompt) return;
+  if (document.querySelector(".pwa-install-banner")) return;
+  var banner = document.createElement("div");
+  banner.className = "pwa-install-banner";
+  banner.innerHTML = '<div class="pwa-install-inner"><span class="pwa-install-text"><strong>Add Dishcount</strong> to your home screen for quick access</span><button class="pwa-install-btn" onclick="pwaInstall()">Install</button><button class="pwa-install-close" onclick="this.closest(\'.pwa-install-banner\').remove()">\u2715</button></div>';
+  document.body.appendChild(banner);
+}
+
+function pwaInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(function(result) {
+    console.log("PWA install choice:", result.outcome);
+    deferredInstallPrompt = null;
+    var b = document.querySelector(".pwa-install-banner");
+    if (b) b.remove();
+  });
+}
+
+// iOS fallback — detect Safari on iOS
+var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+var isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+if (isIOS && !isStandalone) {
+  setTimeout(function() {
+    if (document.querySelector(".pwa-install-banner")) return;
+    var banner = document.createElement("div");
+    banner.className = "pwa-install-banner";
+    banner.innerHTML = '<div class="pwa-install-inner"><span class="pwa-install-text"><strong>Add Dishcount</strong> to your home screen: tap <strong>Share</strong> then <strong>Add to Home Screen</strong></span><button class="pwa-install-close" onclick="this.closest(\'.pwa-install-banner\').remove()">\u2715</button></div>';
+    document.body.appendChild(banner);
+  }, 10000);
+}
+
+// ── Hamburger Menu ──────────────────────────────────────────────────────────
+function toggleHamburger(){
+  var d=document.getElementById("navDropdown");
+  if(!d)return;
+  d.classList.toggle("open");
+  if(d.classList.contains("open")){
+    var nav=d.closest("nav")||document.querySelector(".landing-nav")||document.getElementById("appHeader");
+    if(nav) d.style.top=nav.offsetHeight+"px";
+  }
+}
+function closeHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.remove("open");}}
+document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");if(!d||!d.classList.contains("open"))return;var isHamburger=e.target.closest(".hamburger");if(!isHamburger&&!d.contains(e.target)){d.classList.remove("open");}});
+</script>
 </body>
 </html>

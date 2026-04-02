@@ -82,22 +82,94 @@ sb.auth.onAuthStateChange((event, session) => {
 // Also check on page load
 sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
 
-// ── Demo Walkthrough Slideshow ───────────────────────────────────────────────
-let demoSlideIdx = 0;
-let demoTimer = null;
-function goToDemoSlide(idx) {
-  const slides = document.querySelectorAll(".demo-slide");
-  const dots = document.querySelectorAll(".demo-dot");
-  if (!slides.length) return;
-  slides.forEach(s => s.classList.remove("active"));
-  dots.forEach(d => d.classList.remove("active"));
-  demoSlideIdx = idx % slides.length;
-  slides[demoSlideIdx].classList.add("active");
-  dots[demoSlideIdx].classList.add("active");
-  clearInterval(demoTimer);
-  demoTimer = setInterval(() => goToDemoSlide(demoSlideIdx + 1), 3000);
+// ── Recipe Preview Modal (landing page) ─────────────────────────────────────
+const PREVIEW_RECIPES = [
+  {
+    title: "Honey Garlic Chicken Thighs", emoji: "\u{1F357}", time: "35 min", servings: 4, saleCount: 3,
+    ingredients: [
+      { name: "2 lbs chicken thighs", tag: "SALE" },
+      { name: "3 tbsp honey", tag: "SALE" },
+      { name: "3 tbsp soy sauce", tag: "SALE" },
+      { name: "4 cloves garlic, minced", tag: "PANTRY" },
+      { name: "1 tbsp olive oil", tag: "PANTRY" },
+      { name: "2 cups jasmine rice", tag: "PANTRY" },
+      { name: "1 lb broccoli florets", tag: "ADDITIONAL" },
+    ],
+    steps: [
+      "Cook rice according to package directions.",
+      "Whisk together honey, soy sauce, and minced garlic in a small bowl.",
+      "Heat olive oil in a large skillet over medium-high heat. Sear chicken thighs 5 minutes per side until golden brown.",
+      "Pour honey garlic sauce over chicken, reduce heat to medium-low, cover and cook 10 minutes until chicken reaches 165\u00b0F. Serve over rice with steamed broccoli.",
+    ],
+  },
+  {
+    title: "One-Pot Pasta Primavera", emoji: "\u{1F35D}", time: "25 min", servings: 6, saleCount: 5,
+    ingredients: [
+      { name: "1 lb penne pasta", tag: "SALE" },
+      { name: "2 bell peppers, sliced", tag: "SALE" },
+      { name: "2 zucchini, diced", tag: "SALE" },
+      { name: "1 pint cherry tomatoes, halved", tag: "SALE" },
+      { name: "2 tbsp olive oil", tag: "PANTRY" },
+      { name: "\u00bd cup grated parmesan", tag: "SALE" },
+      { name: "3 cloves garlic, minced", tag: "PANTRY" },
+      { name: "Salt, pepper, Italian seasoning", tag: "PANTRY" },
+    ],
+    steps: [
+      "Heat olive oil in a large pot over medium heat. Saut\u00e9 garlic, bell peppers, and zucchini for 3 minutes.",
+      "Add 4 cups water, bring to a boil, then add pasta. Cook 10 minutes, stirring occasionally, until pasta is tender and liquid is mostly absorbed.",
+      "Toss in cherry tomatoes and Italian seasoning, cook 2 more minutes.",
+      "Remove from heat, stir in parmesan, season with salt and pepper, and serve.",
+    ],
+  },
+  {
+    title: "Sheet Pan Sausage & Veggies", emoji: "\u{1F957}", time: "40 min", servings: 4, saleCount: 4,
+    ingredients: [
+      { name: "1 lb Italian sausage links, sliced", tag: "SALE" },
+      { name: "1 lb baby potatoes, quartered", tag: "SALE" },
+      { name: "2 bell peppers, chunked", tag: "SALE" },
+      { name: "1 large onion, chunked", tag: "SALE" },
+      { name: "2 tbsp olive oil", tag: "PANTRY" },
+      { name: "1 tsp Italian seasoning", tag: "PANTRY" },
+      { name: "Salt and pepper to taste", tag: "PANTRY" },
+    ],
+    steps: [
+      "Preheat oven to 425\u00b0F. Line a large sheet pan with parchment paper.",
+      "Toss sausage, potatoes, bell peppers, and onion with olive oil, Italian seasoning, salt, and pepper.",
+      "Spread everything in a single layer on the sheet pan.",
+      "Roast 30\u201335 minutes, tossing halfway, until sausage is cooked through and veggies are golden and tender.",
+    ],
+  },
+];
+
+function showPreviewRecipe(idx) {
+  const r = PREVIEW_RECIPES[idx];
+  if (!r) return;
+  const overlay = document.getElementById("previewModalOverlay");
+  const modal = document.getElementById("previewModal");
+  const tagColors = { SALE: { bg: "var(--green-light)", color: "var(--green-dark)", icon: "\u{1F3F7}\uFE0F" }, ADDITIONAL: { bg: "#FFF8E8", color: "#8B6914", icon: "\u{1F6D2}" }, PANTRY: { bg: "#F5F0E8", color: "#5A4A30", icon: "\u{1FAD9}" } };
+  modal.innerHTML = `<div class="modal-img-placeholder">${r.emoji}</div>
+    <div class="modal-body">
+      <div class="modal-header"><div class="modal-title">${escapeHtml(r.title)}</div><button class="modal-close" onclick="document.getElementById('previewModalOverlay').classList.remove('show')">\u2715</button></div>
+      <div class="modal-stats">
+        <span class="stat-pill stat-time">\u23F1 ${escapeHtml(r.time)}</span>
+        <span class="stat-pill stat-servings">\u{1F37D}\uFE0F ${r.servings} servings</span>
+        <span class="stat-pill stat-cost">\u{1F3F7}\uFE0F ${r.saleCount} sale items used</span>
+      </div>
+      <div class="modal-section"><div class="modal-section-title">\u{1F955} Ingredients</div>
+        <div class="ing-list">${r.ingredients.map(ing => {
+          const t = tagColors[ing.tag] || tagColors.PANTRY;
+          return `<div class="ing-row" style="background:${t.bg}"><span>${t.icon} ${escapeHtml(ing.name)}</span><span style="font-size:10px;font-weight:700;color:${t.color}">${ing.tag}</span></div>`;
+        }).join("")}</div>
+      </div>
+      <div class="modal-section"><div class="modal-section-title">\u{1F4CB} Instructions</div>
+        <div class="steps-list">${r.steps.map((s, i) => `<div class="step-row"><div class="step-num">${i + 1}</div><div class="step-text">${escapeHtml(s)}</div></div>`).join("")}</div>
+      </div>
+      <div style="text-align:center;padding-top:16px;border-top:2px solid #F5EFE0">
+        <button onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'});document.getElementById('previewModalOverlay').classList.remove('show')" class="btn btn-primary" style="max-width:320px">Find deals near me \u2192</button>
+      </div>
+    </div>`;
+  overlay.classList.add("show");
 }
-demoTimer = setInterval(() => goToDemoSlide(demoSlideIdx + 1), 3000);
 
 // ── Email Capture ───────────────────────────────────────────────────────────
 async function handleSubscribe(e) {

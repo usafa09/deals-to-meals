@@ -1401,12 +1401,28 @@ async function addListToKrogerCart() {
     } catch(e) { showToast("Could not add to cart"); if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; } return; }
   }
 
+  // Open Kroger family cart in new tab
+  if (added.length) {
+    const KROGER_CART_URLS = {
+      kroger:"https://www.kroger.com/cart",kingsoopers:"https://www.kingsoopers.com/cart",
+      ralphs:"https://www.ralphs.com/cart",fredmeyer:"https://www.fredmeyer.com/cart",
+      harristeeter:"https://www.harristeeter.com/cart",frys:"https://www.frysfood.com/cart",
+      frysfood:"https://www.frysfood.com/cart",smiths:"https://www.smithsfoodanddrug.com/cart",
+      qfc:"https://www.qfc.com/cart",marianos:"https://www.marianos.com/cart",
+      picksave:"https://www.picknsave.com/cart",dillons:"https://www.dillons.com/cart",
+      citymarket:"https://www.citymarket.com/cart"
+    };
+    const krogerBrand = (state.selectedBrands || []).find(b => isKrogerFamily(b)) || "Kroger";
+    const cartUrl = KROGER_CART_URLS[normBrand(krogerBrand)] || "https://www.kroger.com/cart";
+    window.open(cartUrl, "_blank");
+  }
+
   // Show detailed results modal
   const body = document.getElementById("slideoutBody");
   if (body) {
     let html = `<div style="padding:16px">`;
     if (added.length) {
-      html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--green-dark);margin-bottom:8px">✅ Added (${added.length} items)</div>`;
+      html += `<div style="margin-bottom:16px"><div style="font-weight:700;color:var(--green-dark);margin-bottom:8px">✅ Added (${added.length} items) — Opening your cart in a new tab...</div>`;
       added.forEach(a => { html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f0ede6"><div>${escapeHtml(a.searched || "")} → <strong>${escapeHtml(a.productName)}</strong></div></div>`; });
       html += `</div>`;
     }

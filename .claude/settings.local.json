@@ -32,7 +32,10 @@
       "Bash(find . -name *.pem -not -path */node_modules/* -not -path */.git/* 2)",
       "Bash(/dev/null echo:*)",
       "Bash(git ls-files:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git update-ref:*)",
+      "Bash(git reflog:*)",
+      "Bash(git gc:*)"
     ]
   }
 }

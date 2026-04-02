@@ -467,13 +467,18 @@ function renderProfile() {
       <div style="font-size:12px;color:var(--muted)">${xp} / ${nextXp} XP${s.nextLevel ? " to " + escapeHtml(s.nextLevel.name) : " (Max Level!)"}</div>
       ${s.streak_weeks ? `<div style="margin-top:10px;font-size:16px">${"🔥".repeat(Math.min(s.streak_weeks, 5))} ${s.streak_weeks} week streak!</div>` : ""}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${userBadges.map(b => `
-      <div style="background:${b.earned ? "white" : "#f5f5f0"};border:2px solid ${b.earned ? "var(--green-mid)" : "var(--sand)"};border-radius:14px;padding:16px;text-align:center;${b.earned ? "box-shadow:0 0 12px rgba(64,145,108,0.2)" : "opacity:0.6"}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${userBadges.map(b => {
+      const tip = b.earned
+        ? `<strong>${escapeHtml(b.name)}</strong><br>${escapeHtml(b.desc)}<br>Earned: ${new Date(b.earnedAt).toLocaleDateString()}<br><strong>+${b.xp} XP</strong>`
+        : `<strong>${escapeHtml(b.name)}</strong><br>${escapeHtml(b.desc)}<br><em>Not yet earned</em>`;
+      return `<div class="has-tooltip" onclick="this.classList.toggle('tap-active')" style="background:${b.earned ? "white" : "#f5f5f0"};border:2px solid ${b.earned ? "var(--green-mid)" : "var(--sand)"};border-radius:14px;padding:16px;text-align:center;${b.earned ? "box-shadow:0 0 12px rgba(64,145,108,0.2)" : "opacity:0.6"}">
+        <div class="tooltip">${tip}</div>
         <div style="font-size:32px;margin-bottom:6px;${b.earned ? "" : "filter:grayscale(1)"}">${b.earned ? escapeHtml(b.emoji) : "🔒"}</div>
         <div style="font-size:13px;font-weight:700;color:${b.earned ? "var(--green-dark)" : "var(--muted)"}">${escapeHtml(b.name)}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px">${escapeHtml(b.desc)}</div>
         ${b.earned ? `<div style="font-size:10px;color:var(--orange);margin-top:4px">+${b.xp} XP</div>` : ""}
-      </div>`).join("")}
+      </div>`;
+    }).join("")}
     </div>`;
   }
 

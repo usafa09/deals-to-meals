@@ -1372,7 +1372,9 @@ async function loadPersonalDashboard() {
       html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">`;
       challenges.forEach(c => {
         const pct = Math.min(100, Math.round((c.progress / c.target) * 100));
-        html += `<div style="background:white;border:2px solid ${c.completed?"var(--green-mid)":"var(--sand)"};border-radius:10px;padding:10px;text-align:center">
+        const tipText = `${escapeHtml(c.desc)}<br>${c.progress} of ${c.target} completed<br><strong>+${c.xp} XP on completion</strong>`;
+        html += `<div class="has-tooltip" onclick="this.classList.toggle('tap-active')" style="background:white;border:2px solid ${c.completed?"var(--green-mid)":"var(--sand)"};border-radius:10px;padding:10px;text-align:center">
+          <div class="tooltip">${tipText}</div>
           <div style="font-size:20px">${c.completed?"✅":c.icon}</div>
           <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin:4px 0">${escapeHtml(c.title)}</div>
           <div style="background:var(--sand);border-radius:4px;height:6px;overflow:hidden;margin:4px 0"><div style="height:100%;width:${pct}%;background:${c.completed?"var(--green-mid)":"var(--orange)"}"></div></div>

@@ -41,7 +41,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin) || origin.includes("localhost")) {
       callback(null, true);
     } else {
-      callback(null, true); // Still allow but don't reflect origin (safe default)
+      callback(new Error("Not allowed by CORS"));
     }
   },
 }));
@@ -91,6 +91,22 @@ const authLimiter = rateLimit({
   message: { error: "Too many auth attempts. Please try again later." },
 });
 
+const subscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many subscribe attempts. Please try again later." },
+});
+
+const gamificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
+
 // Apply rate limits to API routes
 app.use("/api/", generalLimiter);
 app.use("/api/recipes/ai", expensiveLimiter);
@@ -101,6 +117,11 @@ app.use("/api/admin/login", authLimiter);
 app.use("/api/kroger/search", storeSearchLimiter);
 app.use("/api/nearby-stores", storeSearchLimiter);
 app.use("/auth/", authLimiter);
+app.use("/api/subscribe", subscribeLimiter);
+app.use("/api/stats/track", gamificationLimiter);
+app.use("/api/badges", gamificationLimiter);
+app.use("/api/leaderboard", gamificationLimiter);
+app.use("/api/challenges", gamificationLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────
 app.use(express.static(join(__dirname, "public")));

@@ -160,7 +160,55 @@
     <div style="max-width:720px;margin:0 auto" id="dashboardContent"></div>
   </section>
 
-  <!-- Trust Bar -->
+  <!-- 2. Animated Demo Walkthrough -->
+  <section class="demo-section">
+    <h2 class="demo-heading">See it in action</h2>
+    <div class="demo-player">
+      <div class="demo-slides" id="demoSlides">
+        <div class="demo-slide active" data-step="0">
+          <div class="demo-step-label">Step 1</div>
+          <div class="demo-step-title">Enter your zip code</div>
+          <div class="demo-mockup">
+            <div class="demo-mock-search"><span class="demo-mock-zip">45432</span><span class="demo-mock-btn">Find Stores &#8594;</span></div>
+          </div>
+        </div>
+        <div class="demo-slide" data-step="1">
+          <div class="demo-step-label">Step 2</div>
+          <div class="demo-step-title">Pick your stores</div>
+          <div class="demo-mockup demo-stores-mock">
+            <div class="demo-store-card sel">&#10003; Kroger</div>
+            <div class="demo-store-card sel">&#10003; ALDI</div>
+            <div class="demo-store-card">Meijer</div>
+          </div>
+        </div>
+        <div class="demo-slide" data-step="2">
+          <div class="demo-step-label">Step 3</div>
+          <div class="demo-step-title">Browse this week's deals</div>
+          <div class="demo-mockup demo-deals-mock">
+            <div class="demo-deal"><span class="demo-deal-name">Chicken Thighs</span><span class="demo-deal-price">$1.99<small>/lb</small></span></div>
+            <div class="demo-deal"><span class="demo-deal-name">Pasta, 16oz</span><span class="demo-deal-price">$0.89</span></div>
+            <div class="demo-deal"><span class="demo-deal-name">Broccoli Crowns</span><span class="demo-deal-price">$1.29<small>/lb</small></span></div>
+          </div>
+        </div>
+        <div class="demo-slide" data-step="3">
+          <div class="demo-step-label">Step 4</div>
+          <div class="demo-step-title">Get AI-powered recipes</div>
+          <div class="demo-mockup demo-recipes-mock">
+            <div class="demo-recipe"><span class="demo-recipe-emoji">&#127835;</span><span>Garlic Chicken Pasta</span><span class="demo-recipe-tag">3 sale items</span></div>
+            <div class="demo-recipe"><span class="demo-recipe-emoji">&#129367;</span><span>Broccoli Stir Fry</span><span class="demo-recipe-tag">4 sale items</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="demo-dots" id="demoDots">
+        <button class="demo-dot active" onclick="goToDemoSlide(0)"></button>
+        <button class="demo-dot" onclick="goToDemoSlide(1)"></button>
+        <button class="demo-dot" onclick="goToDemoSlide(2)"></button>
+        <button class="demo-dot" onclick="goToDemoSlide(3)"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Trust Bar -->
   <section class="trust-bar">
     <div class="trust-bar-inner">
       <div class="trust-stat"><div class="num">80+</div><div class="lbl">Grocery chains</div></div>
@@ -170,7 +218,7 @@
     </div>
   </section>
 
-  <!-- How It Works -->
+  <!-- 4. How It Works -->
   <section class="how-section" id="how-it-works">
     <div class="how-section-inner">
       <h2 class="how-title">How It Works</h2>
@@ -197,7 +245,73 @@
     </div>
   </section>
 
-  <!-- Features -->
+  <!-- 5. Kroger Cart Sync Hero -->
+  <section class="kroger-hero">
+    <div class="kroger-hero-inner">
+      <div class="kroger-hero-text">
+        <span class="kroger-hero-badge">Exclusive Feature</span>
+        <h2 class="kroger-hero-heading">Add to your Kroger cart in one tap</h2>
+        <p class="kroger-hero-desc">Found a recipe you love? We'll search Kroger for every ingredient and add them straight to your cart for pickup or delivery. No more wandering the aisles with a paper list.</p>
+        <p class="kroger-hero-sub">Works with all 24 Kroger family stores: Kroger, King Soopers, Ralphs, Fred Meyer, Harris Teeter, Fry's, Smith's, QFC, Mariano's, and more.</p>
+        <button class="kroger-hero-cta" onclick="document.getElementById('zipInput').focus();window.scrollTo({top:0,behavior:'smooth'})">Try it free &#8594;</button>
+      </div>
+      <div class="kroger-hero-graphic">
+        <div class="kroger-phone-mock">
+          <div class="kroger-phone-header">&#128722; Kroger Cart</div>
+          <div class="kroger-phone-item added"><span>&#10003;</span> Chicken Thighs</div>
+          <div class="kroger-phone-item added"><span>&#10003;</span> Broccoli Crowns</div>
+          <div class="kroger-phone-item added"><span>&#10003;</span> Jasmine Rice</div>
+          <div class="kroger-phone-item adding"><span class="kroger-spinner"></span> Soy Sauce</div>
+          <div class="kroger-phone-item pending"><span>&#9675;</span> Garlic</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Recipe Screenshots -->
+  <section class="recipe-preview-section">
+    <div class="recipe-preview-inner">
+      <h2 class="recipe-preview-heading">Recipes built from this week's deals</h2>
+      <div class="recipe-preview-grid">
+        <div class="recipe-preview-card">
+          <div class="rp-img-ph">&#127831;</div>
+          <div class="rp-body">
+            <div class="rp-title">Honey Garlic Chicken Thighs</div>
+            <div class="rp-meta">
+              <span class="rp-chip rp-time">&#9201; 35 min</span>
+              <span class="rp-chip rp-servings">&#127869; 4 servings</span>
+            </div>
+            <div class="rp-sale-tag">&#127991;&#65039; 3 sale items used</div>
+          </div>
+        </div>
+        <div class="recipe-preview-card">
+          <div class="rp-img-ph">&#127837;</div>
+          <div class="rp-body">
+            <div class="rp-title">One-Pot Pasta Primavera</div>
+            <div class="rp-meta">
+              <span class="rp-chip rp-time">&#9201; 25 min</span>
+              <span class="rp-chip rp-servings">&#127869; 6 servings</span>
+            </div>
+            <div class="rp-sale-tag">&#127991;&#65039; 5 sale items used</div>
+          </div>
+        </div>
+        <div class="recipe-preview-card">
+          <div class="rp-img-ph">&#129367;</div>
+          <div class="rp-body">
+            <div class="rp-title">Sheet Pan Sausage &amp; Veggies</div>
+            <div class="rp-meta">
+              <span class="rp-chip rp-time">&#9201; 40 min</span>
+              <span class="rp-chip rp-servings">&#127869; 4 servings</span>
+            </div>
+            <div class="rp-sale-tag">&#127991;&#65039; 4 sale items used</div>
+          </div>
+        </div>
+      </div>
+      <p class="recipe-preview-note">These recipes change every week based on what's on sale near you.</p>
+    </div>
+  </section>
+
+  <!-- 7. Features Grid -->
   <section class="features-section">
     <div class="features-inner">
       <h2 class="features-title">Everything you need to save</h2>
@@ -207,14 +321,31 @@
         <div class="feature-card"><div class="fc-icon">&#129302;</div><div class="fc-title">AI-powered recipes</div></div>
         <div class="feature-card"><div class="fc-icon">&#128176;</div><div class="fc-title">Maximum savings</div></div>
         <div class="feature-card"><div class="fc-icon">&#129367;</div><div class="fc-title">Dietary filters</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128722;</div><div class="fc-title">Kroger cart sync</div></div>
         <div class="feature-card"><div class="fc-icon">&#10084;&#65039;</div><div class="fc-title">Save favorites</div></div>
         <div class="feature-card"><div class="fc-icon">&#128203;</div><div class="fc-title">Shopping lists</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128293;</div><div class="fc-title">Weekly streaks</div></div>
       </div>
     </div>
   </section>
 
-  <!-- Supported Stores -->
+  <!-- 8. Email Capture -->
+  <section class="email-capture-section">
+    <div class="email-capture-inner">
+      <h2 class="email-capture-heading">Never miss a deal</h2>
+      <p class="email-capture-sub">Get a free weekly email with the best deals and recipes for your area.</p>
+      <form class="email-capture-form" id="emailCaptureForm" onsubmit="return handleSubscribe(event)">
+        <div class="email-capture-fields">
+          <input type="email" id="subscribeEmail" placeholder="Your email" required />
+          <input type="text" id="subscribeZip" placeholder="Zip code" maxlength="5" inputmode="numeric" required />
+        </div>
+        <button type="submit" class="email-capture-btn" id="subscribeBtn">Subscribe</button>
+      </form>
+      <p class="email-capture-success" id="subscribeSuccess" style="display:none">&#10003; You're in! Watch for your first email this week.</p>
+      <p class="email-capture-note">No spam, ever. Unsubscribe anytime.</p>
+    </div>
+  </section>
+
+  <!-- 9. Supported Stores -->
   <section class="stores-section">
     <h2 class="stores-title">Works with your favorite stores</h2>
     <div class="stores-logos">

@@ -36,7 +36,7 @@ router.get("/api/aldi/deals", async (req, res) => {
     res.json({ deals });
   } catch (err) {
     console.error("Aldi deals error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -62,7 +62,8 @@ router.get("/api/aldi/status", async (req, res) => {
       .limit(1);
     res.json({ deals_in_db: count || 0, last_scraped: data?.[0]?.scraped_at || null });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Aldi status error:", err.message);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 

@@ -69,7 +69,7 @@ router.get("/api/walmart/stores", async (req, res) => {
     res.json({ stores });
   } catch (err) {
     console.error("Walmart stores error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -79,7 +79,7 @@ router.get("/api/walmart/deals", async (req, res) => {
     res.json({ deals });
   } catch (err) {
     console.error("Walmart deals error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 

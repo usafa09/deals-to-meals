@@ -18,7 +18,7 @@ router.get("/api/recipes/saved", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { data, error } = await supabase.from("saved_recipes").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error("Saved recipes fetch error:", error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json({ recipes: data });
 });
 
@@ -29,7 +29,7 @@ router.post("/api/recipes/saved", async (req, res) => {
   const { data, error } = await supabase.from("saved_recipes").insert({
     user_id: user.id, title, emoji, time, servings, difficulty, ingredients, steps, store_name, image,
   }).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error("Save recipe error:", error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   trackStat(user.id, "recipe_saved").catch(() => {});
   res.json(data);
 });
@@ -38,7 +38,7 @@ router.delete("/api/recipes/saved/:id", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { error } = await supabase.from("saved_recipes").delete().eq("id", req.params.id).eq("user_id", user.id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) { console.error("Delete recipe error:", error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json({ success: true });
 });
 
@@ -168,7 +168,7 @@ router.post("/api/recipes/search", async (req, res) => {
     res.json({ recipes: enriched, cached: false, pointsUsedToday: finalPoints, pointsRemaining: DAILY_POINT_LIMIT - finalPoints });
   } catch (err) {
     console.error("Recipe search error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -604,7 +604,7 @@ IMPORTANT ingredient type rules:
     }
   } catch (err) {
     logError("POST /api/recipes/ai", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong generating recipes. Please try again." });
   }
 });
 

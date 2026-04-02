@@ -162,4 +162,26 @@ router.get("/api/lists/share/:id", async (req, res) => {
   } catch (e) { console.error(e.message); res.status(500).json({ error: "Something went wrong." }); }
 });
 
+// ══ EMAIL SUBSCRIBE ═════════════════════════════════════════════════════════
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ZIP_RE = /^\d{5}$/;
+
+router.post("/api/subscribe", async (req, res) => {
+  const { email, zip } = req.body;
+  if (!email || !EMAIL_RE.test(email)) return res.status(400).json({ error: "Valid email is required" });
+  if (!zip || !ZIP_RE.test(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
+  try {
+    const { data: existing } = await supabase.from("email_subscribers").select("id").eq("email", email.toLowerCase()).single();
+    if (existing) return res.json({ success: true, message: "Already subscribed" });
+    const { error } = await supabase.from("email_subscribers").insert({ email: email.toLowerCase(), zip, subscribed_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
+    console.log(`New subscriber: ${email} (${zip})`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Subscribe error:", err.message);
+    res.status(500).json({ error: "Could not subscribe. Please try again." });
+  }
+});
+
 export default router;

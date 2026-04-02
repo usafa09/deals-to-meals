@@ -143,7 +143,7 @@ router.get("/api/kroger/search", async (req, res) => {
     res.json({ product: null, results: 0, searchUsed: query });
   } catch (err) {
     console.error("Kroger search error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 

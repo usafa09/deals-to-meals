@@ -3,6 +3,17 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
+function parseFraction(str) {
+  if (!str) return 0;
+  const parts = str.split("/");
+  if (parts.length === 2) {
+    const num = parseFloat(parts[0]);
+    const den = parseFloat(parts[1]);
+    return den !== 0 ? num / den : 0;
+  }
+  return parseFloat(str) || 0;
+}
+
 const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -70,6 +81,41 @@ sb.auth.onAuthStateChange((event, session) => {
 
 // Also check on page load
 sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
+
+// ── Demo Walkthrough Slideshow ───────────────────────────────────────────────
+let demoSlideIdx = 0;
+let demoTimer = null;
+function goToDemoSlide(idx) {
+  const slides = document.querySelectorAll(".demo-slide");
+  const dots = document.querySelectorAll(".demo-dot");
+  if (!slides.length) return;
+  slides.forEach(s => s.classList.remove("active"));
+  dots.forEach(d => d.classList.remove("active"));
+  demoSlideIdx = idx % slides.length;
+  slides[demoSlideIdx].classList.add("active");
+  dots[demoSlideIdx].classList.add("active");
+  clearInterval(demoTimer);
+  demoTimer = setInterval(() => goToDemoSlide(demoSlideIdx + 1), 3000);
+}
+demoTimer = setInterval(() => goToDemoSlide(demoSlideIdx + 1), 3000);
+
+// ── Email Capture ───────────────────────────────────────────────────────────
+async function handleSubscribe(e) {
+  e.preventDefault();
+  const email = document.getElementById("subscribeEmail").value.trim();
+  const zip = document.getElementById("subscribeZip").value.trim();
+  if (!email || !zip || !/^\d{5}$/.test(zip)) { showToast("Please enter a valid email and 5-digit zip code"); return false; }
+  const btn = document.getElementById("subscribeBtn");
+  btn.disabled = true; btn.textContent = "Subscribing...";
+  try {
+    const res = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, zip }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Something went wrong");
+    document.getElementById("emailCaptureForm").style.display = "none";
+    document.getElementById("subscribeSuccess").style.display = "block";
+  } catch (err) { showToast(err.message); btn.disabled = false; btn.textContent = "Subscribe"; }
+  return false;
+}
 
 // Handle Kroger OAuth return — restore state and show success
 // ── Founding Member Banner ───────────────────────────────────────────────────
@@ -657,12 +703,12 @@ function renderSaleItems() {
   const storeNames=[...new Set(state.deals.map(d=>d.storeName||d.source||"Other"))].sort();
   document.getElementById("saleStoreFilters").innerHTML=`
     <button class="sale-filter-btn ${state.saleStoreFilter==='all'?'active':''}" onclick="filterSaleStore('all')">All</button>
-    ${storeNames.map(s=>`<button class="sale-filter-btn ${state.saleStoreFilter===s?'active':''}" onclick="filterSaleStore('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("")}`;
+    ${storeNames.map(s=>`<button class="sale-filter-btn ${state.saleStoreFilter===s?'active':''}" onclick="filterSaleStore('${escapeHtml(s).replace(/'/g,"&#039;")}')">${escapeHtml(s)}</button>`).join("")}`;
 
   const catGroups=[...new Set(state.deals.map(d=>getCatGroup(d.category)))].sort();
   document.getElementById("saleCategoryFilters").innerHTML=`
     <button class="sale-filter-btn ${state.saleCategoryFilter==='all'?'active':''}" onclick="filterSaleCategory('all')">All</button>
-    ${catGroups.map(c=>`<button class="sale-filter-btn ${state.saleCategoryFilter===c?'active':''}" onclick="filterSaleCategory('${c}')">${c}</button>`).join("")}`;
+    ${catGroups.map(c=>`<button class="sale-filter-btn ${state.saleCategoryFilter===c?'active':''}" onclick="filterSaleCategory('${escapeHtml(c).replace(/'/g,"&#039;")}')">${escapeHtml(c)}</button>`).join("")}`;
 
   document.getElementById("dealsTitle").textContent=`This week's deals (${deals.length})`;
   document.getElementById("saleGrid").innerHTML=deals.map(d=>{
@@ -696,9 +742,9 @@ function renderMealTypes(){
   document.getElementById("mealTypeGrid").innerHTML=MEAL_TYPES.map(m=>`<div class="meal-card${state.selectedMealType===m.id?' selected':''}" onclick="selectMealType('${m.id}')" style="text-align:center;padding:18px 8px"><div class="meal-icon" style="font-size:32px">${m.icon}</div><div class="meal-label" style="font-size:15px">${m.label}</div></div>`).join("");
 }
 function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("findRecipesBtn").disabled=false;}
-function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${m.id.replace(/'/g,"\\'")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${m.label}</div><div style="font-size:11px;color:#999;margin-top:2px">${m.sub}</div></div>`).join("");}
+function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${escapeHtml(m.id).replace(/'/g,"&#039;")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${escapeHtml(m.label)}</div><div style="font-size:11px;color:#999;margin-top:2px">${escapeHtml(m.sub)}</div></div>`).join("");}
 function selectStyle(id){state.selectedStyle=id;document.querySelectorAll("[id^='style-']").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");}
-function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${f}')">${f}</div>`).join("");}
+function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("");}
 function toggleFilter(el,f){el.classList.toggle("selected");const i=state.selectedDiets.indexOf(f);if(i>-1)state.selectedDiets.splice(i,1);else state.selectedDiets.push(f);}
 
 // ── Screen 5 → 6: Search Recipes ─────────────────────────────────────────────
@@ -879,7 +925,7 @@ function renderModal(r){
         const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
         // Parse leading amount for scaling
         const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
-        const origAmt = amtMatch ? eval(amtMatch[1].replace(/(\d+)\/(\d+)/,"$1/$2")) : 0;
+        const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;
         const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>

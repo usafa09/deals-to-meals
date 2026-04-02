@@ -8,7 +8,8 @@ const FOUNDING_LIMIT = 250;
 let foundingSpotsCache = { count: null, ts: 0 };
 
 async function getFoundingCount() {
-  if (Date.now() - foundingSpotsCache.ts < 5 * 60 * 1000 && foundingSpotsCache.count !== null) return foundingSpotsCache.count;
+  // Short cache (30s) to reduce race window for founding member badge
+  if (Date.now() - foundingSpotsCache.ts < 30 * 1000 && foundingSpotsCache.count !== null) return foundingSpotsCache.count;
   try {
     const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true });
     foundingSpotsCache = { count: count || 0, ts: Date.now() };
@@ -23,6 +24,12 @@ export async function checkFoundingMember(userId) {
     if (existing) return; // already has it
     const count = await getFoundingCount();
     if (count <= FOUNDING_LIMIT) {
+      // Double-check with fresh DB count to minimize race window
+      const { count: freshCount } = await supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("badge_id", "founding_member");
+      if ((freshCount || 0) >= FOUNDING_LIMIT) {
+        console.log(`Founding Member limit reached (${freshCount} badges exist), skipping for ${userId}`);
+        return;
+      }
       await supabase.from("user_badges").insert({ user_id: userId, badge_id: "founding_member" });
       // Add XP
       const { data: stats } = await supabase.from("user_stats").select("xp, level").eq("user_id", userId).single();
@@ -181,12 +188,27 @@ router.get("/api/stats", async (req, res) => {
   } catch (e) { res.status(500).json({ error: "Something went wrong." }); }
 });
 
+const ALLOWED_TRACK_EVENTS = new Set(["recipe_generated", "recipe_saved", "list_created", "list_shared", "items_carted", "zip_searched", "kroger_connected"]);
+
 router.post("/api/stats/track", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const { event, data } = req.body;
   if (!event) return res.status(400).json({ error: "event required" });
-  const result = await trackStat(user.id, event, data || {});
+  if (!ALLOWED_TRACK_EVENTS.has(event)) return res.status(400).json({ error: "invalid event" });
+
+  // Sanitize data to prevent stat inflation
+  const safeData = {};
+  if (data) {
+    if (data.count != null) safeData.count = Math.max(1, Math.min(parseInt(data.count) || 1, 50));
+    if (data.savings != null) safeData.savings = Math.max(0, Math.min(parseFloat(data.savings) || 0, 500));
+    if (data.mealType) safeData.mealType = String(data.mealType).slice(0, 50);
+    if (Array.isArray(data.diets)) safeData.diets = data.diets.slice(0, 10).map(d => String(d).slice(0, 30));
+    if (data.dealHunterPercent != null) safeData.dealHunterPercent = Math.max(0, Math.min(parseFloat(data.dealHunterPercent) || 0, 100));
+    if (data.zip) safeData.zip = String(data.zip).replace(/\D/g, "").slice(0, 5);
+  }
+
+  const result = await trackStat(user.id, event, safeData);
   res.json(result);
 });
 

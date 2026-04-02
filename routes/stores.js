@@ -153,7 +153,7 @@ router.get("/api/nearby-stores", async (req, res) => {
     res.json({ stores: enrichedStores, cached: false });
   } catch (err) {
     console.error("Nearby stores error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -175,7 +175,7 @@ router.get("/api/ad-regions", async (req, res) => {
 
     console.log(`Ad regions for zip ${zip} (${zip3}): ${summary.length} chains, ${enriched.filter(s => s.hasDeals).length} with deals`);
     res.json({ zip3, stores: enriched, count: enriched.length });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error("Ad regions error:", err.message); res.status(500).json({ error: "Something went wrong. Please try again." }); }
 });
 
 // ══ REGIONAL DEALS ═══════════════════════════════════════════════════════════
@@ -369,7 +369,7 @@ router.get("/api/deals/regional", async (req, res) => {
     });
   } catch (err) {
     console.error("Regional deals error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 

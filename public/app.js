@@ -262,15 +262,18 @@ let state = {
 function goTo(step) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(`screen${step}`).classList.add("active");
-  // Toggle landing nav vs app header
+  // Toggle landing nav vs app header, and show/hide app screens container
   const landingNav = document.getElementById("landingNav");
   const appHeader = document.getElementById("appHeader");
+  const appScreens = document.getElementById("appScreens");
   if (step === 1) {
     if (landingNav) landingNav.style.display = "";
     if (appHeader) appHeader.style.display = "none";
+    if (appScreens) { appScreens.style.display = "none"; appScreens.setAttribute("aria-hidden", "true"); }
   } else {
     if (landingNav) landingNav.style.display = "none";
     if (appHeader) appHeader.style.display = "flex";
+    if (appScreens) { appScreens.style.display = ""; appScreens.removeAttribute("aria-hidden"); }
   }
   renderProgress(step);
   window.scrollTo({ top:0, behavior:"smooth" });
@@ -795,12 +798,13 @@ function renderSaleItems() {
   document.getElementById("saleGrid").innerHTML=deals.map(d=>{
     const ds=state.dealStates[d.id]||"";
     const cls=ds==="include"?"include":ds==="exclude"?"exclude":"";
-    const badge=ds==="include"?"✓":ds==="exclude"?"✕":"";
+    const badge=ds==="include"?"✓ Include":ds==="exclude"?"✗ Exclude":"";
+    const ariaState=ds==="include"?"currently included":ds==="exclude"?"currently excluded":"not selected";
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
     const unit=d.priceUnit||"";
     const hasCoupon = findMatchingCoupon(d.name);
-    return `<div class="sale-card ${cls}" onclick="cycleDealState('${escapeHtml(d.id)}')">
+    return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${price?escapeHtml(price.startsWith("$")?price:"$"+price):""}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
@@ -901,8 +905,11 @@ function renderRecipeGrid(){
         <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} of ${(r.allIngredients||r.ingredients||[]).length||"?"} ingredients on sale</span>
         ${r.couponsToClip?.length?`<span class="meta-chip meta-coupon">🎟️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""}</span>`:""}
         ${(()=>{const steps=r.instructions?.length||r.steps?.length||0;return steps>0?`<span class="meta-chip" style="background:#F0EBF8;color:#5B21B6">${steps<=5?"Easy":steps<=10?"Medium":"Involved"}</span>`:""})()}
-        ${(r.allIngredients||r.ingredients||[]).length>0&&(r.allIngredients||r.ingredients||[]).length<8?'<span class="meta-chip" style="background:#FEF3C7;color:#92400E">Simple recipe</span>':""}
-        ${r.readyInMinutes>0&&r.readyInMinutes<30?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Quick meal</span>':""}
+        ${(r.allIngredients||r.ingredients||[]).length>0&&(r.allIngredients||r.ingredients||[]).length<=7?'<span class="meta-chip" style="background:#FEF3C7;color:#92400E">Simple recipe</span>':""}
+        ${r.readyInMinutes>0&&r.readyInMinutes<=15?'<span class="meta-chip" style="background:#FED7AA;color:#9A3412">15-minute meal</span>':r.readyInMinutes>0&&r.readyInMinutes<=30?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Quick meal</span>':""}
+        ${r.servings>=6?'<span class="meta-chip" style="background:#EDE9FE;color:#6D28D9">Feeds a crowd</span>':""}
+        ${/sheet pan|one.pot|one.pan|slow cooker|instant pot|crockpot/i.test(r.title)?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Easy cleanup</span>':""}
+        ${r.servings>=4&&r.estimatedCost>0&&r.estimatedCost/r.servings<4?'<span class="meta-chip" style="background:#CCFBF1;color:#0F766E">Family-friendly</span>':""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them
   lazyLoadRecipeImages();
@@ -1544,13 +1551,15 @@ function checkSavingsMilestone(newTotal) {
   prevTotalSavings = newTotal;
 }
 
-// Update handleBadgeResponse to fire mini confetti
-const _origHandleBadge = handleBadgeResponse;
-function handleBadgeResponse(result) {
-  if (result?.newBadges?.length) fireConfetti(false);
-  _origHandleBadge(result);
-  if (result?.newBadges?.some(b => b.id?.startsWith("saver_"))) fireConfetti(true);
-}
+// Wrap handleBadgeResponse to fire mini confetti
+(function() {
+  const _origHandleBadge = handleBadgeResponse;
+  window.handleBadgeResponse = function(result) {
+    if (result?.newBadges?.length) fireConfetti(false);
+    _origHandleBadge(result);
+    if (result?.newBadges?.some(b => b.id?.startsWith("saver_"))) fireConfetti(true);
+  };
+})();
 
 // ── Deal Hunter Score Display ───────────────────────────────────────────────
 function showDealHunterScore(score) {

@@ -274,19 +274,44 @@
     </div>
   </section>
 
+  <!-- Worked Example -->
+  <section style="padding:40px 24px;background:var(--cream)">
+    <div style="max-width:640px;margin:0 auto;background:#fff;border:2px solid var(--sand);border-radius:20px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.04)">
+      <h2 style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700;color:var(--green-dark);margin-bottom:4px">This week in Dayton, OH</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Stores: Kroger, ALDI, Meijer</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Chicken Thighs</span><span><strong style="color:var(--green-dark)">$1.99/lb</strong> <s style="color:#999;font-size:12px">$4.49</s></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Broccoli Crowns</span><span><strong style="color:var(--green-dark)">$0.99</strong> <s style="color:#999;font-size:12px">$1.89</s></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Shredded Cheese</span><span><strong style="color:var(--green-dark)">$2.50</strong> <s style="color:#999;font-size:12px">$3.99</s></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Penne Pasta</span><span><strong style="color:var(--green-dark)">$0.89</strong> <s style="color:#999;font-size:12px">$1.29</s></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Olive Oil</span><span><strong style="color:var(--green-dark)">$3.99</strong> <s style="color:#999;font-size:12px">$6.49</s></span></div>
+      </div>
+      <div style="border-top:2px solid var(--sand);padding-top:16px">
+        <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">&#127859; Recipe: Cheesy Chicken &amp; Broccoli Pasta Bake</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;color:#555;margin-bottom:12px">
+          <span>&#127869; 4 servings</span>
+          <span>&#9201; 35 min</span>
+          <span>&#127991;&#65039; 5 of 6 ingredients on sale</span>
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
+          <div><span style="font-size:13px;color:var(--muted)">Total cost</span><br><strong style="font-size:20px;color:var(--text)">$10.36</strong><span style="font-size:13px;color:var(--muted)"> ($2.59/serving)</span></div>
+          <div><span style="font-size:13px;color:var(--muted)">Regular price</span><br><strong style="font-size:20px;color:#999;text-decoration:line-through">$17.15</strong></div>
+          <div><span style="font-size:13px;color:var(--muted)">You save</span><br><strong style="font-size:20px;color:var(--green-dark)">$6.79 (40%)</strong></div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);font-style:italic;margin-top:8px">Deals and recipes update weekly based on your local stores.</p>
+    </div>
+  </section>
+
   <!-- 7. Features Grid -->
   <section class="features-section">
     <div class="features-inner">
       <h2 class="features-title">Everything you need to save</h2>
       <div class="features-grid">
-        <div class="feature-card"><div class="fc-icon">&#128205;</div><div class="fc-title">Real local stores</div></div>
-        <div class="feature-card"><div class="fc-icon">&#127991;&#65039;</div><div class="fc-title">Live weekly deals</div></div>
-        <div class="feature-card"><div class="fc-icon">&#129302;</div><div class="fc-title">AI-powered recipes</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128176;</div><div class="fc-title">Helps you save</div></div>
-        <div class="feature-card"><div class="fc-icon">&#129367;</div><div class="fc-title">Dietary preferences</div></div>
-        <div class="feature-card"><div class="fc-icon">&#10084;&#65039;</div><div class="fc-title">Save favorites</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128203;</div><div class="fc-title">Shopping lists</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128293;</div><div class="fc-title">Weekly streaks</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128205;</div><div class="fc-title">80+ Grocery Chains</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Deals from Kroger, ALDI, Walmart, Publix, and more</div></div>
+        <div class="feature-card"><div class="fc-icon">&#129302;</div><div class="fc-title">AI-Powered Recipes</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Personalized meal ideas from this week's sale items</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128203;</div><div class="fc-title">Smart Shopping Lists</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Build and share lists, export or save for later</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128293;</div><div class="fc-title">Weekly Quests &amp; Rewards</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Earn badges, build streaks, climb the leaderboard</div></div>
       </div>
     </div>
   </section>
@@ -333,7 +358,7 @@
 
 </div>
 
-<main>
+<main id="appScreens" style="display:none" aria-hidden="true">
 
   <!-- SCREEN 2: PICK STORE BRANDS -->
   <div class="screen" id="screen2">

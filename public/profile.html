@@ -393,7 +393,13 @@ function renderProfile() {
   </div>`;
 
   const header = `<div class="profile-header">
-    <div class="profile-avatar">${p.avatar_url ? `<img src="${escapeHtml(p.avatar_url)}" alt="avatar" />` : initials}</div>
+    <div class="profile-avatar" style="position:relative;cursor:pointer" onclick="toggleAvatarMenu(event)">
+      ${p.avatar_url ? `<img src="${escapeHtml(p.avatar_url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">${initials}</span>` : initials}
+      <div id="avatarMenu" style="display:none;position:absolute;top:68px;left:0;background:white;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:6px;min-width:160px;z-index:50">
+        <button onclick="event.stopPropagation();uploadAvatar()" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;font-family:'DM Sans',sans-serif">📷 Upload Photo</button>
+        ${p.avatar_url ? `<button onclick="event.stopPropagation();removeAvatar()" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;font-size:14px;cursor:pointer;border-radius:8px;color:var(--red);font-family:'DM Sans',sans-serif">🗑️ Remove Photo</button>` : ""}
+      </div>
+    </div>
     <div><div class="profile-name">${escapeHtml(p.full_name || "My Account")}</div><div class="profile-email">${escapeHtml(currentUser.email)}</div></div>
     <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
   </div>`;
@@ -622,6 +628,77 @@ async function disconnectKroger() {
 async function signOut() {
   await sb.auth.signOut();
   renderAuth();
+}
+
+// ── Avatar Upload/Remove ────────────────────────────────────────────────────
+function toggleAvatarMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById("avatarMenu");
+  if (!menu) return;
+  const show = menu.style.display === "none";
+  menu.style.display = show ? "block" : "none";
+  if (show) {
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.style.display = "none"; document.removeEventListener("click", close); } };
+    setTimeout(() => document.addEventListener("click", close), 0);
+  }
+}
+
+function uploadAvatar() {
+  document.getElementById("avatarMenu").style.display = "none";
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/jpeg,image/png,image/gif";
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (!["image/jpeg","image/png","image/gif"].includes(file.type)) { showToast("Please select a JPG, PNG, or GIF", "error"); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast("Image must be under 2MB", "error"); return; }
+    try {
+      const b64 = await resizeImage(file, 200);
+      const token = (await sb.auth.getSession()).data.session?.access_token;
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ avatar_url: b64 })
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      userProfile.avatar_url = b64;
+      renderProfile();
+      showToast("Profile photo updated!");
+    } catch (e) { showToast(e.message, "error"); }
+  };
+  input.click();
+}
+
+function resizeImage(file, size) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2, sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function removeAvatar() {
+  document.getElementById("avatarMenu").style.display = "none";
+  try {
+    const token = (await sb.auth.getSession()).data.session?.access_token;
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ avatar_url: null })
+    });
+    userProfile.avatar_url = null;
+    renderProfile();
+    showToast("Profile photo removed");
+  } catch (e) { showToast(e.message, "error"); }
 }
 
 // ── Shopping List from Saved Recipes ─────────────────────────────────────────

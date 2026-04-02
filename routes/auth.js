@@ -92,7 +92,7 @@ router.get("/api/profile", async (req, res) => {
 router.patch("/api/profile", async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: "Not authenticated" });
-  const allowed = ["full_name", "household_size", "dietary_preferences", "favorite_recipe_types", "preferred_store"];
+  const allowed = ["full_name", "household_size", "dietary_preferences", "favorite_recipe_types", "preferred_store", "avatar_url"];
   const updates = {};
   for (const key of allowed) { if (req.body[key] !== undefined) updates[key] = req.body[key]; }
   updates.updated_at = new Date().toISOString();

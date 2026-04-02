@@ -20,7 +20,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-nav-tagline { display: none; }
 .landing-nav-links { display: none; }
 .landing-nav-saved { display: none; }
-.nav-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
+.nav-right { display: flex; align-items: center; gap: 8px; justify-self: end; flex-shrink: 0; }
 .nav-signin { padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; text-decoration: none; color: #c8d6cb; transition: all 0.2s; white-space: nowrap; }
 .nav-signin:hover { color: white; }
 .hamburger { display: flex; background: none; border: none; color: #c8d6cb; font-size: 28px; cursor: pointer; padding: 4px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
@@ -317,6 +317,35 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .slideout-footer { padding: 12px 16px; border-top: 2px solid var(--sand); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; background: var(--cream); }
 
 /* ── Mobile responsive ── */
+/* ── Mobile header fixes — prevent overlap ── */
+@media (max-width: 480px) {
+  .landing-nav-inner { display: flex; padding: 10px 12px; }
+  .nav-left { flex-shrink: 0; width: 40px; }
+  .landing-nav-logo { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
+  .landing-nav-logo svg { width: 32px; height: 32px; }
+  .landing-nav-logo .logo-text-inline { font-size: 20px; }
+  .nav-right { flex-shrink: 0; gap: 6px; }
+  .nav-cart-badge { font-size: 10px; padding: 3px 8px; }
+  .nav-signin { padding: 6px 10px; font-size: 11px; }
+  .hamburger { font-size: 24px; min-width: 40px; min-height: 40px; padding: 2px; }
+  .landing-nav { overflow: hidden; }
+  /* App header (screens 2-6) */
+  header { padding: 10px 12px; }
+  header a.app-logo { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
+  header a.app-logo svg { width: 32px; height: 32px; }
+  header a.app-logo .logo-text-inline { font-size: 20px; }
+  .header-right { gap: 6px; }
+}
+@media (max-width: 360px) {
+  .landing-nav-logo .logo-text-inline { font-size: 18px; }
+  .landing-nav-logo svg { width: 28px; height: 28px; }
+  .nav-signin { padding: 4px 8px; font-size: 0; }
+  .nav-signin::before { content: '\1F464'; font-size: 16px; }
+  .nav-right { gap: 4px; }
+  header a.app-logo .logo-text-inline { font-size: 18px; }
+  header a.app-logo svg { width: 28px; height: 28px; }
+}
+
 @media (max-width: 500px) {
   .slideout-panel { width: 100%; right: -100%; }
   .landing-hero { min-height: 520px; padding: 100px 16px 60px; }

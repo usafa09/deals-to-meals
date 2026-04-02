@@ -29,13 +29,18 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 function updateAuthUI(session) {
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setHref = (id, val) => { const el = document.getElementById(id); if (el) el.href = val; };
   if (!session?.user) {
     setText("profileBtnText", "Sign In");
     setText("landingSigninBtn", "Sign In");
+    setHref("profileBtn", "/login.html");
+    setHref("landingSigninBtn", "/login.html");
     const btn = document.getElementById("profileBtn"); if (btn) btn.classList.remove("logged-in");
     return;
   }
   const user = session.user;
+  setHref("profileBtn", "/profile.html");
+  setHref("landingSigninBtn", "/profile.html");
   sb.from("profiles").select("full_name").eq("id", user.id).single().then(({ data: profile }) => {
     const name = profile?.full_name || user.email?.split("@")[0] || "Profile";
     const firstName = name.split(" ")[0];

@@ -22,6 +22,15 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
+// ── Domain redirect: dealstomeals.co → dishcount.co ────────────────────────
+app.use((req, res, next) => {
+  const host = req.get('host') || '';
+  if (host.includes('dealstomeals.co')) {
+    return res.redirect(301, 'https://dishcount.co' + req.originalUrl);
+  }
+  next();
+});
+
 // ── Security headers ────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false, // CSP would break inline scripts on other pages
@@ -130,7 +139,14 @@ app.use("/api/leaderboard", gamificationLimiter);
 app.use("/api/challenges", gamificationLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────
-app.use('/.well-known', express.static(join(__dirname, 'public', '.well-known')));
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml');
+  res.sendFile(join(__dirname, 'public', 'sitemap.xml'));
+});
+app.get('/.well-known/security.txt', (req, res) => {
+  res.type('text/plain');
+  res.sendFile(join(__dirname, 'public', '.well-known', 'security.txt'));
+});
 app.get(['/profile.html', '/admin.html'], (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   res.set('X-Robots-Tag', 'noindex');

@@ -455,15 +455,17 @@ if ("serviceWorker" in navigator) {
 }
 
 var deferredInstallPrompt = null;
+var isMobileDevice = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 window.addEventListener("beforeinstallprompt", function(e) {
   e.preventDefault();
   deferredInstallPrompt = e;
   console.log("beforeinstallprompt fired — install banner ready");
-  setTimeout(showInstallBanner, 10000);
+  if (isMobileDevice) setTimeout(showInstallBanner, 10000);
 });
 
 function showInstallBanner() {
   if (!deferredInstallPrompt) return;
+  if (!isMobileDevice) return;
   if (document.querySelector(".pwa-install-banner")) return;
   var banner = document.createElement("div");
   banner.className = "pwa-install-banner";

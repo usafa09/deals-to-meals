@@ -825,7 +825,7 @@ function renderMealTypes(){
 function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("findRecipesBtn").disabled=false;}
 function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${escapeHtml(m.id).replace(/'/g,"&#039;")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${escapeHtml(m.label)}</div><div style="font-size:11px;color:#999;margin-top:2px">${escapeHtml(m.sub)}</div></div>`).join("");}
 function selectStyle(id){state.selectedStyle=id;document.querySelectorAll("[id^='style-']").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");}
-function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("");}
+function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("")+'<p style="font-size:12px;color:#999;font-style:italic;margin-top:8px;line-height:1.5">These filters help match recipes to your preferences. If you have food allergies or medical dietary needs, always verify ingredients before cooking.</p>';}
 function toggleFilter(el,f){el.classList.toggle("selected");const i=state.selectedDiets.indexOf(f);if(i>-1)state.selectedDiets.splice(i,1);else state.selectedDiets.push(f);}
 
 // ── Screen 5 → 6: Search Recipes ─────────────────────────────────────────────
@@ -898,8 +898,11 @@ function renderRecipeGrid(){
       <div class="recipe-card-body"><div class="recipe-card-title">${escapeHtml(r.title)}</div><div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
-        <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} sale items</span>
+        <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} of ${(r.allIngredients||r.ingredients||[]).length||"?"} ingredients on sale</span>
         ${r.couponsToClip?.length?`<span class="meta-chip meta-coupon">🎟️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""}</span>`:""}
+        ${(()=>{const steps=r.instructions?.length||r.steps?.length||0;return steps>0?`<span class="meta-chip" style="background:#F0EBF8;color:#5B21B6">${steps<=5?"Easy":steps<=10?"Medium":"Involved"}</span>`:""})()}
+        ${(r.allIngredients||r.ingredients||[]).length>0&&(r.allIngredients||r.ingredients||[]).length<8?'<span class="meta-chip" style="background:#FEF3C7;color:#92400E">Simple recipe</span>':""}
+        ${r.readyInMinutes>0&&r.readyInMinutes<30?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Quick meal</span>':""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them
   lazyLoadRecipeImages();
@@ -1011,6 +1014,7 @@ function renderModal(r){
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
+      <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. AI-generated recipes may not account for all dietary needs.</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
         <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>

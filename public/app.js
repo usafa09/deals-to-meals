@@ -38,6 +38,34 @@ function updateAuthUI(session) {
 sb.auth.onAuthStateChange((event, session) => {
   console.log("auth state change:", event, !!session);
   updateAuthUI(session);
+  // Restore app state after sign-in redirect
+  if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+    const pending = restorePendingState();
+    if (pending) {
+      console.log("Restoring pending state:", pending.pendingAction);
+      state.zip = pending.zip || state.zip;
+      state.distance = pending.distance || state.distance;
+      state.selectedBrands = pending.selectedBrands || state.selectedBrands;
+      state.selectedKrogerId = pending.selectedKrogerId || state.selectedKrogerId;
+      state.deals = pending.deals || state.deals;
+      state.dealStates = pending.dealStates || state.dealStates;
+      state.selectedMealType = pending.selectedMealType || state.selectedMealType;
+      state.selectedStyle = pending.selectedStyle || state.selectedStyle;
+      state.selectedDiets = pending.selectedDiets || state.selectedDiets;
+      state.recipes = pending.recipes || state.recipes;
+      if (pending.recipes?.length) {
+        const idx = pending.currentRecipeIndex >= 0 ? pending.currentRecipeIndex : 0;
+        state.currentRecipe = state.recipes[idx] || state.recipes[0];
+        goTo(6);
+        renderRecipeGrid();
+        if (pending.pendingAction === "save_recipe" && state.currentRecipe) {
+          setTimeout(() => { openModal(idx); setTimeout(saveRecipe, 500); }, 300);
+        } else if (pending.pendingAction === "add_to_cart") {
+          setTimeout(() => showToast("Signed in! You can now add items to your Kroger cart.", "success"), 300);
+        }
+      }
+    }
+  }
 });
 
 // Also check on page load
@@ -863,9 +891,31 @@ function renderModal(r){
       </div></div>`;
 }
 
+function savePendingState(action) {
+  try {
+    sessionStorage.setItem("dishcount_pending_state", JSON.stringify({
+      zip: state.zip, distance: state.distance, selectedBrands: state.selectedBrands,
+      selectedKrogerId: state.selectedKrogerId, deals: state.deals, dealStates: state.dealStates,
+      selectedMealType: state.selectedMealType, selectedStyle: state.selectedStyle,
+      selectedDiets: state.selectedDiets, recipes: state.recipes,
+      currentRecipeIndex: state.recipes.indexOf(state.currentRecipe),
+      pendingAction: action
+    }));
+  } catch(e) { console.error("savePendingState:", e); }
+}
+
+function restorePendingState() {
+  try {
+    const raw = sessionStorage.getItem("dishcount_pending_state");
+    if (!raw) return null;
+    sessionStorage.removeItem("dishcount_pending_state");
+    return JSON.parse(raw);
+  } catch(e) { sessionStorage.removeItem("dishcount_pending_state"); return null; }
+}
+
 async function saveRecipe(){
   let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){console.error("saveRecipe auth error:",e);showToast("Could not check login status");return;}
-  if(!session){showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
+  if(!session){savePendingState("save_recipe");showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
   const r=state.currentRecipe;if(state.savedRecipeIds.has(r.title)){showToast("Already saved!","success");return;}
   try{
     const body={title:r.title,emoji:"🍽️",time:r.time,servings:String(r.servings||4),difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""};
@@ -1102,7 +1152,7 @@ function connectKrogerFromList() {
 
 async function addListToKrogerCart() {
   let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
-  if (!session) { showToast("Sign in to add to cart"); return; }
+  if (!session) { savePendingState("add_to_cart"); showToast("Sign in to add to cart"); window.location.href="/profile.html"; return; }
 
   // Check Kroger connection
   await checkKrogerConnection();

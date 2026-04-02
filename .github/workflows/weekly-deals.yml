@@ -1,0 +1,61 @@
+name: Weekly Deal Cache Refresh
+
+on:
+  schedule:
+    # Every Wednesday at 6:00 AM EST (10:00 UTC)
+    - cron: "0 10 * * 3"
+  workflow_dispatch:
+
+jobs:
+  refresh-deals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Refresh deal caches for top metro areas
+        run: |
+          BASE="https://dishcount.co/api"
+          ZIPS=(
+            "45432|Dayton (Kroger, Meijer)"
+            "10001|NYC (ShopRite, Stop & Shop)"
+            "90210|LA (Ralphs, Vons)"
+            "60601|Chicago (Mariano's, Jewel-Osco)"
+            "77001|Houston (Kroger, H-E-B)"
+            "30301|Atlanta (Kroger, Publix)"
+            "98101|Seattle (Fred Meyer, QFC)"
+            "33101|Miami (Publix)"
+            "85001|Phoenix (Fry's)"
+            "48201|Detroit (Kroger, Meijer)"
+          )
+
+          for entry in "${ZIPS[@]}"; do
+            IFS='|' read -r zip label <<< "$entry"
+            echo "::group::$label (zip $zip)"
+            echo "Fetching deals for $label..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 120 "$BASE/deals/regional?zip=$zip")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            DEAL_COUNT=$(echo "$BODY" | grep -o '"name"' | wc -l)
+            echo "Status: $HTTP_CODE | Deals found: ~$DEAL_COUNT"
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "::warning::$label returned HTTP $HTTP_CODE"
+            fi
+            echo "::endgroup::"
+            echo "Waiting 30s before next request..."
+            sleep 30
+          done
+
+          # ALDI national deals
+          echo "::group::ALDI (national)"
+          echo "Fetching ALDI deals..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 60 "$BASE/aldi/deals")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          DEAL_COUNT=$(echo "$BODY" | grep -o '"name"' | wc -l)
+          echo "Status: $HTTP_CODE | Deals found: ~$DEAL_COUNT"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::warning::ALDI returned HTTP $HTTP_CODE"
+          fi
+          echo "::endgroup::"
+
+          echo "Done! All deal caches refreshed."

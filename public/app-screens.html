@@ -1,0 +1,91 @@
+<!-- SCREEN 2: PICK STORE BRANDS -->
+<div class="screen" id="screen2">
+  <span class="back" onclick="goTo(1)">&#8592; Back</span>
+  <h2 class="screen-title" id="storesTitle">Stores near you</h2>
+  <p class="screen-sub">Select one or more stores to find deals</p>
+  <div id="storesList"></div>
+  <button class="btn btn-primary" id="storesBtn" disabled onclick="onStoresPicked()">View Deals &#8594;</button>
+</div>
+
+<!-- SCREEN 3: KROGER LOCATION (conditional) -->
+<div class="screen" id="screen3">
+  <span class="back" onclick="goTo(2)">&#8592; Back</span>
+  <h2 class="screen-title">Choose your Kroger store</h2>
+  <p class="screen-sub">Select a specific location for the best deals</p>
+  <div id="krogerLocationsList"></div>
+  <button class="btn btn-primary" id="krogerBtn" disabled onclick="onKrogerPicked()">Continue &#8594;</button>
+</div>
+
+<!-- SCREEN 4: SALE ITEMS BROWSER -->
+<div class="screen" id="screen4">
+  <span class="back" onclick="goBackFromDeals()">&#8592; Back</span>
+  <h2 class="screen-title" id="dealsTitle">This week's deals</h2>
+  <p class="deals-updated" id="dealsUpdated" style="font-size:12px;color:#999;margin:0 0 4px 0"></p>
+  <p id="dealsShowing" style="font-size:12px;color:var(--muted);margin:0 0 8px 0"></p>
+  <p class="screen-sub">Tap items: green &#10003; = must include, red &#10005; = exclude</p>
+
+  <div class="kroger-connect-banner" id="krogerConnectBanner">
+    <p>&#128279; Connect your Kroger account to unlock digital coupons and save even more!</p>
+    <a href="javascript:void(0)" onclick="connectKrogerFromList()">Connect Kroger</a>
+    <button class="dismiss" onclick="this.parentElement.style.display='none'">&times;</button>
+  </div>
+
+  <div class="section-title" style="margin-top:8px">&#128722; Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+  <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+  <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy</p>
+
+  <div class="section-title" style="margin-top:12px">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+  <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+  <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have</p>
+
+  <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
+  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
+  <div class="sale-filters" id="saleStoreFilters"></div>
+  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
+  <div class="sale-filters" id="saleCategoryFilters"></div>
+  <div class="sale-grid" id="saleGrid"></div>
+  <div style="text-align:center;margin-top:12px"><button id="dealsShowMore" class="btn btn-outline" onclick="showMoreDeals()" style="display:none">Show More Deals</button></div>
+
+  <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px"><a href="mailto:support@dishcount.co?subject=Deal%20Issue&amp;body=Store:%20%0AItem:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">See a wrong price? Let us know &#8594;</a></p>
+  <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes &#8594;</button>
+</div>
+
+<!-- SCREEN 5: RECIPE STYLE + FILTERS -->
+<div class="screen" id="screen5">
+  <span class="back" onclick="goTo(4)">&#8592; Change Items</span>
+  <h2 class="screen-title">What kind of meal?</h2>
+  <p class="screen-sub" id="dealsLoadedMsg">Choose a meal type and we'll create recipes from your deals</p>
+
+  <div class="meal-grid" id="mealTypeGrid" style="margin-bottom:20px"></div>
+
+  <div class="section-title" style="margin-top:0">Recipe Style <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+  <div class="meal-grid" id="styleGrid"></div>
+
+  <div class="section-title">Dietary Preferences <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+  <div class="filter-grid" id="filterGrid"></div>
+
+  <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
+</div>
+
+<!-- SCREEN 6: RECIPE GRID -->
+<div class="screen" id="screen6">
+  <span class="back" onclick="goTo(5)">&#8592; Change Filters</span>
+  <div class="results-header">
+    <div>
+      <h2 class="screen-title" id="recipesTitle">Your Recipes</h2>
+      <div class="results-count" id="resultsCount"></div>
+    </div>
+    <div class="sort-row">
+      <button class="sort-btn active" id="sort-ingredients" onclick="sortRecipes('ingredients')">&#127991;&#65039; Most Deals</button>
+      <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">&#9201; Quickest</button>
+    </div>
+  </div>
+  <div class="recipe-grid" id="recipeGrid"></div>
+  <p style="font-size:12px;color:#999;font-style:italic;text-align:center;margin-top:12px;line-height:1.5">&#9888;&#65039; Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
+  <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px"><a href="mailto:support@dishcount.co?subject=Recipe%20Issue&amp;body=Recipe:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">Recipe doesn't look right? Report it &#8594;</a></p>
+  <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="btn btn-gradient" id="moreRecipesBtn" onclick="loadMoreRecipes()">&#129302; Generate 8 More Recipes</button>
+    <button class="btn btn-outline" onclick="goTo(5)">&#8592; Change Style</button>
+    <button class="btn btn-outline" onclick="goTo(1); resetApp()">&#128260; Start Over</button>
+  </div>
+</div>

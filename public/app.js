@@ -189,7 +189,9 @@ async function handleSubscribe(e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Something went wrong");
     document.getElementById("emailCaptureForm").style.display = "none";
-    document.getElementById("subscribeSuccess").style.display = "block";
+    const successEl = document.getElementById("subscribeSuccess");
+    successEl.textContent = "\u2713 You're in! Watch for your first email this week.";
+    successEl.style.display = "block";
   } catch (err) { showToast(err.message); btn.disabled = false; btn.textContent = "Subscribe"; }
   return false;
 }
@@ -264,20 +266,30 @@ let state = {
   selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
 };
 
-// Clone app screens from <template> on first use (keeps them out of static HTML for crawlers)
+// Fetch app screens from separate file on first use (keeps them out of static HTML for crawlers)
 var _appScreensLoaded = false;
-function ensureAppScreens() {
+var _appScreensPromise = null;
+async function ensureAppScreens() {
   if (_appScreensLoaded) return;
-  const tpl = document.getElementById("appScreensTemplate");
-  const container = document.getElementById("appScreens");
-  if (tpl && container && !container.children.length) {
-    container.appendChild(tpl.content.cloneNode(true));
-  }
-  _appScreensLoaded = true;
+  if (_appScreensPromise) return _appScreensPromise;
+  _appScreensPromise = (async () => {
+    const container = document.getElementById("appScreens");
+    if (container && !container.children.length) {
+      const res = await fetch("/app-screens.html");
+      container.innerHTML = await res.text();
+    }
+    // Populate shopping list slideout panel
+    const panel = document.getElementById("slideoutPanel");
+    if (panel && !panel.children.length) {
+      panel.innerHTML = '<div class="slideout-header"><div style="font-family:\'Outfit\',sans-serif;font-size:18px;font-weight:700;color:var(--green-dark)">\u{1F6D2} Shopping List</div><button onclick="closeSlideout()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px">\u2715</button></div><div class="slideout-body" id="slideoutBody"></div><div class="slideout-footer"><button id="krogerCartBtn" onclick="addListToKrogerCart()" class="btn btn-primary" style="font-size:14px;padding:12px;border-radius:12px;display:none">\u{1F6D2} Add to Kroger Cart</button><div style="display:flex;gap:8px"><button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4CB} Copy</button><button onclick="emailSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4E7} Email</button><button onclick="saveSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4BE} Save</button></div><div style="text-align:center"><button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;padding:6px">Clear All</button></div></div>';
+    }
+    _appScreensLoaded = true;
+  })();
+  return _appScreensPromise;
 }
 
-function goTo(step) {
-  ensureAppScreens();
+async function goTo(step) {
+  await ensureAppScreens();
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(`screen${step}`).classList.add("active");
   // Toggle landing nav vs app header, and show/hide app screens container
@@ -552,13 +564,13 @@ async function findStores() {
       return a.name.localeCompare(b.name);
     });
     if(!state.storeBrands.length)throw new Error("No stores found near that zip code.");
-    renderStoreBrands(); goTo(2);
+    await renderStoreBrands(); goTo(2);
   } catch(err){showToast(err.message);} finally{hideLoading();}
 }
 
 // ── Screen 2: Store Brands ────────────────────────────────────────────────────
-function renderStoreBrands() {
-  ensureAppScreens();
+async function renderStoreBrands() {
+  await ensureAppScreens();
   document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
   document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
@@ -749,7 +761,7 @@ async function loadDealsAndShow() {
       }
       return;
     }
-    renderSaleItems(); goTo(4);
+    await renderSaleItems(); goTo(4);
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
@@ -765,8 +777,8 @@ function findMatchingCoupon(dealName) {
 }
 
 // ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
-function renderSaleItems() {
-  ensureAppScreens();
+async function renderSaleItems() {
+  await ensureAppScreens();
   const CATEGORY_GROUPS = {
     "🥩 Meat":["chicken","beef","pork","ground beef","steak","salmon","shrimp","turkey","sausage","bacon","hot dogs","tilapia","tuna","lamb","ribs","roast","meatballs","chicken breast","chicken thighs","cod","seafood"],
     "🥬 Produce":["apples","bananas","oranges","strawberries","grapes","avocado","tomatoes","potatoes","onions","broccoli","carrots","lettuce","spinach","peppers","mushrooms","celery","corn","cucumber","lemons","limes","blueberries","fruit","vegetables"],
@@ -1123,6 +1135,7 @@ function updateShoppingBadge() {
   if (badge2) badge2.textContent = text;
 }
 function toggleSlideout() {
+  ensureAppScreens();
   const panel = document.getElementById("slideoutPanel");
   const overlay = document.getElementById("slideoutOverlay");
   if (!panel) return;

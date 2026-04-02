@@ -558,6 +558,7 @@ async function findStores() {
 
 // ── Screen 2: Store Brands ────────────────────────────────────────────────────
 function renderStoreBrands() {
+  ensureAppScreens();
   document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
   document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
@@ -765,6 +766,7 @@ function findMatchingCoupon(dealName) {
 
 // ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
 function renderSaleItems() {
+  ensureAppScreens();
   const CATEGORY_GROUPS = {
     "🥩 Meat":["chicken","beef","pork","ground beef","steak","salmon","shrimp","turkey","sausage","bacon","hot dogs","tilapia","tuna","lamb","ribs","roast","meatballs","chicken breast","chicken thighs","cod","seafood"],
     "🥬 Produce":["apples","bananas","oranges","strawberries","grapes","avocado","tomatoes","potatoes","onions","broccoli","carrots","lettuce","spinach","peppers","mushrooms","celery","corn","cucumber","lemons","limes","blueberries","fruit","vegetables"],
@@ -860,13 +862,13 @@ function filterSaleStore(s){state.saleStoreFilter=s;state.dealsDisplayed=50;rend
 function filterSaleCategory(c){state.saleCategoryFilter=c;state.dealsDisplayed=50;renderSaleItems();}
 
 // ── Screen 5: Meal + Filters ──────────────────────────────────────────────────
-function renderMealTypes(){
+function renderMealTypes(){ensureAppScreens();
   document.getElementById("mealTypeGrid").innerHTML=MEAL_TYPES.map(m=>`<div class="meal-card${state.selectedMealType===m.id?' selected':''}" onclick="selectMealType('${m.id}')" style="text-align:center;padding:18px 8px"><div class="meal-icon" style="font-size:32px">${m.icon}</div><div class="meal-label" style="font-size:15px">${m.label}</div></div>`).join("");
 }
 function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("findRecipesBtn").disabled=false;}
-function renderStyleGrid(){document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${escapeHtml(m.id).replace(/'/g,"&#039;")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${escapeHtml(m.label)}</div><div style="font-size:11px;color:#999;margin-top:2px">${escapeHtml(m.sub)}</div></div>`).join("");}
+function renderStyleGrid(){ensureAppScreens();document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${escapeHtml(m.id).replace(/'/g,"&#039;")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${escapeHtml(m.label)}</div><div style="font-size:11px;color:#999;margin-top:2px">${escapeHtml(m.sub)}</div></div>`).join("");}
 function selectStyle(id){state.selectedStyle=id;document.querySelectorAll("[id^='style-']").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");}
-function renderFilterGrid(){document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("")+'<p style="font-size:12px;color:#999;font-style:italic;margin-top:8px;line-height:1.5">These filters help match recipes to your preferences. If you have food allergies or medical dietary needs, always verify ingredients before cooking.</p>';}
+function renderFilterGrid(){ensureAppScreens();document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("")+'<p style="font-size:12px;color:#999;font-style:italic;margin-top:8px;line-height:1.5">These filters help match recipes to your preferences. If you have food allergies or medical dietary needs, always verify ingredients before cooking.</p>';}
 function toggleFilter(el,f){el.classList.toggle("selected");const i=state.selectedDiets.indexOf(f);if(i>-1)state.selectedDiets.splice(i,1);else state.selectedDiets.push(f);}
 
 // ── Screen 5 → 6: Search Recipes ─────────────────────────────────────────────
@@ -925,9 +927,10 @@ async function loadMoreRecipes() {
     hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 8 More Recipes";
   }
 }
-function sortRecipes(by){document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
+function sortRecipes(by){ensureAppScreens();document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
 
 function renderRecipeGrid(){
+  ensureAppScreens();
   const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Recipes"};
   const diets=state.selectedDiets.length?` · ${state.selectedDiets.join(", ")}`:"";
   document.getElementById("recipesTitle").textContent=`${styleInfo.icon} ${styleInfo.label} Recipes`;

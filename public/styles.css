@@ -13,9 +13,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(26,46,31,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.15); }
 .landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 8px 16px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; position: relative; min-height: 48px; }
 .nav-left { display: flex; align-items: center; }
-.landing-nav-logo { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; text-decoration: none; gap: 0; }
-.landing-nav-logo svg { margin-right: -2px; flex-shrink: 0; }
-.landing-nav-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; color: #e8f0ea; }
+.logo-link { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; text-decoration: none; gap: 2px; }
 .landing-nav-tagline { display: none; }
 .landing-nav-links { display: none; }
 .landing-nav-saved { display: none; }
@@ -170,9 +168,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 
 /* ══ App Header (screens 2-6) — same true-center layout ══ */
 header { background: var(--dark); padding: 8px 16px; display: none; grid-template-columns: auto 1fr auto; align-items: center; position: sticky; top: 0; z-index: 100; position: relative; min-height: 48px; }
-header a.app-logo { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; text-decoration: none; gap: 0; }
-header a.app-logo svg { margin-right: -2px; }
-header a.app-logo .logo-text-inline { font-family: 'Trebuchet MS', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; color: #e8f0ea; }
+header .logo-link { position: absolute; left: 50%; transform: translateX(-50%); }
 .logo-text { display: none; }
 .header-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .progress-bar { display: flex; gap: 3px; align-items: center; }
@@ -379,9 +375,7 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 @media (max-width: 480px) {
   .landing-nav-inner { display: flex; padding: 10px 12px; }
   .nav-left { flex-shrink: 0; width: 40px; }
-  .landing-nav-logo { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
-  .landing-nav-logo svg { width: 32px; height: 32px; }
-  .landing-nav-logo .logo-text-inline { font-size: 20px; }
+  .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
   .nav-right { flex-shrink: 0; gap: 6px; }
   .nav-cart-badge { font-size: 10px; padding: 3px 8px; }
   .nav-signin { padding: 6px 10px; font-size: 11px; }
@@ -389,19 +383,17 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .landing-nav { overflow: hidden; }
   /* App header (screens 2-6) */
   header { padding: 10px 12px; }
-  header a.app-logo { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
-  header a.app-logo svg { width: 32px; height: 32px; }
-  header a.app-logo .logo-text-inline { font-size: 20px; }
+  header .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
   .header-right { gap: 6px; }
 }
 @media (max-width: 360px) {
-  .landing-nav-logo .logo-text-inline { font-size: 18px; }
-  .landing-nav-logo svg { width: 28px; height: 28px; }
+  .logo-link .logo-text-inline { font-size: 18px; }
+  .logo-link svg { width: 24px; height: 24px; }
   .nav-signin { padding: 4px 8px; font-size: 0; }
   .nav-signin::before { content: '\1F464'; font-size: 16px; }
   .nav-right { gap: 4px; }
-  header a.app-logo .logo-text-inline { font-size: 18px; }
-  header a.app-logo svg { width: 28px; height: 28px; }
+  header .logo-link .logo-text-inline { font-size: 18px; }
+  header .logo-link svg { width: 24px; height: 24px; }
 }
 
 @media (max-width: 768px) {

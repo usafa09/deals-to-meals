@@ -27,7 +27,7 @@
     }
 
     /* Nav — uses shared styles from /styles.css */
-    .landing-nav-signin:hover {
+    .nav-signin:hover {
       background: var(--green-mid);
       color: #fff;
     }
@@ -256,7 +256,7 @@
       .landing-nav-tagline { display: none; }
       .landing-nav-links { gap: 16px; }
       .landing-nav-links a { font-size: 12px; }
-      .landing-nav-signin { padding: 6px 14px; font-size: 12px; }
+      .nav-signin { padding: 6px 14px; font-size: 12px; }
 
       .cta-section h2 { font-size: 24px; }
     }
@@ -302,13 +302,12 @@
         <a href="/contact.html">Contact</a>
       </div>
       <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
-    <a href="/profile.html" class="landing-nav-signin">Sign In</a>
+    <div class="nav-right"><span onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin">Sign In</a></div>
     </div>
     <div class="nav-dropdown" id="navDropdown">
       <a href="/#how-it-works" onclick="closeHamburger()">How It Works</a>
       <a href="/about.html" onclick="closeHamburger()">About</a>
       <a href="/contact.html" onclick="closeHamburger()">Contact</a>
-      <a href="/profile.html#saved" onclick="closeHamburger()">&#10084;&#65039; Saved Recipes</a>
       <a href="/terms.html" onclick="closeHamburger()">Terms</a>
       <a href="/privacy.html" onclick="closeHamburger()">Privacy</a>
     </div>
@@ -425,7 +424,7 @@
       try {
         const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const { data: { session } } = await sb.auth.getSession();
-        const signInEl = document.querySelector('.landing-nav-signin');
+        const signInEl = document.querySelector('.nav-signin');
         if (session && signInEl) {
           signInEl.textContent = 'My Account';
         }

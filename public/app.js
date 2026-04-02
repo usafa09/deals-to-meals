@@ -1681,3 +1681,11 @@ async function loadPersonalDashboard() {
 sb.auth.onAuthStateChange((event, session) => {
   if (session?.user) setTimeout(loadPersonalDashboard, 500);
 });
+
+// ── Cookie consent banner ───────────────────────────────────────────────────
+if (!localStorage.getItem("dishcount_cookies_accepted")) {
+  const cb = document.createElement("div");
+  cb.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#1a2e1f;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-family:'DM Sans',sans-serif;z-index:9999;flex-wrap:wrap";
+  cb.innerHTML = '<span>\u{1F36A} Dishcount uses cookies for analytics and to keep you signed in.</span><button onclick="localStorage.setItem(\'dishcount_cookies_accepted\',\'true\');this.parentElement.remove()" style="background:#52b788;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap">Got it</button>';
+  document.body.appendChild(cb);
+}

@@ -35,10 +35,25 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Dishcount",
+    "alternateName": ["Dishcount — Meals from Deals", "Dish Count"],
+    "url": "https://dishcount.co",
+    "description": "Turn local grocery deals into personalized meal plans. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://dishcount.co/?zip={zip_code}",
+      "query-input": "required name=zip_code"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Dishcount",
     "url": "https://dishcount.co",
-    "description": "Free AI-powered recipes based on your local grocery store's weekly sales. Find deals, get recipes, save money.",
+    "description": "Turn local grocery deals into personalized meal plans.",
     "applicationCategory": "LifestyleApplication",
     "operatingSystem": "Web",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -51,7 +66,7 @@
 <nav class="landing-nav" id="landingNav">
   <div class="landing-nav-inner">
     <div class="nav-left"><button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button></div>
-    <a href="/" class="landing-nav-logo">
+    <a href="/" class="landing-nav-logo" aria-label="Dishcount">
       <svg width="48" height="48" viewBox="-2 -2 46 46" style="flex-shrink:0">
         <!-- © 2026 Dishcount LLC. All rights reserved. -->
         <g transform="translate(2, 0)">
@@ -65,7 +80,7 @@
             <path d="M16.5 12 C14 12 13.5 14.5 14.5 16.5 C15 17.5 15.8 18 15.9 18.5 L15.9 28 L17.1 28 L17.1 18.5 C17.2 18 18 17.5 18.5 16.5 C19.5 14.5 19 12 16.5 12 Z" fill="#74c69d" fill-opacity="0.6" stroke="none"/>
           </g>
         </g>
-      </svg><span class="logo-text-inline"><span class="t1">ish</span><span class="t2">count</span></span>
+      </svg><span class="logo-text-inline" aria-hidden="true"><span class="t1">ish</span><span class="t2">count</span></span><span class="sr-only">Dishcount</span>
     </a>
     <div class="landing-nav-links">
       <a href="#how-it-works">How It Works</a>
@@ -86,7 +101,7 @@
 <!-- ══ APP HEADER (hidden on Screen 1, shown on 2-6) ══ -->
 <header id="appHeader">
   <div class="nav-left"><button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button></div>
-  <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="app-logo">
+  <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="app-logo" aria-label="Dishcount">
     <svg width="48" height="48" viewBox="-2 -2 46 46" style="flex-shrink:0">
         <!-- © 2026 Dishcount LLC. All rights reserved. -->
       <g transform="translate(2, 0)">
@@ -100,7 +115,7 @@
           <path d="M16.5 12 C14 12 13.5 14.5 14.5 16.5 C15 17.5 15.8 18 15.9 18.5 L15.9 28 L17.1 28 L17.1 18.5 C17.2 18 18 17.5 18.5 16.5 C19.5 14.5 19 12 16.5 12 Z" fill="#74c69d" fill-opacity="0.6" stroke="none"/>
         </g>
       </g>
-    </svg><span class="logo-text-inline"><span class="t1">ish</span><span class="t2">count</span></span>
+    </svg><span class="logo-text-inline" aria-hidden="true"><span class="t1">ish</span><span class="t2">count</span></span><span class="sr-only">Dishcount</span>
   </a>
   <div class="nav-right">
     <span id="shoppingBadge" onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span>
@@ -352,7 +367,7 @@
         </div>
         <button type="submit" class="email-capture-btn" id="subscribeBtn">Subscribe</button>
       </form>
-      <p class="email-capture-success" id="subscribeSuccess" style="display:none">&#10003; You're in! Watch for your first email this week.</p>
+      <p class="email-capture-success" id="subscribeSuccess" data-nosnippet style="display:none">&#10003; You're in! Watch for your first email this week.</p>
       <p class="email-capture-note">No spam, ever. Unsubscribe anytime.</p>
     </div>
   </section>
@@ -382,7 +397,7 @@
 
 </div>
 
-<main id="appScreens" style="display:none" aria-hidden="true">
+<main id="appScreens" data-nosnippet style="display:none" aria-hidden="true">
 
   <!-- SCREEN 2: PICK STORE BRANDS -->
   <div class="screen" id="screen2">
@@ -430,6 +445,7 @@
     <div class="sale-filters" id="saleCategoryFilters"></div>
     <div class="sale-grid" id="saleGrid"></div>
 
+    <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px"><a href="mailto:support@dishcount.co?subject=Deal%20Issue&amp;body=Store:%20%0AItem:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">See a wrong price? Let us know &#8594;</a></p>
     <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes &#8594;</button>
   </div>
 
@@ -465,6 +481,7 @@
     </div>
     <div class="recipe-grid" id="recipeGrid"></div>
     <p style="font-size:12px;color:#999;font-style:italic;text-align:center;margin-top:12px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
+    <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px"><a href="mailto:support@dishcount.co?subject=Recipe%20Issue&amp;body=Recipe:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">Recipe doesn't look right? Report it &#8594;</a></p>
     <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
       <button class="btn btn-gradient" id="moreRecipesBtn" onclick="loadMoreRecipes()">&#129302; Generate 8 More Recipes</button>
       <button class="btn btn-outline" onclick="goTo(5)">&#8592; Change Style</button>

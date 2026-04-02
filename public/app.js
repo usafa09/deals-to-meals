@@ -68,6 +68,19 @@ function showSignupModal(isFinal) {
   document.body.appendChild(overlay);
 }
 
+function showRateLimitModal() {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;";
+  overlay.innerHTML = '<div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:100%;text-align:center;">' +
+    '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div>' +
+    '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">Recipe limit reached</h3>' +
+    '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to unlock unlimited recipe generation, plus:</p>' +
+    '<div style="text-align:left;margin:0 auto 20px;max-width:260px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build shopping lists<br>\u2713 Add to Kroger cart<br>\u2713 Track your savings</div>' +
+    '<a href="/profile.html" style="display:block;padding:14px;background:var(--green-dark);color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:16px;margin-bottom:10px;">Create Account</a>' +
+    '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Try Again Later</button></div>';
+  document.body.appendChild(overlay);
+}
+
 function updateAuthUI(session) {
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const setHref = (id, val) => { const el = document.getElementById(id); if (el) el.href = val; };
@@ -953,7 +966,7 @@ async function searchRecipes() {
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload)});
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||"Could not generate recipes");
+    if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } throw new Error(data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipes=data.recipes;
     state.recipeOffset=8;

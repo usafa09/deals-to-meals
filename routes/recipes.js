@@ -1,5 +1,6 @@
 import { Router } from "express";
 import fetch from "node-fetch";
+import rateLimit from "express-rate-limit";
 import { trackStat } from "./gamification.js";
 import {
   supabase, getUser,
@@ -12,8 +13,27 @@ import {
 
 const router = Router();
 
-// ── Anonymous recipe generation tracking (in-memory, resets on deploy) ──────
+// ── Anonymous recipe generation tracking + rate limiting ────────────────────
 const anonRecipeCount = new Map();
+const anonDailyCount = new Map();
+
+// Hourly rate limiter for anonymous users (5/hour)
+const anonRecipeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.headers["x-anon-id"] || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Recipe generation limit reached. Create a free account for unlimited recipes!", limitReached: true },
+});
+
+// Clean up stale daily count entries every hour
+setInterval(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const key of anonDailyCount.keys()) {
+    if (!key.endsWith(today)) anonDailyCount.delete(key);
+  }
+}, 60 * 60 * 1000);
 
 // ══ SAVED RECIPES API ═════════════════════════════════════════════════════════
 
@@ -177,7 +197,30 @@ router.post("/api/recipes/search", async (req, res) => {
 
 // ══ CLAUDE AI RECIPE GENERATION ══════════════════════════════════════════════
 
-router.post("/api/recipes/ai", async (req, res) => {
+router.post("/api/recipes/ai", async (req, res, next) => {
+  // Apply stricter rate limit for anonymous users
+  const user = await getUser(req);
+  if (!user) {
+    // Daily cap: 10 per day
+    const anonId = req.headers["x-anon-id"] || req.ip;
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyKey = anonId + "-" + today;
+    const dailyUsed = anonDailyCount.get(dailyKey) || 0;
+    if (dailyUsed >= 10) {
+      return res.status(429).json({ error: "Daily recipe limit reached. Create a free account for unlimited recipes!", limitReached: true });
+    }
+    // Hourly rate limit (express-rate-limit middleware)
+    return anonRecipeLimiter(req, res, () => {
+      anonDailyCount.set(dailyKey, dailyUsed + 1);
+      req._anonId = anonId;
+      handleRecipeGeneration(req, res);
+    });
+  }
+  req._user = user;
+  handleRecipeGeneration(req, res);
+});
+
+async function handleRecipeGeneration(req, res) {
   const { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
@@ -594,7 +637,7 @@ IMPORTANT ingredient type rules:
     const dealHunterScore = totalIngredients > 0 ? { used: usedDealNames.size, total: totalIngredients, percent: Math.round((usedDealNames.size / totalIngredients) * 100) } : null;
 
     // Track gamification stats
-    const user = await getUser(req);
+    const user = req._user;
     if (user) {
       const totalSavings = recipes.reduce((s, r) => s + (r.totalSavings || 0), 0);
       const badgeResult = await trackStat(user.id, "recipe_generated", {
@@ -613,7 +656,7 @@ IMPORTANT ingredient type rules:
     logError("POST /api/recipes/ai", err.message);
     res.status(500).json({ error: "Something went wrong generating recipes. Please try again." });
   }
-});
+}
 
 // ══ RECIPE IMAGE (lazy Pexels lookup) ═════════════════════════════════════════
 

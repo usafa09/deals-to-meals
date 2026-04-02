@@ -27,6 +27,47 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ── Anonymous session tracking ──────────────────────────────────────────────
+var _anonId = localStorage.getItem("dishcount_anon_id");
+if (!_anonId) { _anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem("dishcount_anon_id", _anonId); }
+
+function getAnonRecipeCount() { return parseInt(localStorage.getItem("dishcount_anon_recipe_count") || "0"); }
+function incAnonRecipeCount() { const c = getAnonRecipeCount() + 1; localStorage.setItem("dishcount_anon_recipe_count", String(c)); return c; }
+
+function showSignupNudge(count) {
+  // Remove any existing nudge
+  const old = document.getElementById("signupNudge"); if (old) old.remove();
+  let html = "";
+  if (count === 1) {
+    html = '<div id="signupNudge" style="text-align:center;padding:16px;margin-top:16px;background:var(--cream);border:1px solid var(--sand);border-radius:12px;font-size:14px;color:var(--muted);">\u{1F4A1} <a href="/profile.html" style="color:var(--green-dark);font-weight:600;">Create a free account</a> to save recipes and build shopping lists <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#999;cursor:pointer;float:right;font-size:16px;">\u2715</button></div>';
+  } else if (count >= 3 && count < 5) {
+    html = '<div id="signupNudge" style="text-align:center;padding:20px;margin-top:16px;background:#fffdf7;border:2px solid var(--sand);border-radius:14px;">\u{1F31F} <strong>You\'ve generated ' + count + ' recipe batches!</strong><br><span style="color:var(--muted);font-size:14px;">Sign up to save favorites, track savings, and earn badges.</span><br><a href="/profile.html" style="display:inline-block;margin-top:10px;padding:10px 24px;background:var(--green-dark);color:white;border-radius:10px;font-weight:700;text-decoration:none;font-size:14px;">Create Account</a></div>';
+  } else if (count >= 5 && count < 8) {
+    showSignupModal(false);
+  } else if (count >= 8) {
+    showSignupModal(true);
+  }
+  if (html) {
+    const grid = document.getElementById("recipeGrid");
+    if (grid) grid.insertAdjacentHTML("afterend", html);
+  }
+}
+
+function showSignupModal(isFinal) {
+  if (sessionStorage.getItem("dishcount_nudge_dismissed")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "signupNudge";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;";
+  const count = getAnonRecipeCount();
+  overlay.innerHTML = '<div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:100%;text-align:center;">' +
+    (isFinal ? '<div style="font-size:32px;margin-bottom:8px;">\u{1F389}</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated ' + count + ' batches of recipes!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">You\'re clearly a deal hunter. Join now and claim your Founding Member badge!</p>'
+             : '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'re getting great use out of Dishcount!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to:</p>') +
+    '<div style="text-align:left;margin:0 auto 20px;max-width:280px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build and share shopping lists<br>\u2713 Add ingredients to your Kroger cart<br>\u2713 Track your savings and earn badges<br>\u2713 Get weekly deal emails</div>' +
+    '<a href="/profile.html" style="display:block;padding:14px;background:var(--green-dark);color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:16px;margin-bottom:10px;">Create Account</a>' +
+    '<button onclick="sessionStorage.setItem(\'dishcount_nudge_dismissed\',\'1\');this.closest(\'#signupNudge\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
+  document.body.appendChild(overlay);
+}
+
 function updateAuthUI(session) {
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const setHref = (id, val) => { const el = document.getElementById(id); if (el) el.href = val; };
@@ -56,6 +97,12 @@ sb.auth.onAuthStateChange((event, session) => {
   updateAuthUI(session);
   // Restore app state after sign-in redirect
   if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+    // Transfer anonymous recipe count to user account
+    const anonCount = getAnonRecipeCount();
+    if (anonCount > 0 && session.access_token) {
+      fetch("/api/stats/track", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ event: "recipe_generated", data: { count: anonCount, source: "anonymous_transfer" } }) }).catch(() => {});
+      localStorage.removeItem("dishcount_anon_recipe_count");
+    }
     const pending = restorePendingState();
     if (pending) {
       console.log("Restoring pending state:", pending.pendingAction);
@@ -904,7 +951,7 @@ async function searchRecipes() {
   state.recipeOffset=0;
   showCookingLoading();
   try {
-    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||"Could not generate recipes");
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
@@ -913,6 +960,8 @@ async function searchRecipes() {
     renderRecipeGrid(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
     if (data.dealHunterScore) showDealHunterScore(data.dealHunterScore);
+    // Nudge anonymous users to sign up
+    sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
@@ -924,7 +973,7 @@ async function loadMoreRecipes() {
   btn.disabled=true; btn.textContent="🤖 Generating…";
   showCookingLoading();
   try {
-    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||"Could not generate recipes");
     if(data.recipes?.length){

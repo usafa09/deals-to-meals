@@ -12,6 +12,9 @@ import {
 
 const router = Router();
 
+// ── Anonymous recipe generation tracking (in-memory, resets on deploy) ──────
+const anonRecipeCount = new Map();
+
 // ══ SAVED RECIPES API ═════════════════════════════════════════════════════════
 
 router.get("/api/recipes/saved", async (req, res) => {
@@ -600,7 +603,11 @@ IMPORTANT ingredient type rules:
       });
       res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult, dealHunterScore });
     } else {
-      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, dealHunterScore });
+      // Track anonymous generation count
+      const anonId = req.headers["x-anon-id"] || req.ip;
+      const count = (anonRecipeCount.get(anonId) || 0) + 1;
+      anonRecipeCount.set(anonId, count);
+      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, dealHunterScore, anonGenerations: count });
     }
   } catch (err) {
     logError("POST /api/recipes/ai", err.message);

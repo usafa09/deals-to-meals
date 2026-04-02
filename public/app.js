@@ -1367,8 +1367,9 @@ async function loadPersonalDashboard() {
       <div style="font-size:11px;color:var(--muted)">${xp}/${nextXp} XP</div>
     </div>`;
 
-    // Challenges
+    // Weekly Quests
     if (challenges.length) {
+      html += `<div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:6px">⚔️ Weekly Quests</div>`;
       html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">`;
       challenges.forEach(c => {
         const pct = Math.min(100, Math.round((c.progress / c.target) * 100));

@@ -265,11 +265,26 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .loading-overlay.show { display: flex; }
 .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.cooking-emoji { font-size: 56px; animation: cookBounce 0.6s ease-in-out infinite alternate; }
-@keyframes cookBounce { 0% { transform: translateY(0) rotate(-5deg); } 100% { transform: translateY(-12px) rotate(5deg); } }
-.loading-text { font-family: 'Trebuchet MS', sans-serif; font-size: 17px; color: var(--green-dark); font-style: italic; }
+.cooking-emoji { display: none; }
+.chef-container { width: 120px; height: 130px; position: relative; }
+.chef-arm { transform-origin: 8px 4px; }
+.chef-stir .chef-arm { animation: stir 1s ease-in-out infinite; }
+.chef-chop .chef-arm { animation: chop 0.5s ease-in-out infinite; }
+.chef-taste .chef-arm { animation: taste 2s ease-in-out infinite; }
+.chef-flip .chef-arm { animation: flip 1.2s ease-in-out infinite; }
+.chef-season .chef-arm { animation: season 0.6s ease-in-out infinite; }
+.chef-dance { animation: dance 0.8s ease-in-out infinite; }
+.chef-read .chef-arm { animation: read 2s ease-in-out infinite; }
+@keyframes stir { 0%,100% { transform: rotate(-15deg); } 50% { transform: rotate(15deg); } }
+@keyframes chop { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes taste { 0%,40% { transform: rotate(0); } 50%,70% { transform: rotate(-40deg); } 80%,100% { transform: rotate(0); } }
+@keyframes flip { 0%,100% { transform: rotate(0); } 40% { transform: rotate(-20deg); } 50% { transform: rotate(10deg); } }
+@keyframes season { 0%,100% { transform: rotate(0); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
+@keyframes dance { 0%,100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-4px) rotate(-3deg); } 75% { transform: translateX(4px) rotate(3deg); } }
+@keyframes read { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
+.loading-text { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: var(--green-dark); }
 .loading-sub { font-size: 13px; color: var(--muted); }
-.loading-tip { font-size: 14px; color: #6b7b6e; font-style: italic; text-align: center; max-width: 380px; line-height: 1.5; margin-top: 16px; padding: 0 20px; transition: opacity 0.4s ease; }
+.loading-tip { font-size: 14px; color: #6b7b6e; font-style: italic; text-align: center; max-width: 380px; line-height: 1.5; margin-top: 12px; padding: 0 20px; transition: opacity 0.4s ease; }
 .toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.2); white-space: nowrap; }
 .toast.show { display: block; animation: fadeUp 0.3s ease; }
 .extract-spinner { display:inline-block; width:18px; height:18px; border:3px solid var(--sand); border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }

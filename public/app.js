@@ -235,39 +235,46 @@ const shuffledTips = [...COOKING_TIPS].sort(() => Math.random() - 0.5);
 let tipIdx = 0;
 function getNextTip() { const tip = shuffledTips[tipIdx % shuffledTips.length]; tipIdx++; return tip; }
 
-const COOKING_MESSAGES = [
-  { emoji: "🍳", text: "Preheating the oven\u2026" },
-  { emoji: "🔪", text: "Chopping ingredients\u2026" },
-  { emoji: "🧈", text: "Melting the butter\u2026" },
-  { emoji: "🥘", text: "Simmering the sauce\u2026" },
-  { emoji: "🧂", text: "Adding seasoning\u2026" },
-  { emoji: "🍲", text: "Stirring the pot\u2026" },
-  { emoji: "👨‍🍳", text: "Taste-testing\u2026" },
-  { emoji: "🍽️", text: "Plating the dishes\u2026" },
-  { emoji: "✨", text: "Adding the finishing touches\u2026" },
+const CHEF_ACTIVITIES = [
+  { cls: "chef-stir", text: "Stirring the pot\u2026" },
+  { cls: "chef-chop", text: "Chopping ingredients\u2026" },
+  { cls: "chef-taste", text: "Tasting for flavor\u2026" },
+  { cls: "chef-flip", text: "Flipping with flair\u2026" },
+  { cls: "chef-season", text: "Adding seasoning\u2026" },
+  { cls: "chef-stir", text: "Simmering the sauce\u2026" },
+  { cls: "chef-dance", text: "Doing a happy dance\u2026" },
+  { cls: "chef-read", text: "Reading the recipe\u2026" },
 ];
+let chefIdx = 0;
+
 function showLoading(text, sub="") {
-  document.getElementById("loadingText").textContent=text;
-  document.getElementById("loadingSub").textContent=sub;
+  const spinner = document.getElementById("loadingSpinner");
+  const chef = document.getElementById("chefContainer");
+  if (spinner) spinner.style.display = "";
+  if (chef) chef.style.display = "none";
+  document.getElementById("loadingText").textContent = text;
+  document.getElementById("loadingSub").textContent = sub;
   document.getElementById("loadingOverlay").classList.add("show");
   startTipRotation();
 }
 function showCookingLoading() {
-  const overlay = document.getElementById("loadingOverlay");
-  const spinner = overlay.querySelector(".spinner");
+  const spinner = document.getElementById("loadingSpinner");
+  const chef = document.getElementById("chefContainer");
   const textEl = document.getElementById("loadingText");
   const subEl = document.getElementById("loadingSub");
-  // Replace spinner with cooking emoji
-  spinner.style.display = "none";
-  let emojiEl = overlay.querySelector(".cooking-emoji");
-  if (!emojiEl) { emojiEl = document.createElement("div"); emojiEl.className = "cooking-emoji"; spinner.parentNode.insertBefore(emojiEl, spinner); }
-  emojiEl.style.display = "block";
-  let idx = 0;
-  const update = () => { const m = COOKING_MESSAGES[idx % COOKING_MESSAGES.length]; emojiEl.textContent = m.emoji; textEl.textContent = m.text; idx++; };
-  update();
+  if (spinner) spinner.style.display = "none";
+  if (chef) chef.style.display = "block";
   subEl.textContent = "Our AI chef is crafting your recipes";
-  cookingInterval = setInterval(update, 2500);
-  overlay.classList.add("show");
+  chefIdx = 0;
+  const updateChef = () => {
+    const a = CHEF_ACTIVITIES[chefIdx % CHEF_ACTIVITIES.length];
+    if (chef) { chef.className = "chef-container " + a.cls; }
+    textEl.textContent = a.text;
+    chefIdx++;
+  };
+  updateChef();
+  cookingInterval = setInterval(updateChef, 3500);
+  document.getElementById("loadingOverlay").classList.add("show");
   startTipRotation();
 }
 function startTipRotation() {
@@ -278,19 +285,18 @@ function startTipRotation() {
   if (tipInterval) clearInterval(tipInterval);
   tipInterval = setInterval(() => {
     tipEl.style.opacity = "0";
-    setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 400);
+    setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 4000);
   }, 4000);
 }
 function hideLoading() {
   document.getElementById("loadingOverlay").classList.remove("show");
   if (cookingInterval) { clearInterval(cookingInterval); cookingInterval = null; }
   if (tipInterval) { clearInterval(tipInterval); tipInterval = null; }
-  const overlay = document.getElementById("loadingOverlay");
-  const spinner = overlay.querySelector(".spinner");
-  const emojiEl = overlay.querySelector(".cooking-emoji");
+  const spinner = document.getElementById("loadingSpinner");
+  const chef = document.getElementById("chefContainer");
   const tipEl = document.getElementById("loadingTip");
   if (spinner) spinner.style.display = "";
-  if (emojiEl) emojiEl.style.display = "none";
+  if (chef) { chef.style.display = "none"; chef.className = "chef-container"; }
   if (tipEl) tipEl.textContent = "";
 }
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }

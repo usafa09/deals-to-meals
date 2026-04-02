@@ -404,6 +404,14 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   header a.app-logo svg { width: 28px; height: 28px; }
 }
 
+@media (max-width: 768px) {
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .kroger-hero-inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }
+  .recipe-preview-grid { grid-template-columns: repeat(2, 1fr); }
+  .how-grid { grid-template-columns: 1fr; gap: 24px; }
+  .screen-title { font-size: 22px; }
+}
+
 @media (max-width: 500px) {
   .slideout-panel { width: 100%; right: -100%; }
   .landing-hero { min-height: auto; padding: 80px 16px 40px; }

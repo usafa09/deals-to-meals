@@ -13,6 +13,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Dishcount — Turn local grocery deals into personalized meal plans. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable. Free." />
   <title>Dishcount — Meals from Deals</title>
+  <link rel="canonical" href="https://dishcount.co/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://bvwwtrwxnuncalgtuqvx.supabase.co">
@@ -135,11 +136,11 @@
   <div class="loading-sub" id="loadingSub"></div>
   <div class="loading-tip" id="loadingTip"></div>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
 <!-- Recipe Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
-  <div class="modal" id="modal">
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Recipe details">
     <div id="modalContent"></div>
   </div>
 </div>
@@ -159,8 +160,8 @@
       <h1 class="landing-headline">Turn Local Grocery <span class="highlight">Deals</span> into Personalized Meal Plans</h1>
       <p class="landing-subtitle">Pick nearby stores, browse this week's sales, and get recipe ideas based on what's actually affordable.</p>
       <div class="landing-search">
-        <input id="zipInput" type="text" maxlength="5" placeholder="Enter zip code" inputmode="numeric" />
-        <button id="zipBtn" disabled>Start Free &#8594;</button>
+        <input id="zipInput" type="text" maxlength="5" placeholder="Enter zip code" inputmode="numeric" aria-label="Enter your zip code" />
+        <button id="zipBtn" disabled aria-label="Find stores near me">Start Free &#8594;</button>
       </div>
       <div class="landing-distance">
         <label for="radiusSelect">Distance:</label>
@@ -177,8 +178,8 @@
   </section>
 
   <!-- Founding Member Banner -->
-  <section class="founding-banner" id="foundingBanner" style="display:none">
-    <div class="founding-banner-inner" id="foundingText"></div>
+  <section class="founding-banner" id="foundingBanner">
+    <div class="founding-banner-inner" id="foundingText">&#11088; Limited Founding Member spots available &mdash; <a href="/profile.html">Sign up to claim yours!</a></div>
   </section>
 
   <!-- Personalized Dashboard (signed in only) -->
@@ -375,10 +376,10 @@
       <p class="email-capture-sub">Get a free weekly email with the best deals and recipes for your area.</p>
       <form class="email-capture-form" id="emailCaptureForm" onsubmit="return handleSubscribe(event)">
         <div class="email-capture-fields">
-          <input type="email" id="subscribeEmail" placeholder="Your email" required />
-          <input type="text" id="subscribeZip" placeholder="Zip code" maxlength="5" inputmode="numeric" required />
+          <input type="email" id="subscribeEmail" placeholder="Your email" required aria-label="Email address for weekly deals" />
+          <input type="text" id="subscribeZip" placeholder="Zip code" maxlength="5" inputmode="numeric" required aria-label="Your zip code" />
         </div>
-        <button type="submit" class="email-capture-btn" id="subscribeBtn">Subscribe</button>
+        <button type="submit" class="email-capture-btn" id="subscribeBtn" aria-label="Subscribe to weekly deals">Subscribe</button>
       </form>
       <p class="email-capture-success" id="subscribeSuccess" data-nosnippet style="display:none">&#10003; You're in! Watch for your first email this week.</p>
       <p class="email-capture-note">No spam, ever. Unsubscribe anytime.</p>
@@ -509,7 +510,7 @@
 
 <!-- Shopping List Slide-out -->
 <div class="slideout-overlay" id="slideoutOverlay" onclick="closeSlideout()"></div>
-<div class="slideout-panel" id="slideoutPanel">
+<div class="slideout-panel" id="slideoutPanel" role="complementary" aria-label="Shopping list">
   <div class="slideout-header">
     <div style="font-family:'Outfit',sans-serif;font-size:18px;font-weight:700;color:var(--green-dark)">&#128722; Shopping List</div>
     <button onclick="closeSlideout()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px">&#10005;</button>

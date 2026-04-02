@@ -40,6 +40,7 @@ app.use(helmet({
 }));
 app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com",
@@ -163,6 +164,7 @@ app.get(['/profile.html', '/admin.html'], (req, res, next) => {
   res.set('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
+app.get('/login.html', (req, res) => { res.redirect(301, '/profile.html'); });
 app.use(express.static(join(__dirname, "public")));
 
 // ── Mount route modules ─────────────────────────────────────────────────────

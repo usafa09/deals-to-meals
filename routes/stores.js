@@ -377,13 +377,23 @@ router.get("/api/deals/regional", async (req, res) => {
       }
     } catch (e) { /* ignore */ }
 
+    // Server-side pagination
+    const total = allDeals.length;
+    const limit = Math.min(parseInt(req.query.limit) || total, total);
+    const offset = Math.min(parseInt(req.query.offset) || 0, total);
+    const paged = limit < total ? allDeals.slice(offset, offset + limit) : allDeals;
+    if (total > 1000) console.warn(`⚠️ Large deals response: ${total} deals (${Math.round(JSON.stringify(allDeals).length / 1024)}KB)`);
+
     res.json({
       zip3,
-      totalDeals: allDeals.length,
-      deals: allDeals,
+      totalDeals: total,
+      deals: paged,
       sources: results.sources,
       availableChains: summary.map(s => s.banner),
       dealsUpdatedAt,
+      limit,
+      offset,
+      hasMore: offset + limit < total,
     });
   } catch (err) {
     console.error("Regional deals error:", err.message);

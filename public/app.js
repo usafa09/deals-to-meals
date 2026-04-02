@@ -696,6 +696,15 @@ async function loadDealsAndShow() {
       return selectedLower.some(b => store.includes(b) || b.includes(store));
     });
 
+    // Show deal freshness timestamp
+    if (data.dealsUpdatedAt) {
+      const d = new Date(data.dealsUpdatedAt);
+      const formatted = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+      document.getElementById("dealsUpdated").textContent = "Deals updated: " + formatted;
+    } else {
+      document.getElementById("dealsUpdated").textContent = "";
+    }
+
     // Log sources for debugging
     console.log("Regional response:", { totalDeals: data.totalDeals, sources: data.sources, selectedBrands: state.selectedBrands });
     console.log("After brand filter:", allDeals.length, "deals from", data.totalDeals, "total");

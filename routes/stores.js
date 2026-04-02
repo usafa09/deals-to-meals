@@ -360,12 +360,30 @@ router.get("/api/deals/regional", async (req, res) => {
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
     logSearch(zip, results.sources.length, allDeals.length);
 
+    // Get the most recent fetched_at from deal_cache for this set of sources
+    let dealsUpdatedAt = null;
+    try {
+      const cacheKeys = [];
+      if (locationId) cacheKeys.push(`kroger:${locationId}`);
+      cacheKeys.push("aldi:national", "walmart:national");
+      const { data: cacheRows } = await supabase
+        .from("deal_cache")
+        .select("fetched_at")
+        .in("cache_key", cacheKeys)
+        .order("fetched_at", { ascending: false })
+        .limit(1);
+      if (cacheRows && cacheRows.length > 0) {
+        dealsUpdatedAt = cacheRows[0].fetched_at;
+      }
+    } catch (e) { /* ignore */ }
+
     res.json({
       zip3,
       totalDeals: allDeals.length,
       deals: allDeals,
       sources: results.sources,
       availableChains: summary.map(s => s.banner),
+      dealsUpdatedAt,
     });
   } catch (err) {
     console.error("Regional deals error:", err.message);

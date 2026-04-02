@@ -244,6 +244,7 @@ let tipIdx = 0;
 function getNextTip() { const tip = shuffledTips[tipIdx % shuffledTips.length]; tipIdx++; return tip; }
 
 const MALE_CHEF_SVG = `<svg width="140" height="195" viewBox="0 0 140 195">
+  <!-- © 2026 Dishcount LLC. All rights reserved. -->
   <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
   <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
   <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>
@@ -266,6 +267,7 @@ const MALE_CHEF_SVG = `<svg width="140" height="195" viewBox="0 0 140 195">
 </svg>`;
 
 const FEMALE_CHEF_SVG = `<svg width="140" height="195" viewBox="0 0 140 195">
+  <!-- © 2026 Dishcount LLC. All rights reserved. -->
   <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
   <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
   <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>

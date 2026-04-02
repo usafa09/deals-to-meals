@@ -243,153 +243,46 @@ const shuffledTips = [...COOKING_TIPS].sort(() => Math.random() - 0.5);
 let tipIdx = 0;
 function getNextTip() { const tip = shuffledTips[tipIdx % shuffledTips.length]; tipIdx++; return tip; }
 
-const MALE_CHEF_SVG = `<svg width="140" height="220" viewBox="0 0 140 220">
-  <!-- © 2026 Dishcount LLC. All rights reserved. -->
-  <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
-  <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
-  <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>
-  <line x1="58" y1="6" x2="58" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="70" y1="6" x2="70" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="82" y1="6" x2="82" y2="64" stroke="#ddd" stroke-width="1.5"/>
-  <ellipse cx="70" cy="8" rx="18" ry="7" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M44 68 Q70 74 96 68" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M52 78 Q58 72 64 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <path d="M76 78 Q82 72 88 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <path d="M56 90 Q70 100 84 90" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
-  <rect x="50" y="104" width="40" height="56" rx="6" fill="white" stroke="black" stroke-width="3"/>
-  <circle cx="60" cy="116" r="2" fill="black"/><circle cx="80" cy="116" r="2" fill="black"/>
-  <circle cx="60" cy="128" r="2" fill="black"/><circle cx="80" cy="128" r="2" fill="black"/>
-  <circle cx="60" cy="140" r="2" fill="black"/><circle cx="80" cy="140" r="2" fill="black"/>
-  <line x1="70" y1="104" x2="70" y2="160" stroke="black" stroke-width="1.5"/>
-  <path d="M50 112 Q34 108 26 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>
-  <g class="chef-right-arm"><path d="M90 112 Q106 108 114 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/><circle cx="114" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/></g>
-  <circle cx="26" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M58 160 L52 186" stroke="black" stroke-width="4" stroke-linecap="round"/><path d="M82 160 L88 186" stroke="black" stroke-width="4" stroke-linecap="round"/>
-  <ellipse cx="49" cy="188" rx="10" ry="5" fill="black"/><ellipse cx="91" cy="188" rx="10" ry="5" fill="black"/>
-</svg>`;
-
-const FEMALE_CHEF_SVG = `<svg width="140" height="220" viewBox="0 0 140 220">
-  <!-- © 2026 Dishcount LLC. All rights reserved. -->
-  <ellipse cx="70" cy="82" rx="26" ry="22" fill="white" stroke="black" stroke-width="3"/>
-  <path d="M44 68 Q44 66 50 64 Q60 62 70 62 Q80 62 90 64 Q96 66 96 68" fill="white" stroke="black" stroke-width="3"/>
-  <path d="M46 66 L46 18 Q46 4 60 4 L80 4 Q94 4 94 18 L94 66" fill="white" stroke="black" stroke-width="3"/>
-  <line x1="58" y1="6" x2="58" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="70" y1="6" x2="70" y2="64" stroke="#ddd" stroke-width="1.5"/><line x1="82" y1="6" x2="82" y2="64" stroke="#ddd" stroke-width="1.5"/>
-  <ellipse cx="70" cy="8" rx="18" ry="7" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M44 68 Q70 74 96 68" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M44 72 Q40 78 38 90 Q36 96 40 98" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <path d="M96 72 Q100 78 102 90 Q104 96 100 98" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <path d="M52 78 Q58 72 64 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <line x1="64" y1="76" x2="67" y2="73" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="63" y1="74" x2="66" y2="71" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M76 78 Q82 72 88 78" fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
-  <line x1="88" y1="76" x2="91" y2="73" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="87" y1="74" x2="90" y2="71" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M56 90 Q70 100 84 90" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
-  <rect x="50" y="104" width="40" height="56" rx="6" fill="white" stroke="black" stroke-width="3"/>
-  <circle cx="60" cy="116" r="2" fill="black"/><circle cx="80" cy="116" r="2" fill="black"/>
-  <circle cx="60" cy="128" r="2" fill="black"/><circle cx="80" cy="128" r="2" fill="black"/>
-  <circle cx="60" cy="140" r="2" fill="black"/><circle cx="80" cy="140" r="2" fill="black"/>
-  <line x1="70" y1="104" x2="70" y2="160" stroke="black" stroke-width="1.5"/>
-  <path d="M50 112 Q34 108 26 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>
-  <g class="chef-right-arm"><path d="M90 112 Q106 108 114 124" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/><circle cx="114" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/></g>
-  <circle cx="26" cy="124" r="6" fill="white" stroke="black" stroke-width="2.5"/>
-  <path d="M58 160 L52 186" stroke="black" stroke-width="4" stroke-linecap="round"/><path d="M82 160 L88 186" stroke="black" stroke-width="4" stroke-linecap="round"/>
-  <ellipse cx="49" cy="188" rx="10" ry="5" fill="black"/><ellipse cx="91" cy="188" rx="10" ry="5" fill="black"/>
-</svg>`;
-
-// Props SVG snippets drawn at bottom of the 140x220 viewBox
-const CHEF_PROPS = {
-  stir: `<ellipse cx="114" cy="165" rx="22" ry="10" fill="white" stroke="black" stroke-width="2.5"/>
-    <ellipse cx="114" cy="158" rx="20" ry="14" fill="white" stroke="black" stroke-width="2.5"/>
-    <path d="M92 155 L88 150" stroke="black" stroke-width="2" stroke-linecap="round"/>
-    <path d="M136 155 L140 150" stroke="black" stroke-width="2" stroke-linecap="round"/>
-    <line x1="114" y1="126" x2="114" y2="148" stroke="#8B6914" stroke-width="3" stroke-linecap="round"/>
-    <path d="M106 140 Q104 132 108 128" fill="none" stroke="#ccc" stroke-width="1.5" opacity="0.6"><animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite"/></path>
-    <path d="M114 138 Q112 128 116 124" fill="none" stroke="#ccc" stroke-width="1.5" opacity="0.4"><animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite"/></path>
-    <path d="M122 140 Q120 130 124 126" fill="none" stroke="#ccc" stroke-width="1.5" opacity="0.5"><animate attributeName="opacity" values="0.5;0;0.5" dur="1.8s" repeatCount="indefinite"/></path>`,
-  chop: `<rect x="90" y="160" width="44" height="8" rx="2" fill="#8B6914" stroke="black" stroke-width="2"/>
-    <rect x="98" y="156" width="6" height="5" rx="1" fill="#E65100"/><rect x="108" y="157" width="5" height="4" rx="1" fill="#4CAF50"/>
-    <rect x="118" y="156" width="6" height="5" rx="1" fill="#FF9800"/>
-    <path d="M112 126 L126 126 L126 150 L112 150 Z" fill="#ccc" stroke="black" stroke-width="2"/>
-    <rect x="116" y="118" width="4" height="12" rx="1" fill="#8B6914" stroke="black" stroke-width="1.5"/>
-    <rect x="100" y="148" width="4" height="4" rx="1" fill="#4CAF50"><animate attributeName="x" values="100;94;88" dur="0.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" dur="0.5s" repeatCount="indefinite"/></rect>`,
-  taste: `<line x1="108" y1="90" x2="108" y2="106" stroke="#8B6914" stroke-width="2.5" stroke-linecap="round"/>
-    <ellipse cx="108" cy="106" rx="5" ry="3" fill="white" stroke="black" stroke-width="1.5"/>
-    <text x="48" y="70" font-size="14" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="1s" repeatCount="indefinite"/>\u2728</text>
-    <text x="88" y="66" font-size="12" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="1.5s" repeatCount="indefinite"/>\u2728</text>
-    <text x="60" y="62" font-size="10" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="0.5s" repeatCount="indefinite"/>\u2B50</text>`,
-  season: `<rect x="106" y="112" width="12" height="20" rx="3" fill="white" stroke="black" stroke-width="2"/>
-    <rect x="108" y="108" width="8" height="6" rx="2" fill="black"/>
-    <ellipse cx="100" cy="165" rx="18" ry="8" fill="white" stroke="black" stroke-width="2"/>
-    <circle cx="110" cy="138" r="1.5" fill="#888"><animate attributeName="cy" values="138;158" dur="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.8s" repeatCount="indefinite"/></circle>
-    <circle cx="114" cy="136" r="1" fill="#888"><animate attributeName="cy" values="136;156" dur="0.7s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.7s" repeatCount="indefinite"/></circle>
-    <circle cx="108" cy="140" r="1.5" fill="#888"><animate attributeName="cy" values="140;160" dur="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.9s" repeatCount="indefinite"/></circle>`,
-  flip: `<ellipse cx="70" cy="155" rx="28" ry="6" fill="#666" stroke="black" stroke-width="2"/>
-    <line x1="98" y1="155" x2="120" y2="145" stroke="black" stroke-width="3" stroke-linecap="round"/>
-    <circle cx="70" cy="140" r="8" fill="#F4A460" stroke="black" stroke-width="1.5">
-      <animate attributeName="cy" values="148;120;148" dur="1.2s" repeatCount="indefinite"/>
-      <animateTransform attributeName="transform" type="rotate" values="0 70 140;360 70 140" dur="1.2s" repeatCount="indefinite"/>
-    </circle>`,
-  dance: `<text x="20" y="100" font-size="16" fill="#666" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite"/><animate attributeName="y" values="100;80" dur="1.5s" repeatCount="indefinite"/>\u266A</text>
-    <text x="116" y="96" font-size="14" fill="#666" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="1.8s" begin="0.3s" repeatCount="indefinite"/><animate attributeName="y" values="96;76" dur="1.8s" begin="0.3s" repeatCount="indefinite"/>\u266B</text>
-    <text x="30" y="110" font-size="12" fill="#666" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="0.6s" repeatCount="indefinite"/><animate attributeName="y" values="110;90" dur="2s" begin="0.6s" repeatCount="indefinite"/>\u266A</text>`,
-  thumbs: `<text x="118" y="108" font-size="18" fill="#fbbf24"><animate attributeName="opacity" values="0;1;1;0" dur="1.5s" repeatCount="indefinite"/>\u2728</text>
-    <text x="126" y="118" font-size="12" fill="#fbbf24"><animate attributeName="opacity" values="0;0;1;0" dur="1.5s" begin="0.3s" repeatCount="indefinite"/>\u2B50</text>`,
-  plate: `<ellipse cx="110" cy="170" rx="24" ry="8" fill="white" stroke="black" stroke-width="2.5"/>
-    <ellipse cx="110" cy="170" rx="18" ry="6" fill="none" stroke="#ddd" stroke-width="1.5"/>
-    <rect x="104" y="164" width="8" height="5" rx="2" fill="#E65100"/><circle cx="116" cy="166" r="3" fill="#4CAF50"/>
-    <ellipse cx="108" cy="166" rx="4" ry="2" fill="#F4A460"/>
-    <path d="M120 162 Q122 158 118 156" fill="#4CAF50" stroke="none"/>
-    <text x="120" y="158" font-size="10" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="2s" begin="1s" repeatCount="indefinite"/>\u2728</text>`,
-};
-
-const CHEF_ACTIVITIES = [
-  { cls: "chef-anim-stir", text: "Stirring the pot\u2026", props: "stir" },
-  { cls: "chef-anim-chop", text: "Chopping veggies\u2026", props: "chop" },
-  { cls: "chef-anim-taste", text: "Tasting for flavor\u2026", props: "taste" },
-  { cls: "chef-anim-season", text: "Adding seasoning\u2026", props: "season" },
-  { cls: "chef-anim-flip", text: "Flipping like a pro\u2026", props: "flip" },
-  { cls: "chef-anim-dance", text: "Feeling the rhythm\u2026", props: "dance" },
-  { cls: "chef-anim-thumbs", text: "Looking good!", props: "thumbs" },
-  { cls: "chef-anim-stir", text: "Plating up\u2026", props: "plate" },
+const COOKING_EMOJIS = [
+  { emoji: "🍳", text: "Preheating the oven…" },
+  { emoji: "🔪", text: "Chopping ingredients…" },
+  { emoji: "🧈", text: "Melting the butter…" },
+  { emoji: "🥘", text: "Simmering the sauce…" },
+  { emoji: "🧂", text: "Adding seasoning…" },
+  { emoji: "🍲", text: "Stirring the pot…" },
+  { emoji: "👨‍🍳", text: "Taste-testing…" },
+  { emoji: "🍽️", text: "Plating the dishes…" },
+  { emoji: "✨", text: "Adding the finishing touches…" },
 ];
-let chefIdx = 0;
+let emojiIdx = 0;
 
 function showLoading(text, sub="") {
-  const spinner = document.getElementById("loadingSpinner");
-  const chef = document.getElementById("chefContainer");
-  if (spinner) spinner.style.display = "";
-  if (chef) chef.style.display = "none";
   document.getElementById("loadingText").textContent = text;
   document.getElementById("loadingSub").textContent = sub;
+  const emojiEl = document.getElementById("loadingEmoji");
+  if (emojiEl) emojiEl.style.display = "none";
+  const spinner = document.getElementById("loadingSpinner");
+  if (spinner) spinner.style.display = "";
   document.getElementById("loadingOverlay").classList.add("show");
   startTipRotation();
 }
 function showCookingLoading() {
   const spinner = document.getElementById("loadingSpinner");
-  const chef = document.getElementById("chefContainer");
+  const emojiEl = document.getElementById("loadingEmoji");
   const textEl = document.getElementById("loadingText");
   const subEl = document.getElementById("loadingSub");
   if (spinner) spinner.style.display = "none";
-  // Pick random chef base SVG (without closing </svg>)
-  const baseSvg = Math.random() < 0.5 ? MALE_CHEF_SVG : FEMALE_CHEF_SVG;
-  const svgOpen = baseSvg.replace("</svg>", ""); // strip closing tag
-  if (chef) chef.style.display = "block";
+  if (emojiEl) emojiEl.style.display = "block";
   subEl.textContent = "Our AI chef is crafting your recipes";
-  chefIdx = 0;
-  const updateChef = () => {
-    const a = CHEF_ACTIVITIES[chefIdx % CHEF_ACTIVITIES.length];
-    if (chef) {
-      chef.style.opacity = "0";
-      setTimeout(() => {
-        chef.className = a.cls;
-        chef.innerHTML = svgOpen + (CHEF_PROPS[a.props] || "") + "</svg>";
-        chef.style.opacity = "1";
-      }, 300);
-    }
-    textEl.textContent = a.text;
-    chefIdx++;
+  emojiIdx = 0;
+  const update = () => {
+    const m = COOKING_EMOJIS[emojiIdx % COOKING_EMOJIS.length];
+    if (emojiEl) emojiEl.textContent = m.emoji;
+    textEl.textContent = m.text;
+    emojiIdx++;
   };
-  updateChef();
-  cookingInterval = setInterval(updateChef, 3500);
+  update();
+  cookingInterval = setInterval(update, 3000);
   document.getElementById("loadingOverlay").classList.add("show");
   startTipRotation();
 }
@@ -397,11 +290,11 @@ function startTipRotation() {
   const tipEl = document.getElementById("loadingTip");
   if (!tipEl) return;
   tipEl.style.opacity = "0";
-  setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 200);
+  setTimeout(() => { tipEl.textContent = "💡 " + getNextTip(); tipEl.style.opacity = "1"; }, 200);
   if (tipInterval) clearInterval(tipInterval);
   tipInterval = setInterval(() => {
     tipEl.style.opacity = "0";
-    setTimeout(() => { tipEl.textContent = "\uD83D\uDCA1 " + getNextTip(); tipEl.style.opacity = "1"; }, 4000);
+    setTimeout(() => { tipEl.textContent = "💡 " + getNextTip(); tipEl.style.opacity = "1"; }, 400);
   }, 4000);
 }
 function hideLoading() {
@@ -409,10 +302,10 @@ function hideLoading() {
   if (cookingInterval) { clearInterval(cookingInterval); cookingInterval = null; }
   if (tipInterval) { clearInterval(tipInterval); tipInterval = null; }
   const spinner = document.getElementById("loadingSpinner");
-  const chef = document.getElementById("chefContainer");
+  const emojiEl = document.getElementById("loadingEmoji");
   const tipEl = document.getElementById("loadingTip");
   if (spinner) spinner.style.display = "";
-  if (chef) { chef.style.display = "none"; chef.className = ""; chef.innerHTML = ""; }
+  if (emojiEl) emojiEl.style.display = "none";
   if (tipEl) tipEl.textContent = "";
 }
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }

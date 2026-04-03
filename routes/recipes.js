@@ -21,7 +21,6 @@ const anonDailyCount = new Map();
 const anonRecipeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Recipe generation limit reached. Create a free account for unlimited recipes!", limitReached: true },

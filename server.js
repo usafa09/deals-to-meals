@@ -156,6 +156,10 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml');
   res.sendFile(join(__dirname, 'public', 'sitemap.xml'));
 });
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.sendFile(join(__dirname, 'public', 'robots.txt'));
+});
 app.get('/.well-known/security.txt', (req, res) => {
   res.type('text/plain');
   res.sendFile(join(__dirname, 'public', '.well-known', 'security.txt'));

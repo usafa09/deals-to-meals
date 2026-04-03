@@ -366,6 +366,8 @@ async function goTo(step) {
     if (appScreens) { appScreens.style.display = ""; appScreens.removeAttribute("aria-hidden"); }
   }
   renderProgress(step);
+  if (!goTo._noPush) history.pushState({ screen: step }, "", "");
+  goTo._noPush = false;
   window.scrollTo({ top:0, behavior:"smooth" });
   if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); }
 }
@@ -961,10 +963,18 @@ function getRecipePayload(offset) {
 async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("All deals excluded — unmark some items");return;}
+  // Check at least 1 included item
+  const included=Object.values(state.dealStates).filter(v=>v==="include").length;
+  if(!included&&!payload.wantItems){showToast("Select at least one deal to generate recipes");return;}
+  // Double-click prevention
+  const btn=document.getElementById("findRecipesBtn");
+  if(btn){btn.disabled=true;btn.textContent="Generating...";}
   state.recipeOffset=0;
   showCookingLoading();
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),90000);
   try {
-    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload)});
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
     if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } throw new Error(data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
@@ -973,10 +983,13 @@ async function searchRecipes() {
     renderRecipeGrid(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
     if (data.dealHunterScore) showDealHunterScore(data.dealHunterScore);
-    // Nudge anonymous users to sign up
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
-  }catch(err){showToast(err.message);}finally{hideLoading();}
+  }catch(err){
+    if(err.name==="AbortError")showToast("Recipe generation timed out. Please try again.");
+    else if(!navigator.onLine)showToast("You appear to be offline. Check your connection and try again.");
+    else showToast(err.message);
+  }finally{clearTimeout(timeout);hideLoading();if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Generate Recipes with AI \u2192";}}
 }
 
 async function loadMoreRecipes() {
@@ -1795,6 +1808,9 @@ sb.auth.onAuthStateChange((event, session) => {
 
 // ── Global error boundary ────────────────────────────────────────────────────
 window.addEventListener("unhandledrejection", (e) => { console.error("Unhandled:", e.reason); hideLoading(); });
+
+// ── Browser back button support ─────────────────────────────────────────────
+window.addEventListener("popstate", (e) => { goTo._noPush = true; goTo(e.state?.screen || 1); });
 
 // ── Cookie consent banner ───────────────────────────────────────────────────
 if (!localStorage.getItem("dishcount_cookies_accepted")) {

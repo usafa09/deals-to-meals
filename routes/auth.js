@@ -106,7 +106,7 @@ router.patch("/api/profile", async (req, res) => {
 router.post("/api/contact", async (req, res) => {
   const { name, email, topic, message, website } = req.body;
   // Honeypot — bots fill this hidden field, humans don't
-  if (website) {
+  if (website && website.trim() !== '') {
     console.log("Contact form honeypot triggered — rejecting spam");
     return res.json({ success: true }); // Fake success so bots don't retry
   }
@@ -114,9 +114,9 @@ router.post("/api/contact", async (req, res) => {
     return res.status(400).json({ error: "All fields are required" });
   }
   const ALLOWED_TOPICS = ["general", "bug", "feature", "partnership", "press", "other"];
-  if (!ALLOWED_TOPICS.includes(topic)) req.body.topic = "other";
+  const safeTopic = ALLOWED_TOPICS.includes(topic) ? topic : "other";
   try {
-    const { error } = await supabase.from("contact_messages").insert({ name, email, topic, message });
+    const { error } = await supabase.from("contact_messages").insert({ name, email, topic: safeTopic, message });
     if (error) throw new Error(error.message);
     console.log(`Contact form: ${topic} from ${email}`);
     res.json({ success: true });

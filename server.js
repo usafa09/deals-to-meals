@@ -21,6 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 
 // ── Domain redirect: dealstomeals.co → dishcount.co ────────────────────────
 app.use((req, res, next) => {
@@ -95,8 +96,8 @@ const expensiveLimiter = rateLimit({
 });
 
 const contactLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: 60 * 60 * 1000,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many messages sent. Please try again later." },
@@ -120,7 +121,7 @@ const authLimiter = rateLimit({
 
 const subscribeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many subscribe attempts. Please try again later." },

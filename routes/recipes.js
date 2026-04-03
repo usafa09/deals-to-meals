@@ -17,11 +17,11 @@ const router = Router();
 const anonRecipeCount = new Map();
 const anonDailyCount = new Map();
 
-// Hourly rate limiter for anonymous users (5/hour)
+// Hourly IP-based rate limiter for anonymous users (5/hour, cannot be spoofed)
 const anonRecipeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.headers["x-anon-id"] || req.ip,
+  keyGenerator: (req) => req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Recipe generation limit reached. Create a free account for unlimited recipes!", limitReached: true },
@@ -224,6 +224,7 @@ async function handleRecipeGeneration(req, res) {
   const { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
+  if (ingredients.length > 50) return res.status(400).json({ error: "Too many ingredients. Maximum 50." });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured. Add it to your .env file." });

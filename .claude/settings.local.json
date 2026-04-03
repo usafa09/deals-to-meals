@@ -54,7 +54,8 @@
       "Bash(npx cleancss:*)",
       "Bash(curl -sI http://localhost:5000/app-screens.html)",
       "Bash(curl -s http://localhost:5000/)",
-      "Bash(ls public/icons/*.png)"
+      "Bash(ls public/icons/*.png)",
+      "Bash(ls public/*.map)"
     ]
   }
 }

@@ -57,9 +57,9 @@ function showSignupModal(isFinal) {
   if (sessionStorage.getItem("dishcount_nudge_dismissed")) return;
   const overlay = document.createElement("div");
   overlay.id = "signupNudge";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;";
+  overlay.className = "nudge-overlay";
   const count = getAnonRecipeCount();
-  overlay.innerHTML = '<div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:100%;text-align:center;">' +
+  overlay.innerHTML = '<div class="nudge-card">' +
     (isFinal ? '<div style="font-size:32px;margin-bottom:8px;">\u{1F389}</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated ' + count + ' batches of recipes!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">You\'re clearly a deal hunter. Join now and claim your Founding Member badge!</p>'
              : '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'re getting great use out of Dishcount!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to:</p>') +
     '<div style="text-align:left;margin:0 auto 20px;max-width:280px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build and share shopping lists<br>\u2713 Add ingredients to your Kroger cart<br>\u2713 Track your savings and earn badges<br>\u2713 Get weekly deal emails</div>' +
@@ -70,8 +70,8 @@ function showSignupModal(isFinal) {
 
 function showRateLimitModal() {
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;";
-  overlay.innerHTML = '<div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:100%;text-align:center;">' +
+  overlay.className = "nudge-overlay";
+  overlay.innerHTML = '<div class="nudge-card">' +
     '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div>' +
     '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">Recipe limit reached</h3>' +
     '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to unlock unlimited recipe generation, plus:</p>' +
@@ -1673,8 +1673,9 @@ function fireConfetti(big) {
 
 // ── Savings Milestone Check ─────────────────────────────────────────────────
 const SAVINGS_MILESTONES = [25, 50, 100, 250, 500];
-let prevTotalSavings = 0;
+let prevTotalSavings = null;
 function checkSavingsMilestone(newTotal) {
+  if (prevTotalSavings === null) { prevTotalSavings = newTotal; return; }
   for (const m of SAVINGS_MILESTONES) {
     if (prevTotalSavings < m && newTotal >= m) {
       fireConfetti(true);
@@ -1792,10 +1793,13 @@ sb.auth.onAuthStateChange((event, session) => {
   if (session?.user) setTimeout(loadPersonalDashboard, 500);
 });
 
+// ── Global error boundary ────────────────────────────────────────────────────
+window.addEventListener("unhandledrejection", (e) => { console.error("Unhandled:", e.reason); hideLoading(); });
+
 // ── Cookie consent banner ───────────────────────────────────────────────────
 if (!localStorage.getItem("dishcount_cookies_accepted")) {
   const cb = document.createElement("div");
   cb.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#1a2e1f;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-family:'DM Sans',sans-serif;z-index:9999;flex-wrap:wrap";
-  cb.innerHTML = '<span>\u{1F36A} Dishcount uses cookies for analytics and to keep you signed in.</span><button onclick="localStorage.setItem(\'dishcount_cookies_accepted\',\'true\');this.parentElement.remove()" style="background:#52b788;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap">Got it</button>';
+  cb.innerHTML = '<span>\u{1F36A} Dishcount uses cookies for analytics and to keep you signed in.</span><button onclick="localStorage.setItem(\'dishcount_cookies_accepted\',\'true\');if(typeof loadGA===\'function\')loadGA();this.parentElement.remove()" style="background:#52b788;color:#fff;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap">Got it</button>';
   document.body.appendChild(cb);
 }

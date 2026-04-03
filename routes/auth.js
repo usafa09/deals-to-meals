@@ -113,6 +113,8 @@ router.post("/api/contact", async (req, res) => {
   if (!name || !email || !topic || !message) {
     return res.status(400).json({ error: "All fields are required" });
   }
+  const ALLOWED_TOPICS = ["general", "bug", "feature", "partnership", "press", "other"];
+  if (!ALLOWED_TOPICS.includes(topic)) req.body.topic = "other";
   try {
     const { error } = await supabase.from("contact_messages").insert({ name, email, topic, message });
     if (error) throw new Error(error.message);

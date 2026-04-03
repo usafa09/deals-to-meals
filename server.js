@@ -165,6 +165,7 @@ app.get(['/profile.html', '/admin.html'], (req, res, next) => {
   next();
 });
 app.get('/login.html', (req, res) => { res.redirect(301, '/profile.html'); });
+app.get('*.map', (req, res) => { res.status(404).end(); });
 app.use(express.static(join(__dirname, "public")));
 
 // ── Mount route modules ─────────────────────────────────────────────────────

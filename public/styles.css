@@ -397,6 +397,10 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   header .logo-link svg { width: 24px; height: 24px; }
 }
 
+/* ── Shared modal/overlay styles ── */
+.nudge-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:500; padding:20px; }
+.nudge-card { background:white; border-radius:20px; padding:32px; max-width:400px; width:100%; text-align:center; }
+
 @media (max-width: 768px) {
   .features-grid { grid-template-columns: repeat(2, 1fr); }
   .kroger-hero-inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }

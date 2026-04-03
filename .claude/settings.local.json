@@ -55,7 +55,12 @@
       "Bash(curl -sI http://localhost:5000/app-screens.html)",
       "Bash(curl -s http://localhost:5000/)",
       "Bash(ls public/icons/*.png)",
-      "Bash(ls public/*.map)"
+      "Bash(ls public/*.map)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/sitemap.xml)",
+      "Bash(echo \"SITEMAP: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/sitemap.xml\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/robots.txt)",
+      "Bash(echo \"ROBOTS: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/robots.txt\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/.well-known/security.txt)"
     ]
   }
 }

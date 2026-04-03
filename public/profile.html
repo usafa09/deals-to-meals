@@ -179,6 +179,9 @@
 </main>
 
 <script>
+// Hide static form immediately — real auth UI will render shortly
+(function(){ var sf = document.getElementById('staticAuthForm'); if (sf) sf.style.display = 'none'; var m = document.getElementById('main'); if (m && !m.querySelector('.spinner-wrap')) m.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>'; })();
+
 // ── Config — replace these with your actual Supabase values ──────────────────
 const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw";

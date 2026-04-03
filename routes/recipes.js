@@ -316,19 +316,32 @@ async function handleRecipeGeneration(req, res) {
       dietNote = `\n\n⚠️ STRICT DIETARY RESTRICTIONS — THESE ARE ABSOLUTE AND MUST NEVER BE VIOLATED:\n${rules.join("\n")}\n\nI have already removed sale items that violate these restrictions from the list below. Do NOT add any ingredients that violate these rules. Do NOT suggest meat/fish/dairy substitutions if those are restricted. Every single recipe must fully comply.`;
     }
 
-    const saleItemsList = filteredIngredients.slice(0, 20).map(i => {
+    // Group sale items by category for the prompt
+    const CATS = {
+      protein: /chicken|beef|pork|turkey|salmon|fish|shrimp|sausage|bacon|ground|steak|ham|tilapia|tuna|meatball/i,
+      produce: /lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|berry|lemon|lime|zucchini|squash|cabbage|kale|green bean/i,
+      dairy: /cheese|milk|butter|yogurt|cream|egg|sour cream/i,
+      pantry: /pasta|rice|bread|flour|sugar|oil|sauce|broth|beans|canned|tortilla|cereal|oat|crackers|chips|soup|salsa/i,
+      frozen: /frozen|ice cream/i,
+    };
+    function categorize(name) {
+      const n = (name || "").toLowerCase();
+      for (const [cat, re] of Object.entries(CATS)) { if (re.test(n)) return cat; }
+      return "other";
+    }
+    const grouped = {};
+    const itemsToSend = filteredIngredients.slice(0, 60);
+    for (const i of itemsToSend) {
+      const cat = categorize(i.name);
+      if (!grouped[cat]) grouped[cat] = [];
       const parts = [i.name];
-      if (i.salePrice) {
-        const unit = i.priceUnit || "";
-        parts.push(`$${i.salePrice}${unit}`);
-      }
-      if (i.regularPrice && i.regularPrice !== i.salePrice) {
-        const unit = i.priceUnit || "";
-        parts.push(`(reg $${i.regularPrice}${unit})`);
-      }
+      if (i.salePrice) parts.push(`$${i.salePrice}${i.priceUnit || ""}`);
+      if (i.regularPrice && i.regularPrice !== i.salePrice) parts.push(`(reg $${i.regularPrice}${i.priceUnit || ""})`);
       if (i.storeName) parts.push(`at ${i.storeName}`);
-      return "- " + parts.join(" ");
-    }).join("\n");
+      grouped[cat].push("- " + parts.join(" "));
+    }
+    const catLabels = { protein: "🥩 PROTEINS ON SALE", produce: "🥬 PRODUCE ON SALE", dairy: "🧀 DAIRY ON SALE", pantry: "🥫 PANTRY/STAPLES ON SALE", frozen: "🧊 FROZEN ON SALE", other: "🏷️ OTHER ITEMS ON SALE" };
+    const saleItemsList = Object.entries(grouped).map(([cat, items]) => `${catLabels[cat] || cat.toUpperCase()}:\n${items.join("\n")}`).join("\n\n");
 
     const styleGuide = {
       "Quick Weeknight": "30 minutes or less total time. Minimal prep, one pan/pot preferred. Think sheet pan meals, stir fries, tacos, simple pasta dishes.",
@@ -351,17 +364,19 @@ async function handleRecipeGeneration(req, res) {
     const mealTypeGuide = MEAL_TYPE_GUIDES[effectiveMealType] || MEAL_TYPE_GUIDES["Dinner"];
     const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/8)+1}. Generate 8 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
 
-    const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas based on what's on sale this week.
+    const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas BUILT FROM what's on sale this week. Your #1 goal is to MAXIMIZE the use of sale items in every recipe.
 
 ${mealTypeGuide}
 ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
-HERE ARE THE ITEMS ON SALE THIS WEEK:
 ${saleItemsList}
 ${mustIncludeNote}${customNote}${batchNote}
 
+CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item). Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
+
 Generate exactly 8 recipes. Each recipe should:
-- Use 2-5 of the sale items above as key ingredients
+- Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
+- Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
 - Include simple pantry staples the customer likely already has (salt, pepper, oil, butter, flour, sugar, dried spices/herbs, vinegar, soy sauce, etc.)
 - Have clear, numbered step-by-step instructions a beginner cook could follow

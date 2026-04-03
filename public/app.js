@@ -982,7 +982,6 @@ async function searchRecipes() {
     state.recipeOffset=8;
     renderRecipeGrid(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
-    if (data.dealHunterScore) showDealHunterScore(data.dealHunterScore);
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){
@@ -1709,18 +1708,6 @@ function checkSavingsMilestone(newTotal) {
   };
 })();
 
-// ── Deal Hunter Score Display ───────────────────────────────────────────────
-function showDealHunterScore(score) {
-  if (!score || !score.percent) return;
-  const color = score.percent > 50 ? "var(--green-mid)" : score.percent > 25 ? "var(--orange)" : "var(--red)";
-  const el = document.createElement("div");
-  el.style.cssText = "text-align:center;padding:16px;margin-bottom:16px;background:white;border:2px solid var(--sand);border-radius:14px";
-  el.innerHTML = `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">Deal Hunter Score</div>
-    <div style="font-family:'Outfit',sans-serif;font-size:32px;font-weight:800;color:${color}">${score.percent}%</div>
-    <div style="font-size:13px;color:var(--muted)">You used ${score.used} of ${score.total} selected deals!</div>`;
-  const grid = document.getElementById("recipeGrid");
-  if (grid) grid.parentNode.insertBefore(el, grid);
-}
 
 // ── Homepage Personalization ────────────────────────────────────────────────
 async function loadPersonalDashboard() {

@@ -356,13 +356,16 @@ async function goTo(step) {
   const landingNav = document.getElementById("landingNav");
   const appHeader = document.getElementById("appHeader");
   const appScreens = document.getElementById("appScreens");
+  const progressBar = document.getElementById("progressBar");
   if (step === 1) {
     if (landingNav) landingNav.style.display = "";
     if (appHeader) appHeader.style.display = "none";
+    if (progressBar) progressBar.style.display = "none";
     if (appScreens) { appScreens.style.display = "none"; appScreens.setAttribute("aria-hidden", "true"); }
   } else {
     if (landingNav) landingNav.style.display = "none";
-    if (appHeader) appHeader.style.display = "flex";
+    if (appHeader) appHeader.style.display = "grid";
+    if (progressBar) progressBar.style.display = "flex";
     if (appScreens) { appScreens.style.display = ""; appScreens.removeAttribute("aria-hidden"); }
   }
   renderProgress(step);

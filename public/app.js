@@ -962,10 +962,7 @@ function getRecipePayload(offset) {
 
 async function searchRecipes() {
   const payload=getRecipePayload(0);
-  if(!payload){showToast("All deals excluded — unmark some items");return;}
-  // Check at least 1 included item
-  const included=Object.values(state.dealStates).filter(v=>v==="include").length;
-  if(!included&&!payload.wantItems){showToast("Select at least one deal to generate recipes");return;}
+  if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
   // Double-click prevention
   const btn=document.getElementById("findRecipesBtn");
   if(btn){btn.disabled=true;btn.textContent="Generating...";}

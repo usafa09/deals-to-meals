@@ -356,29 +356,22 @@ async function goTo(step) {
   const landingNav = document.getElementById("landingNav");
   const appHeader = document.getElementById("appHeader");
   const appScreens = document.getElementById("appScreens");
-  const progressBar = document.getElementById("progressBar");
   if (step === 1) {
     if (landingNav) landingNav.style.display = "";
     if (appHeader) appHeader.style.display = "none";
-    if (progressBar) progressBar.style.display = "none";
     if (appScreens) { appScreens.style.display = "none"; appScreens.setAttribute("aria-hidden", "true"); }
   } else {
     if (landingNav) landingNav.style.display = "none";
     if (appHeader) appHeader.style.display = "grid";
-    if (progressBar) progressBar.style.display = "flex";
     if (appScreens) { appScreens.style.display = ""; appScreens.removeAttribute("aria-hidden"); }
   }
-  renderProgress(step);
   if (!goTo._noPush) history.pushState({ screen: step }, "", "");
   goTo._noPush = false;
   window.scrollTo({ top:0, behavior:"smooth" });
   if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); }
 }
 function renderProgress(step) {
-  document.getElementById("progressBar").innerHTML = Array.from({length:6},(_,i) => {
-    const a = i < step;
-    return `<div class="pip" style="width:${a?20:8}px;background:${a?"var(--green-mid)":"#D5D5D5"}"></div>`;
-  }).join("");
+  // Progress dots removed — header stays clean
 }
 function resetApp() {
   state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };

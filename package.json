@@ -4,6 +4,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "build": "node -e \"const fs=require('fs');let js=fs.readFileSync('public/app.js','utf8');js=js.replace(/\\/\\*[\\s\\S]*?\\*\\//g,'');js=js.replace(/^[ \\t]*\\/\\/[^\\n]*$/gm,'');js=js.replace(/\\n{3,}/g,'\\n\\n');fs.writeFileSync('public/app.min.js',js);let css=fs.readFileSync('public/styles.css','utf8');css=css.replace(/\\/\\*[\\s\\S]*?\\*\\//g,'');css=css.replace(/\\n{3,}/g,'\\n');fs.writeFileSync('public/styles.min.css',css);console.log('Minified JS+CSS');\"",
     "start": "node server.js",
     "test": "node tests/utils.test.js",
     "test:integration": "node tests/integration.test.js",

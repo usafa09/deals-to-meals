@@ -219,11 +219,39 @@ router.post("/api/recipes/ai", async (req, res, next) => {
   handleRecipeGeneration(req, res);
 });
 
+// Smart ingredient selection — prioritize proteins, produce, dairy, pantry staples
+function selectSmartIngredients(deals, maxCount = 80) {
+  if (deals.length <= maxCount) return deals;
+  const NON_FOOD = /\b(paper|towel|tissue|trash|bag|detergent|soap|shampoo|conditioner|lotion|deodorant|toothpaste|mouthwash|bleach|cleaner|sponge|candle|wax|air freshener|pet food|dog food|cat food|cat litter|laundry|fabric softener|disinfectant|polish|batteries|light bulb|aluminum foil|plastic wrap|ziplock|garbage)\b/i;
+  const included = deals.filter(d => d.mustInclude);
+  const rest = deals.filter(d => !d.mustInclude).filter(d => !NON_FOOD.test(d.name || ""));
+  const PROTEIN = /chicken|beef|pork|turkey|salmon|fish|shrimp|sausage|bacon|ground|steak|ham/i;
+  const PRODUCE = /lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|berry|lemon|lime/i;
+  const DAIRY = /cheese|milk|butter|yogurt|cream|egg/i;
+  const scored = rest.map(d => {
+    let s = 20;
+    const n = d.name || "";
+    if (PROTEIN.test(n)) s += 25;
+    else if (PRODUCE.test(n)) s += 20;
+    else if (DAIRY.test(n)) s += 15;
+    const pct = d.pctOff || (d.regularPrice && d.salePrice ? Math.round(((parseFloat(String(d.regularPrice).replace(/[^0-9.]/g,"")) - parseFloat(String(d.salePrice).replace(/[^0-9.]/g,""))) / parseFloat(String(d.regularPrice).replace(/[^0-9.]/g,""))) * 100) : 0);
+    s += Math.min(pct, 50);
+    return { ...d, _score: s };
+  }).sort((a, b) => b._score - a._score);
+  const result = [...included, ...scored.slice(0, maxCount - included.length)];
+  if (result.length > maxCount) return result.slice(0, maxCount);
+  console.log(`Smart selection: ${included.length} must-include + ${result.length - included.length} auto = ${result.length} total (from ${deals.length})`);
+  return result;
+}
+
 async function handleRecipeGeneration(req, res) {
-  const { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
-  if (ingredients.length > 50) return res.status(400).json({ error: "Too many ingredients. Maximum 50." });
+  // Smart selection: if too many ingredients, pick the best ones for recipes
+  if (ingredients.length > 80) {
+    ingredients = selectSmartIngredients(ingredients, 80);
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured. Add it to your .env file." });

@@ -220,7 +220,7 @@ router.post("/api/recipes/ai", async (req, res, next) => {
 });
 
 // Smart ingredient selection — prioritize proteins, produce, dairy, pantry staples
-function selectSmartIngredients(deals, maxCount = 80) {
+function selectSmartIngredients(deals, maxCount = 100) {
   if (deals.length <= maxCount) return deals;
   const NON_FOOD = /\b(paper|towel|tissue|trash|bag|detergent|soap|shampoo|conditioner|lotion|deodorant|toothpaste|mouthwash|bleach|cleaner|sponge|candle|wax|air freshener|pet food|dog food|cat food|cat litter|laundry|fabric softener|disinfectant|polish|batteries|light bulb|aluminum foil|plastic wrap|ziplock|garbage)\b/i;
   const included = deals.filter(d => d.mustInclude);
@@ -249,8 +249,8 @@ async function handleRecipeGeneration(req, res) {
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
-  if (ingredients.length > 80) {
-    ingredients = selectSmartIngredients(ingredients, 80);
+  if (ingredients.length > 100) {
+    ingredients = selectSmartIngredients(ingredients, 100);
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -330,7 +330,7 @@ async function handleRecipeGeneration(req, res) {
       return "other";
     }
     const grouped = {};
-    const itemsToSend = filteredIngredients.slice(0, 60);
+    const itemsToSend = filteredIngredients.slice(0, 100);
     for (const i of itemsToSend) {
       const cat = categorize(i.name);
       if (!grouped[cat]) grouped[cat] = [];

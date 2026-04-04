@@ -38,16 +38,16 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 
 /* ══ Landing Hero ══ */
 .landing-hero { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; background: url('/images/og-hero.jpg') center/cover no-repeat; padding: 120px 24px 80px; }
-.landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.85) 0%, rgba(26,46,31,0.7) 50%, rgba(26,46,31,0.9) 100%); }
+.landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.85) 0%, rgba(26,46,31,0.7) 50%, rgba(26,46,31,0.9) 100%); pointer-events: none; }
 .landing-hero-content { position: relative; z-index: 1; text-align: center; max-width: 720px; }
 .landing-badge { display: inline-block; padding: 8px 20px; border-radius: 24px; background: rgba(217,119,6,0.2); border: 1px solid rgba(217,119,6,0.4); color: var(--orange-light); font-size: 14px; font-weight: 700; margin-bottom: 24px; }
 .landing-headline { font-family: 'Outfit', sans-serif; font-size: 56px; font-weight: 800; color: white; line-height: 1.1; margin-bottom: 20px; }
 .landing-headline .highlight { color: var(--orange); }
 .landing-subtitle { font-size: 18px; color: #b8c9bb; line-height: 1.6; margin-bottom: 36px; max-width: 560px; margin-left: auto; margin-right: auto; }
 .landing-search { display: flex; align-items: center; background: white; border-radius: 60px; padding: 6px 6px 6px 24px; max-width: 480px; margin: 0 auto 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
-.landing-search input { flex: 1; border: none; outline: none; font-size: 18px; font-family: 'DM Sans', sans-serif; background: transparent; color: var(--text); min-width: 0; }
+.landing-search input { flex: 1; border: none; outline: none; font-size: 18px; font-family: 'DM Sans', sans-serif; background: transparent; color: var(--text); min-width: 0; position: relative; z-index: 2; touch-action: manipulation; }
 .landing-search input::placeholder { color: #b0a890; }
-.landing-search button { padding: 14px 28px; border: none; border-radius: 50px; background: var(--orange); color: white; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
+.landing-search button { padding: 14px 28px; border: none; border-radius: 50px; background: var(--orange); color: white; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 2; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1); min-height: 48px; }
 .landing-search button:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .landing-search button:disabled { background: #C5C5C5; cursor: not-allowed; transform: none; }
 .landing-distance { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 16px; }
@@ -405,8 +405,6 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .recipe-preview-grid { grid-template-columns: repeat(2, 1fr); }
   .how-grid { grid-template-columns: 1fr; gap: 24px; }
   .screen-title { font-size: 22px; }
-  .landing-search { position: relative; z-index: 10; }
-  .landing-search button { position: relative; z-index: 10; }
 }
 
 @media (max-width: 500px) {

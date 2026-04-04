@@ -552,6 +552,22 @@ document.getElementById("zipInput").addEventListener("input", function() { this.
 document.getElementById("zipInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("zipBtn").click(); });
 document.getElementById("zipBtn").addEventListener("click", findStores);
 
+// ── Mobile keyboard fix: keep zip input & button visible ─────────────────────
+(function() {
+  const zipIn = document.getElementById("zipInput");
+  if (!zipIn) return;
+  zipIn.addEventListener("focus", function() {
+    setTimeout(function() { zipIn.scrollIntoView({ behavior: "smooth", block: "center" }); }, 300);
+  });
+  zipIn.addEventListener("blur", function() {
+    setTimeout(function() {
+      var btn = zipIn.closest(".landing-search");
+      if (btn) btn = btn.querySelector("button");
+      if (btn) btn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 300);
+  });
+})();
+
 const BANNER_INFO = {
   "kroger":{emoji:"🛒",color:"#003DA5"},"ralphs":{emoji:"🌴",color:"#E31837"},"fred meyer":{emoji:"🏔️",color:"#003DA5"},
   "king soopers":{emoji:"👑",color:"#E31837"},"harris teeter":{emoji:"🌿",color:"#007A33"},"smith's":{emoji:"🏜️",color:"#003DA5"},

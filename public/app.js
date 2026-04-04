@@ -550,19 +550,6 @@ function showToast(msg, type="error") { const t=document.getElementById("toast")
 document.getElementById("zipInput").addEventListener("input", function() { this.value = this.value.replace(/\D/g, "").slice(0, 5); });
 document.getElementById("zipInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("zipBtn").click(); });
 document.getElementById("zipBtn").addEventListener("click", findStores);
-// Debug: check if anything is blocking the zip button (remove after confirming fix)
-setTimeout(function() {
-  var btn = document.getElementById("zipBtn");
-  if (btn) {
-    var r = btn.getBoundingClientRect();
-    var el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    if (el !== btn && el !== btn.querySelector("*")) {
-      console.error("ZIP BUTTON BLOCKED BY:", el?.tagName, el?.id, el?.className, el?.outerHTML?.slice(0, 200));
-    } else {
-      console.log("ZIP BUTTON OK — not blocked");
-    }
-  }
-}, 2000);
 
 // ── Mobile keyboard fix: keep zip input & button visible ─────────────────────
 (function() {

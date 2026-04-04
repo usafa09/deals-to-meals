@@ -1,4 +1,4 @@
-const CACHE_NAME = "dishcount-v2";
+const CACHE_NAME = "dishcount-v3";
 const PRECACHE = ["/", "/styles.min.css", "/app.min.js", "/favicon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -12,9 +12,8 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (e) => {

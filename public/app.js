@@ -376,7 +376,6 @@ function renderProgress(step) {
 function resetApp() {
   state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
   document.getElementById("zipInput").value = "";
-  document.getElementById("zipBtn").disabled = true;
 }
 let cookingInterval = null;
 let tipInterval = null;
@@ -548,17 +547,7 @@ function hideLoading() {
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
 
 // ── Screen 1 ──────────────────────────────────────────────────────────────────
-function updateZipButton() {
-  var zi = document.getElementById("zipInput");
-  if (!zi) return;
-  zi.value = zi.value.replace(/\D/g, "").slice(0, 5);
-  var valid = /^\d{5}$/.test(zi.value);
-  document.getElementById("zipBtn").disabled = !valid;
-}
-["input", "keyup", "change", "paste"].forEach(function(evt) {
-  document.getElementById("zipInput").addEventListener(evt, updateZipButton);
-});
-updateZipButton();
+document.getElementById("zipInput").addEventListener("input", function() { this.value = this.value.replace(/\D/g, "").slice(0, 5); });
 document.getElementById("zipInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("zipBtn").click(); });
 document.getElementById("zipBtn").addEventListener("click", findStores);
 
@@ -603,7 +592,8 @@ function normBrand(n){return(n||"").toLowerCase().replace(/['\s\-]/g,"");}
 function isKrogerFamily(name){return KROGER_FAMILY_NORM.has(normBrand(name));}
 
 async function findStores() {
-  const zip=document.getElementById("zipInput").value; if(zip.length<5)return;
+  const zip=document.getElementById("zipInput").value.trim();
+  if(!/^\d{5}$/.test(zip)){ showToast("Please enter a 5-digit zip code"); document.getElementById("zipInput").focus(); return; }
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {

@@ -64,7 +64,8 @@
       "Bash(curl -sI http://localhost:5000/)",
       "Read(//c/Users/billm/deals-to-meals/innerHTML count: $\\(grep -c 'innerHTML' public/**)",
       "Bash(head -5 echo \"\\(no server-set cookies — auth is Supabase client SDK\\)\" echo \"\" echo \"═══ #15 ERROR HANDLING ═══\" grep -n \"err\\\\.stack\\\\|error\\\\.stack\" routes/*.js server.js echo \"\\(should be empty — no stack traces leaked\\)\" echo \"\" echo \"═══ #16 NOINDEX ═══\" grep -c \"noindex\" public/profile.html public/admin.html public/login.html public/list.html)",
-      "Bash(head -5 echo \"\" echo \"═══ #19 OPEN REDIRECTS ═══\" grep -rn \"res.redirect\" server.js routes/*.js echo \"\" echo \"═══ #20 ADMIN AUTH ═══\" grep -n \"admin\" routes/admin.js)"
+      "Bash(head -5 echo \"\" echo \"═══ #19 OPEN REDIRECTS ═══\" grep -rn \"res.redirect\" server.js routes/*.js echo \"\" echo \"═══ #20 ADMIN AUTH ═══\" grep -n \"admin\" routes/admin.js)",
+      "Bash(curl -s http://localhost:5000/app.min.js)"
     ]
   }
 }

@@ -1,5 +1,5 @@
-const CACHE_NAME = "dishcount-v1";
-const PRECACHE = ["/", "/styles.css", "/app.js", "/favicon.svg"];
+const CACHE_NAME = "dishcount-v2";
+const PRECACHE = ["/", "/styles.min.css", "/app.min.js", "/favicon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -18,18 +18,16 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Network-first for API calls, cache-first for static assets
-  if (e.request.url.includes("/api/")) return;
+  // Skip non-GET and API calls
+  if (e.request.method !== "GET" || e.request.url.includes("/api/")) return;
+  // Network-first: try network, update cache, fall back to cache if offline
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const fetching = fetch(e.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        }
-        return response;
-      }).catch(() => cached);
-      return cached || fetching;
-    })
+    fetch(e.request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(e.request))
   );
 });

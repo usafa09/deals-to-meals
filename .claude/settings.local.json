@@ -66,7 +66,9 @@
       "Bash(head -5 echo \"\\(no server-set cookies — auth is Supabase client SDK\\)\" echo \"\" echo \"═══ #15 ERROR HANDLING ═══\" grep -n \"err\\\\.stack\\\\|error\\\\.stack\" routes/*.js server.js echo \"\\(should be empty — no stack traces leaked\\)\" echo \"\" echo \"═══ #16 NOINDEX ═══\" grep -c \"noindex\" public/profile.html public/admin.html public/login.html public/list.html)",
       "Bash(head -5 echo \"\" echo \"═══ #19 OPEN REDIRECTS ═══\" grep -rn \"res.redirect\" server.js routes/*.js echo \"\" echo \"═══ #20 ADMIN AUTH ═══\" grep -n \"admin\" routes/admin.js)",
       "Bash(curl -s http://localhost:5000/app.min.js)",
-      "Bash(md5 C:/Users/billm/deals-to-meals/public/app.js C:/Users/billm/deals-to-meals/public/app.min.js)"
+      "Bash(md5 C:/Users/billm/deals-to-meals/public/app.js C:/Users/billm/deals-to-meals/public/app.min.js)",
+      "Bash(cp public/app.js public/app.min.js)",
+      "Bash(cp public/styles.css public/styles.min.css)"
     ]
   }
 }

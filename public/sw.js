@@ -1,4 +1,4 @@
-const CACHE_NAME = "dishcount-v3";
+const CACHE_NAME = "dishcount-v4";
 const PRECACHE = ["/", "/styles.min.css", "/app.min.js", "/favicon.svg"];
 
 self.addEventListener("install", (e) => {

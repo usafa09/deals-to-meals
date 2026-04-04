@@ -548,7 +548,17 @@ function hideLoading() {
 function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
 
 // ── Screen 1 ──────────────────────────────────────────────────────────────────
-document.getElementById("zipInput").addEventListener("input", function() { this.value=this.value.replace(/\D/g,"").slice(0,5); document.getElementById("zipBtn").disabled=this.value.length<5; });
+function updateZipButton() {
+  var zi = document.getElementById("zipInput");
+  if (!zi) return;
+  zi.value = zi.value.replace(/\D/g, "").slice(0, 5);
+  var valid = /^\d{5}$/.test(zi.value);
+  document.getElementById("zipBtn").disabled = !valid;
+}
+["input", "keyup", "change", "paste"].forEach(function(evt) {
+  document.getElementById("zipInput").addEventListener(evt, updateZipButton);
+});
+updateZipButton();
 document.getElementById("zipInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("zipBtn").click(); });
 document.getElementById("zipBtn").addEventListener("click", findStores);
 

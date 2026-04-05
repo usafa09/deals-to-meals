@@ -372,26 +372,27 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 /* ── Mobile header fixes — prevent overlap ── */
 @media (max-width: 480px) {
   .logo-tagline { display: none; }
+  /* Landing nav */
   .landing-nav-inner { display: flex; padding: 10px 12px; }
   .nav-left { flex-shrink: 0; width: 40px; }
   .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
+  .logo-link svg { width: 32px; height: 36px; }
   .nav-right { flex-shrink: 0; gap: 6px; }
   .nav-cart-badge { font-size: 10px; padding: 3px 8px; }
   .nav-signin { padding: 6px 10px; font-size: 11px; }
   .hamburger { font-size: 24px; min-width: 40px; min-height: 40px; padding: 2px; }
   .landing-nav { overflow: hidden; }
-  /* App header (screens 2-6) */
-  header { padding: 10px 12px; }
+  /* App header (screens 2-6) — switch from grid to flex */
+  header { display: flex !important; padding: 10px 12px; }
   header .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }
+  header .logo-link svg { width: 32px; height: 36px; }
   .header-right { gap: 6px; }
 }
 @media (max-width: 360px) {
-  .logo-link .logo-text-inline { font-size: 18px; }
   .logo-link svg { width: 24px; height: 24px; }
   .nav-signin { padding: 4px 8px; font-size: 0; }
   .nav-signin::before { content: '\1F464'; font-size: 16px; }
   .nav-right { gap: 4px; }
-  header .logo-link .logo-text-inline { font-size: 18px; }
   header .logo-link svg { width: 24px; height: 24px; }
 }
 

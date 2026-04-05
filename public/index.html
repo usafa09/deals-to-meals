@@ -391,56 +391,14 @@
 
 <script src="/app.min.js"></script>
 <script>
-// ── PWA Service Worker + Install Prompt ─────────────────────────────────────
+// ── Unregister service worker and clear caches ─────────────────────────────
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").then(function(reg) {
-    console.log("SW registered:", reg.scope);
-  }).catch(function(err) {
-    console.log("SW registration failed:", err);
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    registrations.forEach(function(reg) { reg.unregister(); });
   });
-}
-
-var deferredInstallPrompt = null;
-var isMobileDevice = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-window.addEventListener("beforeinstallprompt", function(e) {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  console.log("beforeinstallprompt fired — install banner ready");
-  if (isMobileDevice) setTimeout(showInstallBanner, 10000);
-});
-
-function showInstallBanner() {
-  if (!deferredInstallPrompt) return;
-  if (!isMobileDevice) return;
-  if (document.querySelector(".pwa-install-banner")) return;
-  var banner = document.createElement("div");
-  banner.className = "pwa-install-banner";
-  banner.innerHTML = '<div class="pwa-install-inner"><span class="pwa-install-text"><strong>Add Dishcount</strong> to your home screen for quick access</span><button class="pwa-install-btn" onclick="pwaInstall()">Install</button><button class="pwa-install-close" onclick="this.closest(\'.pwa-install-banner\').remove()">\u2715</button></div>';
-  document.body.appendChild(banner);
-}
-
-function pwaInstall() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  deferredInstallPrompt.userChoice.then(function(result) {
-    console.log("PWA install choice:", result.outcome);
-    deferredInstallPrompt = null;
-    var b = document.querySelector(".pwa-install-banner");
-    if (b) b.remove();
+  caches.keys().then(function(keys) {
+    keys.forEach(function(key) { caches.delete(key); });
   });
-}
-
-// iOS fallback — detect Safari on iOS
-var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-var isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-if (isIOS && !isStandalone) {
-  setTimeout(function() {
-    if (document.querySelector(".pwa-install-banner")) return;
-    var banner = document.createElement("div");
-    banner.className = "pwa-install-banner";
-    banner.innerHTML = '<div class="pwa-install-inner"><span class="pwa-install-text"><strong>Add Dishcount</strong> to your home screen: tap <strong>Share</strong> then <strong>Add to Home Screen</strong></span><button class="pwa-install-close" onclick="this.closest(\'.pwa-install-banner\').remove()">\u2715</button></div>';
-    document.body.appendChild(banner);
-  }, 10000);
 }
 
 // ── Hamburger Menu ──────────────────────────────────────────────────────────

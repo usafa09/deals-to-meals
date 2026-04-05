@@ -23,8 +23,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .hamburger { display: flex; background: none; border: none; color: #c8d6cb; font-size: 28px; cursor: pointer; padding: 4px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
 .hamburger:hover { color: white; }
 .nav-profile-icon { display: none; }
-.nav-dropdown { position: fixed; top: 0; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); overflow: hidden; max-height: 0; transition: max-height 0.3s ease; z-index: 200; pointer-events: none; visibility: hidden; }
-.nav-dropdown.open { max-height: 500px; pointer-events: auto; visibility: visible; }
+.nav-dropdown { position: fixed; top: 0; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); overflow: hidden; max-height: 0; transition: max-height 0.3s ease, visibility 0s 0.3s; z-index: 200; pointer-events: none; visibility: hidden; }
+.nav-dropdown.open { max-height: 500px; pointer-events: auto; visibility: visible; transition: max-height 0.3s ease, visibility 0s 0s; }
 .nav-dropdown a { display: flex; align-items: center; gap: 8px; padding: 0 24px; color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.06); min-height: 48px; }
 .nav-dropdown a:hover { background: rgba(255,255,255,0.05); color: white; }
 .nav-dropdown a:last-child { border-bottom: none; }

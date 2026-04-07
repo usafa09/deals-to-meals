@@ -69,7 +69,11 @@
       "Bash(md5 C:/Users/billm/deals-to-meals/public/app.js C:/Users/billm/deals-to-meals/public/app.min.js)",
       "Bash(cp public/app.js public/app.min.js)",
       "Bash(cp public/styles.css public/styles.min.css)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl -s https://dishcount.co/api/deals/regional?zip=45432)",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\\\\nSIZE:%{size_download}\" https://dishcount.co/api/deals/regional?zip=45432)",
+      "Bash(curl -sv https://dishcount.co/api/deals/regional?zip=45432)",
+      "Bash(curl -sk https://dishcount.co/api/deals/regional?zip=45432)"
     ]
   }
 }

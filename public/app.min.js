@@ -1022,7 +1022,7 @@ function renderRecipeGrid(){
       <div class="recipe-card-body"><div class="recipe-card-title">${escapeHtml(r.title)}</div><div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
-        <span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} of ${(r.allIngredients||r.ingredients||[]).length||"?"} ingredients on sale</span>
+        ${(()=>{const all=r.allIngredients||r.ingredients||[];const counts={sale:0,onHand:0,pantry:0,additional:0};all.forEach(i=>{const t=(i.type||"").toUpperCase();if(t==="SALE"&&i.onSale)counts.sale++;else if(t==="ON_HAND")counts.onHand++;else if(t==="PANTRY")counts.pantry++;else if(t==="ADDITIONAL")counts.additional++;});const parts=[];if(counts.onHand)parts.push(counts.onHand+" have");if(counts.sale)parts.push(counts.sale+" on sale");if(counts.pantry)parts.push(counts.pantry+" pantry");if(counts.additional)parts.push(counts.additional+" to buy");return parts.length?`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${parts.join(" · ")}</span>`:`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} on sale</span>`;})()}
         ${r.couponsToClip?.length?`<span class="meta-chip meta-coupon">🎟️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""}</span>`:""}
         ${(()=>{const steps=r.instructions?.length||r.steps?.length||0;return steps>0?`<span class="meta-chip" style="background:#F0EBF8;color:#5B21B6">${steps<=5?"Easy":steps<=10?"Medium":"Involved"}</span>`:""})()}
         ${(r.allIngredients||r.ingredients||[]).length>0&&(r.allIngredients||r.ingredients||[]).length<=7?'<span class="meta-chip" style="background:#FEF3C7;color:#92400E">Simple recipe</span>':""}
@@ -1572,9 +1572,11 @@ async function addListToKrogerCart() {
 function showShoppingList() {
   const r = state.currentRecipe;
   const ings = (r.allIngredients||[]).filter(i => i.type !== "ON_HAND");
+  const onHandCount = (r.allIngredients||[]).filter(i => i.type === "ON_HAND").length;
   document.getElementById("modalContent").innerHTML = `<div class="modal-body">
     <div class="modal-header"><div class="modal-title">📋 Add to Shopping List</div><button class="modal-close" onclick="renderModal(state.currentRecipe)">✕</button></div>
     <p style="font-style:italic;color:var(--muted);font-size:14px;margin-bottom:16px">Select items from ${escapeHtml(r.title)}</p>
+    ${onHandCount?`<p style="font-size:12px;color:var(--green-dark);background:var(--green-light);padding:8px 12px;border-radius:8px;margin-bottom:12px">🏠 ${onHandCount} item${onHandCount>1?"s":""} you already have at home ${onHandCount>1?"are":"is"} not shown — no need to buy!</p>`:""}
     <div class="ing-list">${ings.map((ing, idx) => {
       const inList = state.shoppingList.some(i => i.name === ing.name && i.recipeTitle === r.title);
       const bg = inList ? "var(--green-light)" : (ing.type==="PANTRY" ? "#F5F0E8" : "white");

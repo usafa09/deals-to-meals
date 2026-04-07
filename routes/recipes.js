@@ -270,12 +270,15 @@ async function handleRecipeGeneration(req, res) {
       : "";
 
     const wantNote = wantItems?.trim()
-      ? `\n\nADDITIONAL ITEMS TO BUY: The customer also wants to purchase these items (not on sale): ${wantItems.trim()}. Include these in recipes AND mark them with (ADDITIONAL) in the ingredients list.`
+      ? `\n\nADDITIONAL ITEMS TO BUY: The customer also wants to purchase these items (not on sale): ${wantItems.trim()}. Include these in recipes where they fit naturally and mark them as type "ADDITIONAL".`
       : "";
     const haveNote = haveItems?.trim()
-      ? `\n\nITEMS ALREADY ON HAND: The customer already has these at home: ${haveItems.trim()}. Use these freely in recipes and mark them with (ON HAND) in the ingredients list. Do NOT include these in the estimated cost.`
+      ? `\n\n🏠 HIGHEST PRIORITY — ITEMS THE USER ALREADY HAS AT HOME (FREE):
+${haveItems.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
+
+These items cost the user $0. Use as many of these as possible in EVERY recipe. They are your most valuable ingredients because they save the most money. Build recipes AROUND these items + sale items. Mark them as type "ON_HAND". Do NOT include them in the estimated cost.`
       : "";
-    const customNote = wantNote + haveNote;
+    // haveNote and wantNote are inserted directly in the prompt template
 
     const DIET_RULES = {
       "Vegetarian": {
@@ -369,10 +372,11 @@ async function handleRecipeGeneration(req, res) {
 ${mealTypeGuide}
 ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
+${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
-${mustIncludeNote}${customNote}${batchNote}
+${mustIncludeNote}${wantNote}${batchNote}
 
-CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item). Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
+CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 
 Generate exactly 8 recipes. Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)

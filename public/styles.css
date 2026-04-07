@@ -20,14 +20,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .nav-right { display: flex; align-items: center; gap: 8px; justify-self: end; flex-shrink: 0; }
 .nav-signin { padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; text-decoration: none; color: #c8d6cb; transition: all 0.2s; white-space: nowrap; }
 .nav-signin:hover { color: white; }
-.hamburger { display: flex; background: none; border: none; color: #c8d6cb; font-size: 28px; cursor: pointer; padding: 4px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; line-height: 1; }
-.hamburger:hover { color: white; }
 .nav-profile-icon { display: none; }
-.nav-dropdown { display: none; position: fixed; top: 56px; left: 0; right: 0; background: rgba(26,46,31,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(82,183,136,0.2); z-index: 200; }
-.nav-dropdown.open { display: block; }
-.nav-dropdown a { display: flex; align-items: center; gap: 8px; padding: 0 24px; color: #c8d6cb; text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.06); min-height: 48px; }
-.nav-dropdown a:hover { background: rgba(255,255,255,0.05); color: white; }
-.nav-dropdown a:last-child { border-bottom: none; }
 .nav-cart-badge { cursor: pointer; padding: 4px 10px; border-radius: 12px; background: var(--orange); color: white; font-size: 11px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
 
 /* ── Tooltips ── */
@@ -380,8 +373,7 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .nav-right { flex-shrink: 0; gap: 6px; }
   .nav-cart-badge { font-size: 10px; padding: 3px 8px; }
   .nav-signin { padding: 6px 10px; font-size: 11px; }
-  .hamburger { font-size: 24px; min-width: 40px; min-height: 40px; padding: 2px; }
-  .landing-nav { overflow: hidden; }
+  .landing-nav { overflow: visible; }
   /* App header (screens 2-6) — switch from grid to flex */
   header { display: flex !important; padding: 10px 12px; }
   header .logo-link { position: static; transform: none; flex: 1; justify-content: center; min-width: 0; }

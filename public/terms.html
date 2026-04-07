@@ -71,7 +71,16 @@
 
 <nav class="landing-nav">
   <div class="landing-nav-inner">
-    <div class="nav-left"><button class="hamburger" onclick="toggleHamburger()" aria-label="Menu">&#9776;</button></div>
+    <div class="nav-left" style="position:relative;z-index:9000;">
+  <button id="hamBtn" type="button" onclick="var m=document.getElementById('hamMenu');m.style.display=m.style.display==='block'?'none':'block'" style="background:none;border:none;color:#c8d6cb;font-size:28px;cursor:pointer;padding:8px 12px;-webkit-tap-highlight-color:rgba(255,255,255,0.2);touch-action:manipulation;" aria-label="Menu">&#9776;</button>
+  <div id="hamMenu" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+    <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu').style.display='none'">How It Works</a>
+    <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
+    <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
+    <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
+    <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
+  </div>
+</div>
     <a href="/" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
       <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#d97706;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
     </a>
@@ -83,13 +92,6 @@
     <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
     <div class="nav-right"><span onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin">Sign In</a></div>
   </div>
-  <div class="nav-dropdown" id="navDropdown">
-      <a href="/#how-it-works" onclick="closeHamburger()">How It Works</a>
-      <a href="/about.html" onclick="closeHamburger()">About</a>
-      <a href="/contact.html" onclick="closeHamburger()">Contact</a>
-      <a href="/terms.html" onclick="closeHamburger()">Terms</a>
-      <a href="/privacy.html" onclick="closeHamburger()">Privacy</a>
-    </div>
 </nav>
 
 <header class="page-header">
@@ -156,9 +158,7 @@
 </footer>
 
 <script>
-function toggleHamburger(){var d=document.getElementById("navDropdown");if(d)d.classList.toggle("open");}
-function closeHamburger(){var d=document.getElementById("navDropdown");if(d)d.classList.remove("open");}
-document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");if(!d||!d.classList.contains("open"))return;if(!e.target.closest(".hamburger")&&!d.contains(e.target))d.classList.remove("open");});
+document.addEventListener("click",function(e){var m=document.getElementById("hamMenu");var btn=document.getElementById("hamBtn");if(m&&btn&&m.style.display==="block"&&!btn.contains(e.target)&&!m.contains(e.target))m.style.display="none";});
 </script>
 </body>
 </html>

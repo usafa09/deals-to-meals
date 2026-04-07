@@ -79,17 +79,9 @@
 </footer>
 
 <script>
-function toggleHamburger(){
-  var d=document.getElementById("navDropdown");
-  if(!d)return;
-  d.classList.toggle("open");
-  if(d.classList.contains("open")){
-    var nav=d.closest("nav")||document.querySelector(".landing-nav")||document.getElementById("appHeader");
-    if(nav) d.style.top=nav.offsetHeight+"px";
-  }
-}
-function closeHamburger(){var d=document.getElementById("navDropdown");if(d){d.classList.remove("open");}}
-document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");if(!d||!d.classList.contains("open"))return;var isHamburger=e.target.closest(".hamburger");if(!isHamburger&&!d.contains(e.target)){d.classList.remove("open");}});
+function toggleHamburger(){var d=document.getElementById("navDropdown");if(d)d.classList.toggle("open");}
+function closeHamburger(){var d=document.getElementById("navDropdown");if(d)d.classList.remove("open");}
+document.addEventListener("click",function(e){var d=document.getElementById("navDropdown");if(!d||!d.classList.contains("open"))return;if(!e.target.closest(".hamburger")&&!d.contains(e.target))d.classList.remove("open");});
 </script>
 </body>
 </html>

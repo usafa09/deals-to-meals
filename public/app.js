@@ -646,9 +646,10 @@ async function renderStoreBrands() {
 }
 function requestStore() {
   const overlay=document.createElement("div");
+  overlay.id="requestStoreModal";
   overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:5000;padding:20px";
   overlay.innerHTML=`<div style="background:var(--cream);border-radius:20px;padding:32px;max-width:400px;width:90%;position:relative">
-    <button onclick="this.closest('div[style*=fixed]').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted)">×</button>
+    <button onclick="document.getElementById('requestStoreModal')?.remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted)">×</button>
     <h3 style="color:var(--green-dark);margin-bottom:8px;font-family:'Outfit',sans-serif">Request a Store</h3>
     <p style="color:#666;font-size:14px;margin-bottom:16px">Tell us which store you'd like us to add. We'll prioritize the most requested stores.</p>
     <input id="requestStoreName" type="text" placeholder="Store name (e.g. Trader Joe's)" style="width:100%;padding:12px;border:2px solid var(--sand);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;font-family:'DM Sans',sans-serif">
@@ -664,7 +665,7 @@ function submitStoreRequest() {
   if(!/^\d{5}$/.test(zip)){showToast("Please enter a valid 5-digit zip code");return;}
   fetch("/api/store-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({storeName,zip})})
     .then(r=>r.json()).then(data=>{
-      if(data.success){document.querySelector("div[style*='position:fixed'][style*='z-index:5000']")?.remove();showToast("Thanks! We'll look into adding "+storeName+".","success");}
+      if(data.success){document.getElementById("requestStoreModal")?.remove();showToast("Thanks! We'll look into adding "+storeName+".","success");}
       else showToast(data.error||"Something went wrong");
     }).catch(()=>showToast("Something went wrong. Try again."));
 }

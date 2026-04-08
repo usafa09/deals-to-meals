@@ -141,6 +141,7 @@ app.use("/api/recipes/ai", expensiveLimiter);
 app.use("/api/extract-store", expensiveLimiter);
 app.use("/api/extract-ad", expensiveLimiter);
 app.use("/api/contact", contactLimiter);
+app.use("/api/store-requests", contactLimiter);
 app.use("/api/admin/login", authLimiter);
 app.use("/api/kroger/search", storeSearchLimiter);
 app.use("/api/nearby-stores", storeSearchLimiter);

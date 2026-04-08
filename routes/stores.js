@@ -674,4 +674,27 @@ router.get("/api/extract-status", async (req, res) => {
   res.json({ status: "none" });
 });
 
+// ── Store Requests ─────────────────────────────────────────────────────────
+router.post("/api/store-requests", async (req, res) => {
+  const { storeName, zip } = req.body;
+  if (!storeName || typeof storeName !== "string" || storeName.trim().length < 2 || storeName.trim().length > 60) {
+    return res.status(400).json({ error: "Store name is required (2-60 characters)" });
+  }
+  if (!zip || !/^\d{5}$/.test(zip)) {
+    return res.status(400).json({ error: "Valid 5-digit zip code is required" });
+  }
+  try {
+    const { error } = await supabase.from("store_requests").insert({
+      store_name: storeName.trim(),
+      zip: zip.trim(),
+    });
+    if (error) throw error;
+    console.log(`Store request: "${storeName.trim()}" from zip ${zip}`);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Store request error:", e.message);
+    res.status(500).json({ error: "Failed to save request" });
+  }
+});
+
 export default router;

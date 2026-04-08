@@ -622,7 +622,7 @@ async function findStores() {
       if(!a.hasDeals && b.hasDeals) return 1;
       return a.name.localeCompare(b.name);
     });
-    if(!state.storeBrands.length)throw new Error("No stores found near that zip code.");
+    if(!state.storeBrands.length)throw new Error("No stores with weekly ads found near that zip code. Try a different zip or increase the distance.");
     await renderStoreBrands(); goTo(2);
   } catch(err){showToast(err.message);} finally{hideLoading();}
 }
@@ -638,7 +638,35 @@ async function renderStoreBrands() {
         <div style="flex:1"><div class="store-name">${escapeHtml(b.name)}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":escapeHtml(b.stores[0]?.address)||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
         <div class="store-check">✓</div>
       </div>
-    </div>`).join("");
+    </div>`).join("")
+    + `<div style="text-align:center;margin:24px 0;padding:20px;border:2px dashed #d0c5a0;border-radius:16px">
+        <p style="color:#666;font-size:14px;margin-bottom:12px">Don't see your store?</p>
+        <button type="button" onclick="requestStore()" style="background:var(--green-dark);color:white;border:none;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Request a Store</button>
+      </div>`;
+}
+function requestStore() {
+  const overlay=document.createElement("div");
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:5000;padding:20px";
+  overlay.innerHTML=`<div style="background:var(--cream);border-radius:20px;padding:32px;max-width:400px;width:90%;position:relative">
+    <button onclick="this.closest('div[style*=fixed]').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted)">×</button>
+    <h3 style="color:var(--green-dark);margin-bottom:8px;font-family:'Outfit',sans-serif">Request a Store</h3>
+    <p style="color:#666;font-size:14px;margin-bottom:16px">Tell us which store you'd like us to add. We'll prioritize the most requested stores.</p>
+    <input id="requestStoreName" type="text" placeholder="Store name (e.g. Trader Joe's)" style="width:100%;padding:12px;border:2px solid var(--sand);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;font-family:'DM Sans',sans-serif">
+    <input id="requestStoreZip" type="text" placeholder="Your zip code" maxlength="5" inputmode="numeric" value="${escapeHtml(state.zip||"")}" style="width:100%;padding:12px;border:2px solid var(--sand);border-radius:10px;font-size:15px;margin-bottom:16px;box-sizing:border-box;font-family:'DM Sans',sans-serif">
+    <button onclick="submitStoreRequest()" style="width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Submit Request</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+function submitStoreRequest() {
+  const storeName=(document.getElementById("requestStoreName")?.value||"").trim();
+  const zip=(document.getElementById("requestStoreZip")?.value||"").trim();
+  if(!storeName){showToast("Please enter a store name");return;}
+  if(!/^\d{5}$/.test(zip)){showToast("Please enter a valid 5-digit zip code");return;}
+  fetch("/api/store-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({storeName,zip})})
+    .then(r=>r.json()).then(data=>{
+      if(data.success){document.querySelector("div[style*='position:fixed'][style*='z-index:5000']")?.remove();showToast("Thanks! We'll look into adding "+storeName+".","success");}
+      else showToast(data.error||"Something went wrong");
+    }).catch(()=>showToast("Something went wrong. Try again."));
 }
 async function toggleBrand(name) {
   const brand=state.storeBrands.find(b=>b.name===name);

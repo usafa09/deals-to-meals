@@ -657,27 +657,55 @@ async function toggleBrand(name) {
       if(data.status==="ready") {
         brand.hasDeals=true;
         if(addrEl)addrEl.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${data.deals} deals found! Tap again to select</span>`;
+        showToast(`Found ${data.deals} deals at ${name}! 🎉`,"success");
       } else if(data.status==="extracting") {
-        if(addrEl)addrEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0">
-          <span class="extract-spinner"></span>
-          <div><div style="color:var(--orange);font-size:13px;font-weight:700">Extracting deals from weekly ad...</div>
-          <div style="color:var(--muted);font-size:11px">This usually takes 1-2 minutes</div></div></div>`;
+        const startTime=Date.now();
+        const statusMsgs=["Scanning weekly ad pages...","Reading sale prices...","Almost there — organizing deals...","Just a few more seconds..."];
+        if(addrEl)addrEl.innerHTML=`<div style="padding:10px 0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:24px">🔍</span>
+            <div><div style="color:var(--green-dark);font-size:13px;font-weight:700">You're the first to check ${escapeHtml(name)} this week!</div>
+            <div style="color:var(--muted);font-size:11px">Scanning the weekly ad — about 1-2 minutes</div></div>
+          </div>
+          <div style="width:100%;height:4px;background:#e8e0d0;border-radius:4px;overflow:hidden">
+            <div id="extractBar-${elId}" style="width:0%;height:100%;background:var(--green-bright);border-radius:4px;transition:width 1s linear"></div>
+          </div>
+          <div id="extractMsg-${elId}" style="color:var(--muted);font-size:11px;margin-top:4px">Scanning weekly ad pages...</div>
+        </div>`;
+        // Animate progress bar and status messages
+        const barEl=()=>document.getElementById(`extractBar-${elId}`);
+        const msgEl=()=>document.getElementById(`extractMsg-${elId}`);
+        const progressInterval=setInterval(()=>{
+          const elapsed=(Date.now()-startTime)/1000;
+          const pct=Math.min(95,elapsed<30?elapsed/30*30:elapsed<60?30+(elapsed-30)/30*30:elapsed<120?60+(elapsed-60)/60*25:85+(elapsed-120)/60*10);
+          const b=barEl();if(b)b.style.width=pct+"%";
+          const msgIdx=elapsed<30?0:elapsed<60?1:elapsed<120?2:3;
+          const m=msgEl();if(m)m.textContent=statusMsgs[msgIdx];
+        },2000);
         // Poll for completion
         const poll=setInterval(async()=>{
           try {
             const s=await fetch(`/api/extract-status?store=${encodeURIComponent(name)}`).then(r=>r.json());
             if(s.status==="ready"){
-              clearInterval(poll);
+              clearInterval(poll);clearInterval(progressInterval);
               brand.hasDeals=true;
+              const b=barEl();if(b)b.style.width="100%";
+              setTimeout(()=>{
+                const el=document.getElementById(addrId);
+                if(el)el.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
+              },500);
+              showToast(`Found ${s.deals} deals at ${name}! 🎉`,"success");
+            } else if(s.status==="none"){
+              clearInterval(poll);clearInterval(progressInterval);
               const el=document.getElementById(addrId);
-              if(el)el.innerHTML=`<span style="color:var(--green-dark);font-size:11px">✅ ${s.deals} deals found! Tap to select</span>`;
+              if(el)el.innerHTML=`<span style="color:var(--muted);font-size:11px">No deals found this week — try another store</span>`;
             }
           } catch{}
-        },10000); // check every 10 seconds
-        // Stop polling after 5 minutes
-        setTimeout(()=>{clearInterval(poll);const el=document.getElementById(addrId);if(el&&!brand.hasDeals)el.innerHTML=`<span style="color:var(--muted);font-size:11px">Extraction timed out — try again</span>`;},300000);
+        },8000);
+        // Stop polling after 3.5 minutes
+        setTimeout(()=>{clearInterval(poll);clearInterval(progressInterval);const el=document.getElementById(addrId);if(el&&!brand.hasDeals)el.innerHTML=`<span style="color:var(--muted);font-size:11px">Couldn't find this week's ad for ${escapeHtml(name)}. <a href="javascript:void(0)" onclick="toggleBrand('${escapeHtml(name).replace(/'/g,"\\'")}')" style="color:var(--orange)">Try again</a> or pick another store.</span>`;},210000);
       } else if(data.status==="not-found") {
-        if(addrEl)addrEl.innerHTML=`<span style="color:var(--muted);font-size:11px">No weekly ad found</span>`;
+        if(addrEl)addrEl.innerHTML=`<span style="color:var(--muted);font-size:11px">No weekly ad found for ${escapeHtml(name)}</span>`;
       }
     } catch(e) {
       const addrEl2=document.getElementById(addrId);

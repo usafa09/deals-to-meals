@@ -1493,25 +1493,33 @@ async function addListToKrogerCart() {
   const cartBtn = document.querySelector(".slideout-footer .btn-primary");
   if (cartBtn) { cartBtn.disabled = true; cartBtn.textContent = "Adding items..."; }
 
-  const PANTRY_SKIP = new Set(["salt","pepper","salt and pepper","salt and pepper to taste","olive oil","vegetable oil","cooking oil","canola oil","butter","sugar","flour","water","garlic","onion powder","garlic powder","paprika","cumin","chili powder","oregano","basil","thyme","cinnamon","baking powder","baking soda","cornstarch","vanilla extract","soy sauce","vinegar","hot sauce","ketchup","mustard","honey"]);
+  // Only skip truly zero-cost non-food items — NOT real ingredients like garlic, thyme, butter
+  const PANTRY_SKIP = new Set(["salt","pepper","salt and pepper","salt and pepper to taste","water","cooking spray","ice","ice cubes"]);
 
   const PREP_WORDS = /\b(melted|softened|room temperature|chilled|frozen|thawed|diced|chopped|minced|sliced|crushed|grated|shredded|peeled|trimmed|drained|rinsed|cooked|uncooked|raw|fresh|dried|ground|whole|boneless|skinless|bone-in|skin-on|large|medium|small|thin|thick|finely|roughly|lightly|thinly|freshly)\b/gi;
   function cleanIngredientForSearch(name) {
     let s = name.replace(/®/g, "").replace(/\([^)]*\)/g, "").trim();
+    // Remove everything after comma (prep instructions)
+    s = s.replace(/,.*$/, "").trim();
+    // Remove leading quantities and units
     s = s.replace(/^[\d\/\.\s]+(lb|lbs|oz|cup|cups|tbsp|tsp|tablespoon|teaspoon|slices?|pieces?|bags?|cans?|cloves?|bunch|bunches|heads?|stalks?|sprigs?|pinch|dash|large|medium|small|to taste)\b\s*/i, "");
     s = s.replace(/^[\d\/\.\-\s]+/, "").trim();
     s = s.replace(/,?\s*to taste$/i, "").trim();
     s = s.replace(/^of\s+/i, "").trim();
     // Strip preparation words: "melted butter" → "butter", "finely diced onion" → "onion"
     s = s.replace(PREP_WORDS, "").replace(/\s{2,}/g, " ").trim();
+    // Clean trailing punctuation
+    s = s.replace(/[,;:]+$/, "").trim();
     return s;
   }
 
   function isGoodMatch(searchTerm, resultName) {
-    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
     const resultLower = (resultName || "").toLowerCase();
-    if (!searchWords.length) return true; // short search, accept any result
-    return searchWords.some(w => resultLower.includes(w));
+    if (!searchWords.length) return true;
+    // The most important word (usually last = the noun) must match
+    const lastWord = searchWords[searchWords.length - 1];
+    return resultLower.includes(lastWord);
   }
 
   const upcSet = new Set();
@@ -1539,26 +1547,34 @@ async function addListToKrogerCart() {
       continue;
     }
 
-    // 2. Search Kroger API by cleaned name
+    // 2. Search Kroger API by cleaned name, with fallback to shorter query
     let found = false;
-    try {
-      console.log(`  Searching Kroger for: "${cleaned}"`);
-      const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(cleaned)}&locationId=${locationId}`);
-      if (searchRes.ok) {
-        const { product } = await searchRes.json();
-        if (product?.upc && !upcSet.has(product.upc)) {
-          // Validate: does the result actually match what we searched for?
-          if (isGoodMatch(cleaned, product.name)) {
-            upcSet.add(product.upc);
-            added.push({ name: item.name, upc: product.upc, productName: product.name, searched: cleaned });
-            console.log(`  Found: "${product.name}" UPC: ${product.upc} ✓ good match`);
-            found = true;
-          } else {
-            console.log(`  Rejected bad match: searched "${cleaned}" got "${product.name}"`);
+    const searchTerms = [cleaned];
+    // Add fallback: last 1-2 words (the noun), e.g. "Green Asparagus" → "Asparagus"
+    const words = cleaned.split(/\s+/);
+    if (words.length > 1) searchTerms.push(words.slice(-1).join(" "));
+    if (words.length > 2) searchTerms.push(words.slice(-2).join(" "));
+
+    for (const term of searchTerms) {
+      if (found) break;
+      try {
+        console.log(`  Searching Kroger for: "${term}"`);
+        const searchRes = await fetch(`/api/kroger/search?query=${encodeURIComponent(term)}&locationId=${locationId}`);
+        if (searchRes.ok) {
+          const { product } = await searchRes.json();
+          if (product?.upc && !upcSet.has(product.upc)) {
+            if (isGoodMatch(term, product.name)) {
+              upcSet.add(product.upc);
+              added.push({ name: item.name, upc: product.upc, productName: product.name, searched: term });
+              console.log(`  Found: "${product.name}" UPC: ${product.upc} ✓ good match`);
+              found = true;
+            } else {
+              console.log(`  Rejected bad match: searched "${term}" got "${product.name}"`);
+            }
           }
         }
-      }
-    } catch(e) { console.error(`  Search error for "${cleaned}":`, e.message); }
+      } catch(e) { console.error(`  Search error for "${term}":`, e.message); }
+    }
 
     if (!found) {
       console.log(`  Not found: ${cleaned}`);

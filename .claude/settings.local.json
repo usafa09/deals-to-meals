@@ -84,7 +84,22 @@
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"H-E-B\",\"zip\":\"78201\"}' --max-time 180)",
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Food Lion\",\"zip\":\"27601\"}' --max-time 180)",
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Giant Eagle\",\"zip\":\"15201\"}' --max-time 180)",
-      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Sprouts\",\"zip\":\"85001\"}' --max-time 180)"
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Sprouts\",\"zip\":\"85001\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Kroger\",\"zip\":\"45432\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Harris Teeter\",\"zip\":\"27601\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Hy-Vee\",\"zip\":\"50309\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"ShopRite\",\"zip\":\"07001\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Stop and Shop\",\"zip\":\"06001\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Winn Dixie\",\"zip\":\"32801\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Piggly Wiggly\",\"zip\":\"35203\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Save A Lot\",\"zip\":\"45432\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Grocery Outlet\",\"zip\":\"94102\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Market Basket\",\"zip\":\"01801\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Ingles\",\"zip\":\"28801\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"WinCo\",\"zip\":\"83702\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Hannaford\",\"zip\":\"04101\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Bi-Lo\",\"zip\":\"29601\"}' --max-time 30)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Price Chopper\",\"zip\":\"12203\"}' --max-time 30)"
     ]
   }
 }

@@ -64,7 +64,27 @@ jobs:
       - name: Extract deals for top stores (OCR pipeline)
         run: |
           BASE="https://dishcount.co/api"
-          STORES=("Meijer|45432|Meijer (Dayton)" "Whole Foods|45432|Whole Foods (Dayton)" "Fresh Thyme|45432|Fresh Thyme (Dayton)" "Publix|32801|Publix (Orlando)" "Albertsons|90001|Albertsons (LA)" "Safeway|94102|Safeway (SF)" "H-E-B|78201|H-E-B (San Antonio)" "Food Lion|27601|Food Lion (Raleigh)" "Giant Eagle|15201|Giant Eagle (Pittsburgh)" "Sprouts|85001|Sprouts (Phoenix)")
+          STORES=(
+            "Meijer|45432|Meijer (Dayton)"
+            "Whole Foods|45432|Whole Foods (Dayton)"
+            "Fresh Thyme|45432|Fresh Thyme (Dayton)"
+            "Publix|32801|Publix (Orlando)"
+            "Albertsons|90001|Albertsons (LA)"
+            "Safeway|94102|Safeway (SF)"
+            "Food Lion|27601|Food Lion (Raleigh)"
+            "Giant Eagle|15201|Giant Eagle (Pittsburgh)"
+            "Sprouts|85001|Sprouts (Phoenix)"
+            "Harris Teeter|27601|Harris Teeter (Raleigh)"
+            "Hy-Vee|50309|Hy-Vee (Des Moines)"
+            "ShopRite|07001|ShopRite (NJ)"
+            "Stop and Shop|06001|Stop and Shop (CT)"
+            "Winn Dixie|32801|Winn Dixie (Orlando)"
+            "Piggly Wiggly|35203|Piggly Wiggly (Birmingham)"
+            "Save A Lot|45432|Save A Lot (Dayton)"
+            "Grocery Outlet|94102|Grocery Outlet (SF)"
+            "Market Basket|01801|Market Basket (MA)"
+            "Ingles|28801|Ingles (Asheville)"
+          )
 
           for entry in "${STORES[@]}"; do
             IFS='|' read -r store zip label <<< "$entry"

@@ -1493,8 +1493,8 @@ async function addListToKrogerCart() {
   const cartBtn = document.querySelector(".slideout-footer .btn-primary");
   if (cartBtn) { cartBtn.disabled = true; cartBtn.textContent = "Adding items..."; }
 
-  // Only skip truly zero-cost non-food items — NOT real ingredients like garlic, thyme, butter
-  const PANTRY_SKIP = new Set(["salt","pepper","salt and pepper","salt and pepper to taste","water","cooking spray","ice","ice cubes"]);
+  // Only skip items that are truly free / not purchasable
+  const PANTRY_SKIP = new Set(["water","tap water","ice","ice cubes","cooking spray","non-stick spray"]);
 
   const PREP_WORDS = /\b(melted|softened|room temperature|chilled|frozen|thawed|diced|chopped|minced|sliced|crushed|grated|shredded|peeled|trimmed|drained|rinsed|cooked|uncooked|raw|fresh|dried|ground|whole|boneless|skinless|bone-in|skin-on|large|medium|small|thin|thick|finely|roughly|lightly|thinly|freshly)\b/gi;
   function cleanIngredientForSearch(name) {

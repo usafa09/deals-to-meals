@@ -109,20 +109,30 @@ router.get("/api/kroger/search", async (req, res) => {
     });
   }
 
-  function pickBest(products) {
+  function pickBest(products, searchQuery) {
     if (!products.length) return null;
-    // Score each product: prefer store brand, non-organic, lower price
+    const queryWords = (searchQuery || "").toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+    // Detect if query specifies a protein type
+    const queryProtein = /\b(beef|chicken|pork|turkey|lamb|fish|salmon|shrimp|tilapia)\b/i.exec(searchQuery || "");
     return products.map(p => {
       let score = 100;
       const nameLower = (p.name + " " + p.brand).toLowerCase();
+      // Relevance: how many query words appear in the product name
+      const matchCount = queryWords.filter(w => nameLower.includes(w)).length;
+      score += matchCount * 15;
+      // Penalize wrong protein: searching "beef" but got "pork"
+      if (queryProtein) {
+        const qp = queryProtein[1].toLowerCase();
+        if (!nameLower.includes(qp)) score -= 50;
+      }
+      // Penalize seasoning mixes, sauces, marinades when searching for raw meat
+      if (/\b(seasoning|mix|sauce|marinade|gravy|rub|spice)\b/i.test(nameLower) && queryProtein) score -= 40;
       if (/\borganic\b/i.test(nameLower)) score -= 30;
       if (/\b(artisan|craft|premium|gourmet|specialty)\b/i.test(nameLower)) score -= 15;
-      // Penalize bulk/multi-packs — users usually want single items
       if (/\b(\d+\s*lb bag|\d+\s*pk|family pack|value pack|bulk|bundle|case of|multipack)\b/i.test(nameLower)) score -= 25;
       if (/\b(3 lb|5 lb|10 lb|25 lb)\b/i.test(nameLower)) score -= 20;
       if (/\bkroger\b/i.test(p.brand)) score += 10;
       if (/\bsimple truth\b/i.test(p.brand) && !/\borganic\b/i.test(nameLower)) score += 5;
-      // Lower price = higher score (up to 20 bonus points)
       if (p.price > 0) score += Math.max(0, 20 - Math.round(p.price * 2));
       return { ...p, _score: score };
     }).sort((a, b) => b._score - a._score)[0];
@@ -132,7 +142,7 @@ router.get("/api/kroger/search", async (req, res) => {
     // 1. Try full query
     let products = await searchKroger(query);
     if (products.length) {
-      const best = pickBest(products);
+      const best = pickBest(products, query);
       console.log(`Kroger found (full): "${best.name}" UPC:${best.upc}`);
       return res.json({ product: best, results: products.length, searchUsed: query });
     }
@@ -143,7 +153,7 @@ router.get("/api/kroger/search", async (req, res) => {
       const shortQuery = words.slice(0, 4).join(" ");
       products = await searchKroger(shortQuery);
       if (products.length) {
-        const best = pickBest(products);
+        const best = pickBest(products, query);
         console.log(`Kroger found (short): "${best.name}" UPC:${best.upc}`);
         return res.json({ product: best, results: products.length, searchUsed: shortQuery });
       }
@@ -157,7 +167,7 @@ router.get("/api/kroger/search", async (req, res) => {
       const coreQuery = coreWords.slice(-2).join(" ");
       products = await searchKroger(coreQuery);
       if (products.length) {
-        const best = pickBest(products);
+        const best = pickBest(products, query);
         console.log(`Kroger found (core): "${best.name}" UPC:${best.upc}`);
         return res.json({ product: best, results: products.length, searchUsed: coreQuery });
       }

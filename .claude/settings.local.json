@@ -104,7 +104,11 @@
       "Bash(curl -s -o /dev/null -w \".env: %{http_code}\\\\n\" http://localhost:5000/.env)",
       "Bash(curl -s -o /dev/null -w \".git/config: %{http_code}\\\\n\" http://localhost:5000/.git/config)",
       "Bash(curl -s -o /dev/null -w \"app.js.map: %{http_code}\\\\n\" http://localhost:5000/app.js.map)",
-      "Bash(curl -s -o /dev/null -w \"nonexistent-page: %{http_code}\\\\n\" http://localhost:5000/nonexistent-page)"
+      "Bash(curl -s -o /dev/null -w \"nonexistent-page: %{http_code}\\\\n\" http://localhost:5000/nonexistent-page)",
+      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+chuck+roast&locationId=01400943\" --max-time 15)",
+      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=chuck+roast&locationId=01400943\" --max-time 15)",
+      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=pot+roast&locationId=01400943\" --max-time 15)",
+      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+roast&locationId=01400943\" --max-time 15)"
     ]
   }
 }

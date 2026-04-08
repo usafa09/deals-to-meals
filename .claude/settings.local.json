@@ -99,7 +99,12 @@
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"WinCo\",\"zip\":\"83702\"}' --max-time 30)",
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Hannaford\",\"zip\":\"04101\"}' --max-time 30)",
       "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Bi-Lo\",\"zip\":\"29601\"}' --max-time 30)",
-      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Price Chopper\",\"zip\":\"12203\"}' --max-time 30)"
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Price Chopper\",\"zip\":\"12203\"}' --max-time 30)",
+      "Bash(curl -s -o /dev/null -w \"package.json: %{http_code}\\\\n\" http://localhost:5000/package.json)",
+      "Bash(curl -s -o /dev/null -w \".env: %{http_code}\\\\n\" http://localhost:5000/.env)",
+      "Bash(curl -s -o /dev/null -w \".git/config: %{http_code}\\\\n\" http://localhost:5000/.git/config)",
+      "Bash(curl -s -o /dev/null -w \"app.js.map: %{http_code}\\\\n\" http://localhost:5000/app.js.map)",
+      "Bash(curl -s -o /dev/null -w \"nonexistent-page: %{http_code}\\\\n\" http://localhost:5000/nonexistent-page)"
     ]
   }
 }

@@ -34,10 +34,11 @@ app.use((req, res, next) => {
 
 // ── Security headers ────────────────────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false, // CSP would break inline scripts on other pages
+  contentSecurityPolicy: false, // CSP set manually below
   crossOriginEmbedderPolicy: false,
   hsts: { maxAge: 31536000, includeSubDomains: true },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  frameguard: { action: 'deny' },
 }));
 app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');

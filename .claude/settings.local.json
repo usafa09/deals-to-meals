@@ -73,7 +73,18 @@
       "Bash(curl -s https://dishcount.co/api/deals/regional?zip=45432)",
       "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\\\\nSIZE:%{size_download}\" https://dishcount.co/api/deals/regional?zip=45432)",
       "Bash(curl -sv https://dishcount.co/api/deals/regional?zip=45432)",
-      "Bash(curl -sk https://dishcount.co/api/deals/regional?zip=45432)"
+      "Bash(curl -sk https://dishcount.co/api/deals/regional?zip=45432)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"store\":\"meijer\",\"zip\":\"45432\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Meijer\",\"zip\":\"45432\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Whole Foods\",\"zip\":\"45432\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Fresh Thyme\",\"zip\":\"45432\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Publix\",\"zip\":\"32801\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Albertsons\",\"zip\":\"90001\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Safeway\",\"zip\":\"94102\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"H-E-B\",\"zip\":\"78201\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Food Lion\",\"zip\":\"27601\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Giant Eagle\",\"zip\":\"15201\"}' --max-time 180)",
+      "Bash(curl -sk -X POST https://dishcount.co/api/extract-store -H \"Content-Type: application/json\" -d '{\"storeName\":\"Sprouts\",\"zip\":\"85001\"}' --max-time 180)"
     ]
   }
 }

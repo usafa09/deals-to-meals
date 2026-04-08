@@ -9,7 +9,7 @@ on:
 jobs:
   refresh-deals:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: github.repository == 'usafa09/deals-to-meals'
 
     steps:
@@ -60,3 +60,28 @@ jobs:
           echo "::endgroup::"
 
           echo "Done! All deal caches refreshed."
+
+      - name: Extract deals for top stores (OCR pipeline)
+        run: |
+          BASE="https://dishcount.co/api"
+          STORES=("Meijer|45432|Meijer (Dayton)" "Whole Foods|45432|Whole Foods (Dayton)" "Fresh Thyme|45432|Fresh Thyme (Dayton)" "Publix|32801|Publix (Orlando)" "Albertsons|90001|Albertsons (LA)" "Safeway|94102|Safeway (SF)" "H-E-B|78201|H-E-B (San Antonio)" "Food Lion|27601|Food Lion (Raleigh)" "Giant Eagle|15201|Giant Eagle (Pittsburgh)" "Sprouts|85001|Sprouts (Phoenix)")
+
+          for entry in "${STORES[@]}"; do
+            IFS='|' read -r store zip label <<< "$entry"
+            echo "::group::$label"
+            echo "Extracting $label deals..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 180 -X POST "$BASE/extract-store" \
+              -H "Content-Type: application/json" \
+              -d "{\"storeName\":\"$store\",\"zip\":\"$zip\"}")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            DEAL_COUNT=$(echo "$BODY" | grep -o '"name"' | wc -l)
+            echo "Status: $HTTP_CODE | Deals extracted: ~$DEAL_COUNT"
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "::warning::$label returned HTTP $HTTP_CODE"
+            fi
+            echo "::endgroup::"
+            echo "Waiting 10s before next extraction..."
+            sleep 10
+          done
+          echo "Done! All store extractions complete."

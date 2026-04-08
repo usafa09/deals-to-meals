@@ -1508,6 +1508,8 @@ async function addListToKrogerCart() {
     s = s.replace(/^of\s+/i, "").trim();
     // Strip preparation words: "melted butter" → "butter", "finely diced onion" → "onion"
     s = s.replace(PREP_WORDS, "").replace(/\s{2,}/g, " ").trim();
+    // Strip meat grades: "Choice Beef Chuck Roast" → "Beef Chuck Roast"
+    s = s.replace(/\b(choice|select|prime|angus|certified|usda|grass[- ]fed)\b/gi, "").replace(/\s{2,}/g, " ").trim();
     // Clean trailing punctuation
     s = s.replace(/[,;:]+$/, "").trim();
     return s;
@@ -1532,8 +1534,9 @@ async function addListToKrogerCart() {
     const cleaned = cleanIngredientForSearch(item.name);
     console.log(`Kroger cart: "${item.name}" → cleaned: "${cleaned}"`);
 
-    // Only skip pantry items from recipe ingredients, NEVER from user-added deals
-    if (item.source === "recipe-ingredient" && PANTRY_SKIP.has(cleaned.toLowerCase())) {
+    // Only skip pantry items from recipe ingredients — exact match only
+    // "salt" skips, but "garlic salt" or "salt and pepper to taste" does NOT
+    if (item.source === "recipe-ingredient" && PANTRY_SKIP.has(cleaned.toLowerCase().trim())) {
       console.log(`  Skipped (recipe pantry): ${cleaned}`);
       skipped.push(item.name);
       continue;
@@ -1549,11 +1552,15 @@ async function addListToKrogerCart() {
 
     // 2. Search Kroger API by cleaned name, with fallback to shorter query
     let found = false;
+    // Build fallback cascade: progressively drop words from front
+    // "Beef Chuck Roast" → "Chuck Roast" → "Roast"
+    // Also try last 1-2 words: "Green Asparagus" → "Asparagus"
     const searchTerms = [cleaned];
-    // Add fallback: last 1-2 words (the noun), e.g. "Green Asparagus" → "Asparagus"
     const words = cleaned.split(/\s+/);
-    if (words.length > 1) searchTerms.push(words.slice(-1).join(" "));
-    if (words.length > 2) searchTerms.push(words.slice(-2).join(" "));
+    for (let i = 1; i < words.length; i++) {
+      const term = words.slice(i).join(" ");
+      if (!searchTerms.includes(term)) searchTerms.push(term);
+    }
 
     for (const term of searchTerms) {
       if (found) break;

@@ -83,7 +83,7 @@ router.get("/api/kroger/search", async (req, res) => {
   const { query, locationId } = req.query;
   if (!query || !locationId) return res.status(400).json({ error: "query and locationId required" });
 
-  const NON_FOOD_BLACKLIST = /\b(wax|candle|scented|fragrance|air freshener|cleaner|detergent|soap|shampoo|conditioner|lotion|deodorant|toothpaste|mouthwash|tissue|paper towel|trash bag|pet food|dog food|cat food|cat litter|laundry|bleach|disinfectant|sponge|polish|incense|diffuser|potpourri|fabric softener)\b/i;
+  const NON_FOOD_BLACKLIST = /\b(wax|candle|scented|fragrance|air freshener|cleaner|detergent|soap|shampoo|conditioner|lotion|deodorant|toothpaste|mouthwash|tissue|paper towel|trash bag|pet food|dog food|cat food|cat litter|laundry|bleach|disinfectant|sponge|polish|incense|diffuser|potpourri|fabric softener|baby food|stage [123]|infant|toddler|formula|gerber|beech.nut|similac|enfamil)\b/i;
   const NON_FOOD_DEPTS = /\b(home|household|health & beauty|health and beauty|pet|cleaning|floral|garden)\b/i;
 
   async function searchKroger(term) {
@@ -117,6 +117,9 @@ router.get("/api/kroger/search", async (req, res) => {
       const nameLower = (p.name + " " + p.brand).toLowerCase();
       if (/\borganic\b/i.test(nameLower)) score -= 30;
       if (/\b(artisan|craft|premium|gourmet|specialty)\b/i.test(nameLower)) score -= 15;
+      // Penalize bulk/multi-packs — users usually want single items
+      if (/\b(\d+\s*lb bag|\d+\s*pk|family pack|value pack|bulk|bundle|case of|multipack)\b/i.test(nameLower)) score -= 25;
+      if (/\b(3 lb|5 lb|10 lb|25 lb)\b/i.test(nameLower)) score -= 20;
       if (/\bkroger\b/i.test(p.brand)) score += 10;
       if (/\bsimple truth\b/i.test(p.brand) && !/\borganic\b/i.test(nameLower)) score += 5;
       // Lower price = higher score (up to 20 bonus points)

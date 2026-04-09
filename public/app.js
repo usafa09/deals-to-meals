@@ -1467,12 +1467,28 @@ function connectKrogerFromList() {
 }
 
 async function addListToKrogerCart() {
+  // Open tab immediately on user click to avoid popup blocker
+  // (window.open inside async callbacks gets blocked by browsers)
+  const KROGER_CART_URLS = {
+    kroger:"https://www.kroger.com/cart",kingsoopers:"https://www.kingsoopers.com/cart",
+    ralphs:"https://www.ralphs.com/cart",fredmeyer:"https://www.fredmeyer.com/cart",
+    harristeeter:"https://www.harristeeter.com/cart",frys:"https://www.frysfood.com/cart",
+    frysfood:"https://www.frysfood.com/cart",smiths:"https://www.smithsfoodanddrug.com/cart",
+    qfc:"https://www.qfc.com/cart",marianos:"https://www.marianos.com/cart",
+    picksave:"https://www.picknsave.com/cart",dillons:"https://www.dillons.com/cart",
+    citymarket:"https://www.citymarket.com/cart"
+  };
+  const krogerBrand = (state.selectedBrands || []).find(b => isKrogerFamily(b)) || "Kroger";
+  const cartUrl = KROGER_CART_URLS[normBrand(krogerBrand)] || "https://www.kroger.com/cart";
+  const cartTab = window.open("about:blank", "_blank");
+
   let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
-  if (!session) { savePendingState("add_to_cart"); showToast("Sign in to add to cart"); window.location.href="/profile.html"; return; }
+  if (!session) { if(cartTab)cartTab.close(); savePendingState("add_to_cart"); showToast("Sign in to add to cart"); window.location.href="/profile.html"; return; }
 
   // Check Kroger connection
   await checkKrogerConnection();
   if (!state.krogerConnected) {
+    if(cartTab)cartTab.close();
     // Show connect prompt instead of silently redirecting
     const body = document.getElementById("slideoutBody");
     if (body) {
@@ -1595,6 +1611,7 @@ async function addListToKrogerCart() {
       const cartItems = added.map(a => ({ upc: a.upc, quantity: 1 }));
       const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ items: cartItems }) });
       if (!res.ok) {
+        if(cartTab)cartTab.close();
         const err = await res.json().catch(()=>({}));
         if (err.error?.includes("expired") || err.error?.includes("token")) {
           showToast("Kroger session expired. Please reconnect.");
@@ -1602,23 +1619,14 @@ async function addListToKrogerCart() {
         if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; }
         return;
       }
-    } catch(e) { showToast("Could not add to cart"); if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; } return; }
+    } catch(e) { if(cartTab)cartTab.close(); showToast("Could not add to cart"); if (cartBtn) { cartBtn.disabled = false; cartBtn.textContent = "🛒 Add to Kroger Cart"; } return; }
   }
 
-  // Open Kroger family cart in new tab
-  if (added.length) {
-    const KROGER_CART_URLS = {
-      kroger:"https://www.kroger.com/cart",kingsoopers:"https://www.kingsoopers.com/cart",
-      ralphs:"https://www.ralphs.com/cart",fredmeyer:"https://www.fredmeyer.com/cart",
-      harristeeter:"https://www.harristeeter.com/cart",frys:"https://www.frysfood.com/cart",
-      frysfood:"https://www.frysfood.com/cart",smiths:"https://www.smithsfoodanddrug.com/cart",
-      qfc:"https://www.qfc.com/cart",marianos:"https://www.marianos.com/cart",
-      picksave:"https://www.picknsave.com/cart",dillons:"https://www.dillons.com/cart",
-      citymarket:"https://www.citymarket.com/cart"
-    };
-    const krogerBrand = (state.selectedBrands || []).find(b => isKrogerFamily(b)) || "Kroger";
-    const cartUrl = KROGER_CART_URLS[normBrand(krogerBrand)] || "https://www.kroger.com/cart";
-    window.open(cartUrl, "_blank");
+  // Navigate pre-opened tab to Kroger cart, or close if nothing was added
+  if (added.length && cartTab) {
+    cartTab.location.href = cartUrl;
+  } else if (cartTab) {
+    cartTab.close();
   }
 
   // Show detailed results modal

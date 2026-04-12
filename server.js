@@ -49,7 +49,7 @@ app.use((req, res, next) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' https: data: blob:",
-    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://api.kroger.com https://www.google-analytics.com https://analytics.google.com",
+    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://analytics.google.com",
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'"

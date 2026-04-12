@@ -326,6 +326,32 @@ These items cost the user $0. Use as many of these as possible in EVERY recipe. 
       profileNote = "\n\n" + parts.join("\n");
     }
 
+    // Fetch user history for personalization
+    let historyNote = "";
+    if (req._user?.id) {
+      try {
+        const { data: interactions } = await supabase
+          .from("recipe_interactions")
+          .select("recipe_name, recipe_tags, action")
+          .eq("user_id", req._user.id)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (interactions?.length) {
+          const saved = interactions.filter(i => i.action === "saved" || i.action === "cooked").map(i => i.recipe_name);
+          const skipped = interactions.filter(i => i.action === "skipped").map(i => i.recipe_name);
+          const allTags = interactions.filter(i => i.action === "saved" || i.action === "cooked").flatMap(i => i.recipe_tags || []);
+          const tagCounts = {};
+          allTags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+          const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+          const parts = ["USER HISTORY — use this to personalize recommendations:"];
+          if (saved.length) parts.push(`Recipes they SAVED or COOKED (suggest similar): ${saved.slice(0, 8).join(", ")}`);
+          if (skipped.length) parts.push(`Recipes they SKIPPED (avoid similar): ${skipped.slice(0, 5).join(", ")}`);
+          if (topTags.length) parts.push(`Preferred styles based on history: ${topTags.join(", ")}`);
+          historyNote = "\n\n" + parts.join("\n");
+        }
+      } catch (e) { /* history fetch failed, continue without it */ }
+    }
+
     const DIET_RULES = {
       "Vegetarian": {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
@@ -420,7 +446,7 @@ ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
 ${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
-${mustIncludeNote}${wantNote}${mealRequestNote}${profileNote}${batchNote}
+${mustIncludeNote}${wantNote}${mealRequestNote}${profileNote}${historyNote}${batchNote}
 
 CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 
@@ -783,6 +809,193 @@ router.get("/api/recipe-image", async (req, res) => {
     });
   } catch (e) {
     res.json({ url: null });
+  }
+});
+
+// ══ INGREDIENT SUBSTITUTION ═══════════════════════════════════════════════════
+
+const swapHourlyCount = new Map();
+setInterval(() => { const h = Math.floor(Date.now() / 3600000); for (const k of swapHourlyCount.keys()) { if (!k.endsWith(String(h))) swapHourlyCount.delete(k); } }, 60 * 60 * 1000);
+
+router.post("/api/recipes/substitute", async (req, res) => {
+  const user = await getUser(req);
+  const userId = user?.id || req.headers["x-anon-id"] || req.ip;
+  const hour = Math.floor(Date.now() / 3600000);
+  const key = userId + "-" + hour;
+  const used = swapHourlyCount.get(key) || 0;
+  if (used >= 10) return res.status(429).json({ error: "Swap limit reached. Try again in a bit." });
+  swapHourlyCount.set(key, used + 1);
+
+  const { ingredient, recipeName, dietary, availableDeals } = req.body;
+  if (!ingredient || !recipeName) return res.status(400).json({ error: "ingredient and recipeName required" });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
+
+  const dealNames = (availableDeals || []).slice(0, 50).map(d => {
+    const parts = [d.name];
+    if (d.salePrice) parts.push(`$${d.salePrice}`);
+    if (d.storeName) parts.push(`at ${d.storeName}`);
+    return parts.join(" ");
+  }).join(", ");
+
+  const dietNote = dietary?.length ? `The user has these dietary restrictions: ${dietary.join(", ")}. All substitutions must comply.` : "";
+
+  const prompt = `The user wants to substitute "${ingredient}" in the recipe "${recipeName}". Suggest 3 alternatives. ${dietNote}
+
+Items currently on sale: ${dealNames || "none provided"}
+
+For each substitute, explain how it changes the recipe and adjust cooking instructions if needed. PREFER items that are currently on sale.
+
+Respond with ONLY valid JSON:
+[{"substitute": "item name", "reason": "why this works, include price if on sale", "adjustedInstructions": "brief cooking adjustment or 'No changes needed'", "onSale": true}]`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+    });
+    const result = await response.json();
+    const text = result.content?.[0]?.text || "[]";
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const substitutes = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    res.json({ substitutes });
+  } catch (e) {
+    console.error("Substitute error:", e.message);
+    res.status(500).json({ error: "Could not generate substitutions" });
+  }
+});
+
+// ══ LEFTOVER RECIPES ═════════════════════════════════════════════════════════
+
+router.post("/api/recipes/leftovers", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) {
+    const anonId = req.headers["x-anon-id"] || req.ip;
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyKey = anonId + "-" + today;
+    const dailyUsed = anonDailyCount.get(dailyKey) || 0;
+    if (dailyUsed >= 10) return res.status(429).json({ error: "Daily limit reached.", limitReached: true });
+    return anonRecipeLimiter(req, res, () => {
+      anonDailyCount.set(dailyKey, dailyUsed + 1);
+      handleLeftoverGeneration(req, res);
+    });
+  }
+  handleLeftoverGeneration(req, res);
+});
+
+async function handleLeftoverGeneration(req, res) {
+  const { leftovers, availableDeals, preferences } = req.body;
+  if (!leftovers?.trim()) return res.status(400).json({ error: "leftovers required" });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
+
+  const prefs = preferences || {};
+  const dealsList = (availableDeals || []).slice(0, 40).map(d => {
+    const parts = [d.name];
+    if (d.salePrice) parts.push(`$${d.salePrice}`);
+    if (d.storeName) parts.push(`at ${d.storeName}`);
+    return "- " + parts.join(" ");
+  }).join("\n");
+
+  let profileNote = "";
+  if (prefs.skill_level || prefs.cook_time || prefs.dislikes) {
+    const parts = [];
+    if (prefs.skill_level) parts.push(`Skill: ${prefs.skill_level}`);
+    if (prefs.cook_time && prefs.cook_time !== "any") parts.push(`Max cook time: ${prefs.cook_time} min`);
+    if (prefs.dislikes) parts.push(`NEVER use: ${prefs.dislikes}`);
+    profileNote = "\nUser preferences: " + parts.join(". ") + ".";
+  }
+
+  const prompt = `You are a zero-waste recipe assistant. The user has these LEFTOVERS they want to use up:
+${leftovers.trim()}
+
+Also available on sale this week:
+${dealsList || "No sale items provided."}
+${profileNote}
+
+Generate exactly 4 recipes that USE THE LEFTOVERS as the primary ingredients. The goal is ZERO FOOD WASTE. Each recipe should:
+- Use at least one leftover item as a main ingredient
+- Combine leftovers with sale items where possible to save money
+- Be practical and easy to make
+- List which leftovers each recipe uses
+
+Respond with ONLY valid JSON:
+{
+  "recipes": [
+    {
+      "title": "Recipe Name",
+      "cookTime": 20,
+      "servings": ${prefs.household_size || "4"},
+      "leftoverItems": ["half a rotisserie chicken", "cooked rice"],
+      "saleItemsUsed": ["Bell Peppers"],
+      "ingredients": [
+        {"item": "2 cups shredded rotisserie chicken", "type": "LEFTOVER", "matchName": ""},
+        {"item": "1 cup cooked rice", "type": "LEFTOVER", "matchName": ""},
+        {"item": "2 bell peppers, diced", "type": "SALE", "matchName": "Bell Peppers"},
+        {"item": "1 tbsp soy sauce", "type": "PANTRY", "matchName": ""}
+      ],
+      "instructions": ["Step 1...", "Step 2..."]
+    }
+  ]
+}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
+    });
+    const result = await response.json();
+    const text = result.content?.[0]?.text || "{}";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { recipes: [] };
+    res.json({ recipes: parsed.recipes || [], isLeftover: true });
+  } catch (e) {
+    console.error("Leftover recipe error:", e.message);
+    res.status(500).json({ error: "Could not generate leftover recipes" });
+  }
+}
+
+// ══ RECIPE INTERACTIONS (LEARNING) ═══════════════════════════════════════════
+
+router.post("/api/recipes/interact", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const { recipe_name, recipe_tags, action } = req.body;
+  if (!recipe_name || !action) return res.status(400).json({ error: "recipe_name and action required" });
+  const allowed = ["saved", "cooked", "printed", "added_to_cart", "skipped"];
+  if (!allowed.includes(action)) return res.status(400).json({ error: "Invalid action" });
+
+  try {
+    await supabase.from("recipe_interactions").insert({
+      user_id: user.id,
+      recipe_name,
+      recipe_tags: recipe_tags || [],
+      action,
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Interaction tracking error:", e.message);
+    res.status(500).json({ error: "Could not save interaction" });
+  }
+});
+
+router.get("/api/recipes/history", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.json({ interactions: [] });
+  try {
+    const { data } = await supabase
+      .from("recipe_interactions")
+      .select("recipe_name, recipe_tags, action")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    res.json({ interactions: data || [] });
+  } catch (e) {
+    res.json({ interactions: [] });
   }
 });
 

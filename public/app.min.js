@@ -1340,6 +1340,8 @@ async function searchRecipes() {
 async function loadMoreRecipes() {
   const payload=getRecipePayload(state.recipeOffset);
   if(!payload){showToast("Error loading more recipes");return;}
+  // Track current recipes as skipped (user wants different ones)
+  state.recipes.forEach(r => { if (!state.savedRecipeIds.has(r.title)) trackInteraction(r.title, "skipped", getRecipeTags(r)); });
   const btn=document.getElementById("moreRecipesBtn");
   btn.disabled=true; btn.textContent="🤖 Generating…";
   showCookingLoading();
@@ -1382,6 +1384,7 @@ function renderRecipeGrid(){
         ${r.servings>=6?'<span class="meta-chip" style="background:#EDE9FE;color:#6D28D9">Feeds a crowd</span>':""}
         ${/sheet pan|one.pot|one.pan|slow cooker|instant pot|crockpot/i.test(r.title)?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Easy cleanup</span>':""}
         ${r.servings>=4&&r.estimatedCost>0&&r.estimatedCost/r.servings<4?'<span class="meta-chip" style="background:#CCFBF1;color:#0F766E">Family-friendly</span>':""}
+        ${r._isLeftover&&r._leftoverItems?.length?'<span class="meta-chip" style="background:#D1FAE5;color:#065F46">&#9851;&#65039; Uses leftovers</span>':""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them
   lazyLoadRecipeImages();
@@ -1490,13 +1493,15 @@ function renderModal(r){
         const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
         const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;
         const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
-        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div>`;
+        const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap</button>` : "";
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
         <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>
+        <button class="modal-btn" onclick="markCooked('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#FEF3C7;color:#92400E;border:2px solid #FCD34D">👨‍🍳 I Made This</button>
         <button class="modal-btn" onclick="shareRecipe('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#E8F0F8;color:#2D4A6A;border:2px solid #90CAF9">🔗 Share</button>
       </div></div>`;
 }
@@ -1531,9 +1536,137 @@ async function saveRecipe(){
     const body={title:r.title,emoji:"🍽️",time:r.time,servings:String(r.servings||4),difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""};
     console.log("saveRecipe: sending",body);
     const res=await fetch("/api/recipes/saved",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(body)});
-    if(res.ok){state.savedRecipeIds.add(r.title);document.getElementById("saveBtn").textContent="❤️ Saved!";document.getElementById("saveBtn").classList.add("saved");showToast("Recipe saved!","success");}
+    if(res.ok){state.savedRecipeIds.add(r.title);document.getElementById("saveBtn").textContent="❤️ Saved!";document.getElementById("saveBtn").classList.add("saved");showToast("Recipe saved!","success");trackInteraction(r.title,"saved",getRecipeTags(r));}
     else{const err=await res.json().catch(()=>({}));console.error("saveRecipe API error:",res.status,err);showToast(err.error||"Could not save recipe — try signing in again");}
   }catch(e){console.error("saveRecipe error:",e);showToast("Could not save recipe. Please try again.");}
+}
+
+// ── Interaction Tracking ────────────────────────────────────────────────────
+async function trackInteraction(recipeName, action, tags) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) return;
+    await fetch("/api/recipes/interact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+      body: JSON.stringify({ recipe_name: recipeName, recipe_tags: tags || [], action })
+    });
+  } catch(e) { /* silent */ }
+}
+
+function getRecipeTags(recipe) {
+  const tags = [];
+  const t = (recipe.title || "").toLowerCase();
+  if (/chicken/i.test(t)) tags.push("chicken");
+  if (/beef|steak|burger/i.test(t)) tags.push("beef");
+  if (/pork|ham|bacon/i.test(t)) tags.push("pork");
+  if (/fish|salmon|shrimp|tilapia/i.test(t)) tags.push("seafood");
+  if (/pasta|spaghetti|noodle/i.test(t)) tags.push("pasta");
+  if (/soup|stew|chili/i.test(t)) tags.push("soup");
+  if (/taco|burrito|mexican/i.test(t)) tags.push("mexican");
+  if (/stir.?fry|asian|teriyaki/i.test(t)) tags.push("asian");
+  if (/salad/i.test(t)) tags.push("salad");
+  if (/slow.?cooker|crockpot/i.test(t)) tags.push("slow-cooker");
+  if (state.selectedStyle) tags.push(state.selectedStyle.toLowerCase());
+  return tags;
+}
+
+async function markCooked(title) {
+  trackInteraction(title, "cooked", getRecipeTags(state.currentRecipe));
+  showToast("Nice! Marked as cooked", "success");
+}
+
+// ── Ingredient Substitution ─────────────────────────────────────────────────
+async function swapIngredient(idx, ingredientName) {
+  const panel = document.getElementById("swap-panel-" + idx);
+  if (!panel) return;
+  // Toggle off if already open
+  if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  panel.innerHTML = '<div style="padding:8px;text-align:center;color:#888;font-size:13px;">Finding substitutes...</div>';
+
+  const r = state.currentRecipe;
+  const deals = state.deals.slice(0, 50).map(d => ({ name: d.name, salePrice: d.salePrice, storeName: d.storeName || d.source }));
+  try {
+    const res = await fetch("/api/recipes/substitute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId },
+      body: JSON.stringify({ ingredient: ingredientName, recipeName: r.title, dietary: state.selectedDiets, availableDeals: deals })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.substitutes?.length) { panel.innerHTML = '<div style="padding:8px;font-size:13px;color:#999;">No substitutes found.</div>'; return; }
+    panel.innerHTML = '<div style="background:#f9f9f0;border:1px solid #e8e0d0;border-radius:8px;padding:4px;margin:4px 0;">' +
+      data.substitutes.map((s, i) =>
+        `<div onclick="applySubstitution(${idx},${i})" style="padding:8px;cursor:pointer;border-bottom:1px solid #f0ede6;border-radius:6px;" onmouseover="this.style.background='#f0ede6'" onmouseout="this.style.background='transparent'">` +
+        `<strong style="color:#2d6a4f">${escapeHtml(s.substitute)}</strong>${s.onSale ? ' <span style="font-size:11px;background:#e8f5e9;color:#2d6a4f;padding:2px 6px;border-radius:4px;">ON SALE</span>' : ""}` +
+        `<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(s.reason)}</div>` +
+        `<div style="font-size:11px;color:#888;margin-top:2px">${escapeHtml(s.adjustedInstructions)}</div>` +
+        `</div>`
+      ).join("") + '</div>';
+    // Store substitutes on panel for applySubstitution
+    panel._subs = data.substitutes;
+  } catch(e) {
+    panel.innerHTML = '<div style="padding:8px;font-size:13px;color:#c00;">Could not load substitutes.</div>';
+  }
+}
+
+function applySubstitution(ingIdx, subIdx) {
+  const panel = document.getElementById("swap-panel-" + ingIdx);
+  if (!panel?._subs?.[subIdx]) return;
+  const sub = panel._subs[subIdx];
+  const r = state.currentRecipe;
+  if (r.allIngredients?.[ingIdx]) {
+    const oldName = r.allIngredients[ingIdx].name;
+    // Replace ingredient name, keeping any quantity prefix
+    const amtMatch = oldName.match(/^([\d.\/]+\s*(?:lb|oz|cup|tbsp|tsp|can|pkg|bunch|head|clove|slice)?s?\s*)/i);
+    r.allIngredients[ingIdx].name = (amtMatch ? amtMatch[1] : "") + sub.substitute;
+    r.allIngredients[ingIdx].type = sub.onSale ? "SALE" : "ADDITIONAL";
+    r.allIngredients[ingIdx].onSale = !!sub.onSale;
+  }
+  renderModal(r);
+  showToast("Swapped to " + sub.substitute, "success");
+}
+
+// ── Leftover Recipes ────────────────────────────────────────────────────────
+function showLeftoverInput() {
+  const container = document.getElementById("leftoverSection");
+  if (!container) return;
+  if (container.style.display !== "none") { container.style.display = "none"; return; }
+  container.style.display = "block";
+  container.innerHTML = '<div style="background:#fffdf7;border:2px solid #d0c5a0;border-radius:14px;padding:20px;margin-top:8px;">' +
+    '<h3 style="color:#2d6a4f;font-size:17px;margin-bottom:4px;">What leftovers do you have?</h3>' +
+    '<p style="color:#888;font-size:13px;margin-bottom:12px;">We\'ll suggest recipes that use them up so nothing goes to waste.</p>' +
+    '<textarea id="leftoverInput" placeholder="e.g. half a rotisserie chicken, cooked rice, leftover taco meat, extra bell peppers" style="width:100%;height:70px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>' +
+    '<button onclick="generateLeftoverRecipes()" id="leftoverBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">Generate Leftover Recipes</button>' +
+    '</div>';
+}
+
+async function generateLeftoverRecipes() {
+  const input = document.getElementById("leftoverInput");
+  if (!input?.value?.trim()) { showToast("Enter your leftovers first"); return; }
+  const btn = document.getElementById("leftoverBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Generating..."; }
+  const deals = state.deals.slice(0, 40).map(d => ({ name: d.name, salePrice: d.salePrice, storeName: d.storeName || d.source }));
+  try {
+    const res = await fetch("/api/recipes/leftovers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId },
+      body: JSON.stringify({ leftovers: input.value.trim(), availableDeals: deals, preferences: state.userPreferences })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not generate recipes");
+    if (!data.recipes?.length) throw new Error("No leftover recipes generated. Try different leftovers.");
+    // Add leftover badge info and append to recipe grid
+    data.recipes.forEach(r => { r._isLeftover = true; r._leftoverItems = r.leftoverItems || []; });
+    state.recipes.push(...data.recipes);
+    renderRecipeGrid();
+    document.getElementById("leftoverSection").style.display = "none";
+    showToast(`${data.recipes.length} leftover recipes added!`, "success");
+  } catch(e) {
+    showToast(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Generate Leftover Recipes"; }
+  }
 }
 
 // ── Shopping List — Slide-out Panel ──────────────────────────────────────────
@@ -1920,6 +2053,7 @@ async function addListToKrogerCart() {
   // Navigate pre-opened tab to Kroger cart, or close if nothing was added
   if (added.length && cartTab) {
     cartTab.location.href = cartUrl;
+    if (state.currentRecipe) trackInteraction(state.currentRecipe.title, "added_to_cart", getRecipeTags(state.currentRecipe));
   } else if (cartTab) {
     cartTab.close();
   }

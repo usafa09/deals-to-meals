@@ -7,7 +7,7 @@
     function loadGA(){if(document.querySelector('script[src*="googletagmanager"]'))return;var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';document.head.appendChild(s);s.onload=function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-41675D42V1',{anonymize_ip:true});};}
     if(localStorage.getItem('dishcount_cookies_accepted'))loadGA();
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
   <meta name="description" content="Meal planning that starts with savings. Dishcount pulls weekly deals from 80+ grocery chains near you and builds personalized meals around what's on sale — not the other way around. Free." />
   <title>Dishcount — Meals from Deals</title>
   <link rel="canonical" href="https://dishcount.co/">
@@ -65,6 +65,7 @@
   </script>
 </head>
 <body>
+<a href="#main-content" class="skip-nav">Skip to main content</a>
 <noscript><div style="text-align:center;padding:60px 20px;font-family:'Trebuchet MS',sans-serif;"><h1 style="color:#2d6a4f;">Dishcount</h1><p style="font-size:18px;color:#666;">Dishcount requires JavaScript to run. Please enable JavaScript in your browser and reload the page.</p></div></noscript>
 
 <!-- ══ LANDING NAV ══ -->
@@ -139,7 +140,7 @@
 <div class="screen active" id="screen1">
 
   <!-- Hero -->
-  <section class="landing-hero">
+  <section class="landing-hero" id="main-content">
     <div class="landing-hero-content">
       <div class="landing-badge">&#128293; Why pay full price when this week's deals can plan your meals?</div>
       <h1 class="landing-headline">Meal Planning That Starts With <span class="highlight">Savings</span></h1>
@@ -492,6 +493,9 @@
     <p style="color:#ccc;font-size:16px;margin:0 auto 20px;max-width:560px">See what's on sale near you, build meals around the deals, and know exactly how much you're saving. Free forever.</p>
     <button type="button" class="cta-btn" onclick="document.getElementById('zipInput').focus();document.getElementById('zipInput').scrollIntoView({behavior:'smooth',block:'center'})">See This Week's Deals &#8594;</button>
   </section>
+
+  <button id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">&#8593;</button>
+  <script>window.addEventListener("scroll",function(){var b=document.getElementById("backToTop");if(b)b.style.display=window.scrollY>500?"block":"none";});</script>
 
   <!-- Footer -->
   <footer class="landing-footer">

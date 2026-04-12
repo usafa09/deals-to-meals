@@ -509,6 +509,20 @@ sb.auth.getSession().then(({ data }) => {
   }
 });
 
+// ── Offline/Online Detection ────────────────────────────────────────────────
+window.addEventListener("offline", () => showToast("You appear to be offline. Some features may not work until you reconnect."));
+window.addEventListener("online", () => showToast("You're back online!", "success"));
+
+// ── Welcome Back for Returning Users ────────────────────────────────────────
+(function() {
+  const lastVisit = localStorage.getItem("dishcount_last_visit");
+  const today = new Date().toDateString();
+  if (lastVisit && lastVisit !== today) {
+    setTimeout(() => showToast("Welcome back! This week's deals are fresh.", "success"), 1500);
+  }
+  localStorage.setItem("dishcount_last_visit", today);
+})();
+
 // ── Recipe Preview Modal (landing page) ─────────────────────────────────────
 const PREVIEW_RECIPES = [
   {
@@ -714,7 +728,10 @@ async function ensureAppScreens() {
 async function goTo(step) {
   await ensureAppScreens();
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById(`screen${step}`).classList.add("active");
+  const newScreen = document.getElementById(`screen${step}`);
+  newScreen.classList.add("active");
+  newScreen.classList.add("screen-transition");
+  setTimeout(() => newScreen.classList.remove("screen-transition"), 300);
   // Toggle landing nav vs app header, and show/hide app screens container
   const landingNav = document.getElementById("landingNav");
   const appHeader = document.getElementById("appHeader");
@@ -909,7 +926,7 @@ function hideLoading() {
   if (emojiEl) emojiEl.style.display = "none";
   if (tipEl) tipEl.textContent = "";
 }
-function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; setTimeout(()=>t.classList.remove("show"),3500); }
+function showToast(msg, type="error") { const t=document.getElementById("toast"); t.textContent=msg; t.className=`toast show ${type}`; t.setAttribute("role","alert"); t.setAttribute("aria-live","assertive"); setTimeout(()=>t.classList.remove("show"),3500); if(navigator.vibrate&&type==="success")navigator.vibrate(50); }
 
 // ── Screen 1 ──────────────────────────────────────────────────────────────────
 document.getElementById("zipInput").addEventListener("input", function() { this.value = this.value.replace(/\D/g, "").slice(0, 5); });
@@ -1184,8 +1201,14 @@ async function checkKrogerConnection() {
 }
 
 // ── Load Deals → Screen 4 ────────────────────────────────────────────────────
+function showDealSkeletons() {
+  const grid = document.getElementById("saleGrid");
+  if (grid) grid.innerHTML = Array(6).fill('<div style="border:2px solid #e8e0d0;border-radius:16px;padding:16px;"><div class="skeleton" style="height:100px;margin-bottom:12px;"></div><div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div><div class="skeleton" style="height:12px;width:40%;"></div></div>').join("");
+}
+
 async function loadDealsAndShow() {
   showLoading("Loading this week's deals…","Fetching sale items from your stores");
+  showDealSkeletons();
   try {
     // Use the regional deals endpoint — fetches Kroger + ALDI + ad-extracted deals
     const params = new URLSearchParams({ zip: state.zip });
@@ -1405,7 +1428,7 @@ async function searchRecipes() {
     renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
-    sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
+    sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } else { const gc=parseInt(localStorage.getItem("dishcount_gen_count")||"0")+1; localStorage.setItem("dishcount_gen_count",String(gc)); if(gc===3&&!localStorage.getItem("dishcount_subscribed")){ showFeatureDiscovery("emailprompt",'<strong style="color:#2d6a4f;">Want these deals in your inbox?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">Get a free weekly email with the best deals and meal ideas near you. <a href="#" onclick="document.getElementById(\'zipInput\').scrollIntoView({behavior:\'smooth\'});return false;" style="color:#2d6a4f;font-weight:600;">Subscribe below</a></p>'); } } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){
     if(err.name==="AbortError")showToast("Recipe generation timed out. Please try again.");

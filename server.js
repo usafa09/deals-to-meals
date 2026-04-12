@@ -94,6 +94,11 @@ const expensiveLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Rate limit reached for this action. Please wait before trying again." },
+  skip: (req) => {
+    // Skip global rate limit for authenticated users — they have their own limits in routes/recipes.js
+    const auth = req.headers.authorization;
+    return !!(auth && auth.startsWith("Bearer ") && auth.length > 20);
+  },
 });
 
 const contactLimiter = rateLimit({

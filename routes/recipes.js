@@ -13,9 +13,11 @@ import {
 
 const router = Router();
 
-// ── Anonymous recipe generation tracking + rate limiting ────────────────────
+// ── Recipe generation tracking + rate limiting ─────────────────────────────
 const anonRecipeCount = new Map();
 const anonDailyCount = new Map();
+const authHourlyCount = new Map();
+const authDailyCount = new Map();
 
 // Hourly IP-based rate limiter for anonymous users (5/hour, cannot be spoofed)
 const anonRecipeLimiter = rateLimit({
@@ -26,11 +28,19 @@ const anonRecipeLimiter = rateLimit({
   message: { error: "Recipe generation limit reached. Create a free account for unlimited recipes!", limitReached: true },
 });
 
-// Clean up stale daily count entries every hour
+// Clean up stale rate limit entries every hour
 setInterval(() => {
   const today = new Date().toISOString().slice(0, 10);
+  const currentHour = Math.floor(Date.now() / 3600000);
   for (const key of anonDailyCount.keys()) {
     if (!key.endsWith(today)) anonDailyCount.delete(key);
+  }
+  for (const key of authDailyCount.keys()) {
+    if (!key.endsWith(today)) authDailyCount.delete(key);
+  }
+  for (const key of authHourlyCount.keys()) {
+    const h = parseInt(key.split("-").pop());
+    if (h < currentHour - 1) authHourlyCount.delete(key);
   }
 }, 60 * 60 * 1000);
 
@@ -215,6 +225,23 @@ router.post("/api/recipes/ai", async (req, res, next) => {
       handleRecipeGeneration(req, res);
     });
   }
+  // Authenticated user rate limits: 20/hour, 50/day
+  const uid = user.id;
+  const now = Date.now();
+  const hour = Math.floor(now / 3600000);
+  const today = new Date().toISOString().slice(0, 10);
+  const hourKey = uid + "-" + hour;
+  const dayKey = uid + "-" + today;
+  const hourUsed = authHourlyCount.get(hourKey) || 0;
+  const dayUsed = authDailyCount.get(dayKey) || 0;
+  if (dayUsed >= 50) {
+    return res.status(429).json({ error: "You've generated a lot of recipes today! Your limit resets tomorrow. Browse your previous results in the meantime.", limitReached: true });
+  }
+  if (hourUsed >= 20) {
+    return res.status(429).json({ error: "You've been busy! Take a break and your limit resets within the hour. Your previous recipes are still available.", limitReached: true });
+  }
+  authHourlyCount.set(hourKey, hourUsed + 1);
+  authDailyCount.set(dayKey, dayUsed + 1);
   req._user = user;
   handleRecipeGeneration(req, res);
 });
@@ -266,8 +293,8 @@ async function handleRecipeGeneration(req, res) {
 
     const mustInclude = ingredients.filter(i => i.mustInclude).map(i => i.name);
     const mustIncludeNote = mustInclude.length
-      ? `\n\nIMPORTANT: The customer specifically wants these items used: ${mustInclude.join(", ")}. Every recipe MUST use at least one of these.`
-      : "";
+      ? `\n\nUSER-SELECTED ITEMS (MUST USE ALL OF THESE):\n${mustInclude.map(n => "- " + n).join("\n")}\n\nThese items were hand-picked by the user from the sale list. Every recipe MUST include at least one of these items. Prioritize recipes that use multiple user-selected items together. These take HIGHEST PRIORITY over auto-selected sale items.`
+      : `\n\nBUDGET MODE: The user did not select specific items. Generate the most BUDGET-FRIENDLY recipes possible using the cheapest sale items available. Prioritize recipes where the total cost per serving is under $3. Focus on items with the highest discount percentage.`;
 
     const wantNote = wantItems?.trim()
       ? `\n\nADDITIONAL ITEMS TO BUY: The customer also wants to purchase these items (not on sale): ${wantItems.trim()}. Include these in recipes where they fit naturally and mark them as type "ADDITIONAL".`

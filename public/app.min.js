@@ -34,6 +34,21 @@ if (!_anonId) { _anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random
 function getAnonRecipeCount() { return parseInt(localStorage.getItem("dishcount_anon_recipe_count") || "0"); }
 function incAnonRecipeCount() { const c = getAnonRecipeCount() + 1; localStorage.setItem("dishcount_anon_recipe_count", String(c)); return c; }
 
+function showSignInModal(reason) {
+  const existing = document.getElementById("signInModal"); if (existing) existing.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "signInModal";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:5000;";
+  overlay.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:400px;width:90%;position:relative;">' +
+    '<button onclick="document.getElementById(\'signInModal\').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;">\u00d7</button>' +
+    '<h3 style="color:#2d6a4f;margin-bottom:8px;">Sign in to ' + reason + '</h3>' +
+    '<p style="color:#666;font-size:14px;margin-bottom:20px;">Create a free account to save recipes, build shopping lists, and track your savings. Your recipes will be waiting for you.</p>' +
+    '<a href="/profile.html" style="display:block;text-align:center;padding:14px;background:#2d6a4f;color:white;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px;">Sign In / Create Account</a>' +
+    '<button onclick="document.getElementById(\'signInModal\').remove()" style="display:block;width:100%;padding:12px;background:none;border:2px solid #d0c5a0;border-radius:12px;font-size:14px;color:#666;cursor:pointer;">Maybe Later</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
 function showSignupNudge(count) {
   // Remove any existing nudge
   const old = document.getElementById("signupNudge"); if (old) old.remove();
@@ -71,13 +86,14 @@ function showSignupModal(isFinal) {
 function showRateLimitModal() {
   const overlay = document.createElement("div");
   overlay.className = "nudge-overlay";
+  overlay.id = "rateLimitModal";
   overlay.innerHTML = '<div class="nudge-card">' +
     '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div>' +
-    '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">Recipe limit reached</h3>' +
-    '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to unlock unlimited recipe generation, plus:</p>' +
+    '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated a lot of recipes!</h3>' +
+    '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Here are your previous results while you wait. Create a free account for higher limits!</p>' +
     '<div style="text-align:left;margin:0 auto 20px;max-width:260px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build shopping lists<br>\u2713 Add to Kroger cart<br>\u2713 Track your savings</div>' +
     '<a href="/profile.html" style="display:block;padding:14px;background:var(--green-dark);color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:16px;margin-bottom:10px;">Create Account</a>' +
-    '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Try Again Later</button></div>';
+    '<button onclick="document.getElementById(\'rateLimitModal\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Browse Previous Recipes</button></div>';
   document.body.appendChild(overlay);
 }
 
@@ -1230,7 +1246,7 @@ function restorePendingState() {
 
 async function saveRecipe(){
   let session;try{const r=await sb.auth.getSession();session=r.data?.session;}catch(e){console.error("saveRecipe auth error:",e);showToast("Could not check login status");return;}
-  if(!session){savePendingState("save_recipe");showToast("Sign in to save recipes");window.location.href="/profile.html";return;}
+  if(!session){savePendingState("save_recipe");showSignInModal("save this recipe");return;}
   const r=state.currentRecipe;if(state.savedRecipeIds.has(r.title)){showToast("Already saved!","success");return;}
   try{
     const body={title:r.title,emoji:"🍽️",time:r.time,servings:String(r.servings||4),difficulty:"",ingredients:r.allIngredients?.map(i=>i.name)||[],steps:r.instructions||[],store_name:state.selectedBrands.slice(0,2).join(" & "),image:r.image||""};
@@ -1432,7 +1448,7 @@ function copySlideoutList() {
 function goToLists() {
   sb.auth.getSession().then(({data}) => {
     if (data?.session) window.location.href = "/profile.html#lists";
-    else showToast("Sign in to save lists");
+    else showSignInModal("save your shopping lists");
   });
 }
 function emailSlideoutList() {
@@ -1483,7 +1499,7 @@ async function addListToKrogerCart() {
   const cartTab = window.open("about:blank", "_blank");
 
   let session; try { const r = await sb.auth.getSession(); session = r.data?.session; } catch(e) {}
-  if (!session) { if(cartTab)cartTab.close(); savePendingState("add_to_cart"); showToast("Sign in to add to cart"); window.location.href="/profile.html"; return; }
+  if (!session) { if(cartTab)cartTab.close(); savePendingState("add_to_cart"); showSignInModal("add items to your cart"); return; }
 
   // Check Kroger connection
   await checkKrogerConnection();

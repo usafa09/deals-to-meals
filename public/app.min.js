@@ -1325,8 +1325,9 @@ async function searchRecipes() {
     if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } throw new Error(data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipes=data.recipes;
+    state.lastSavings=data.savings||null;
     state.recipeOffset=8;
-    renderRecipeGrid(); goTo(6);
+    renderRecipeGrid(); renderSavingsBanner(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
@@ -1363,6 +1364,27 @@ async function loadMoreRecipes() {
 }
 function sortRecipes(by){ensureAppScreens();document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
 
+function renderSavingsBanner() {
+  const el = document.getElementById("savingsBanner");
+  if (!el) return;
+  const s = state.lastSavings;
+  if (!s || s.totalSavings <= 0) { el.innerHTML = ""; return; }
+  el.innerHTML = '<div style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:24px;color:white;margin-bottom:24px;text-align:center;">' +
+    '<h3 style="margin:0 0 16px;font-size:18px;">Your Meal Plan Savings</h3>' +
+    '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:16px;">' +
+    '<div><div style="font-size:28px;font-weight:800;color:#52b788;">$' + s.totalSalePrice.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Sale prices</div></div>' +
+    '<div><div style="font-size:28px;font-weight:800;text-decoration:line-through;opacity:0.6;">$' + s.totalRegularPrice.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Regular prices</div></div>' +
+    '<div><div style="font-size:28px;font-weight:800;color:#fbbf24;">$' + s.totalSavings.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">You save (' + s.savingsPercent + '%)</div></div>' +
+    '<div><div style="font-size:28px;font-weight:800;color:#52b788;">$' + s.costPerServing.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Per serving</div></div>' +
+    '</div></div>';
+}
+
+function recipeHash(r) {
+  const key = (r.title || "") + "|" + ((r.allIngredients || r.ingredients || []).slice(0, 3).map(i => typeof i === "string" ? i : i.name || i.item || "").join(","));
+  let h = 0; for (let i = 0; i < key.length; i++) { h = ((h << 5) - h) + key.charCodeAt(i); h |= 0; }
+  return "rh_" + Math.abs(h).toString(36);
+}
+
 function renderRecipeGrid(){
   ensureAppScreens();
   const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Recipes"};
@@ -1373,7 +1395,7 @@ function renderRecipeGrid(){
     const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
     return `<div class="recipe-card-tile" onclick="openModal(${i})">
       ${r.image?`<img class="recipe-card-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder lazy-img" data-title="${escapeHtml(r.title)}" data-idx="${i}" style="font-size:48px;padding:30px 0">${emoji}</div>`}
-      <div class="recipe-card-body"><div class="recipe-card-title">${escapeHtml(r.title)}</div><div class="recipe-card-meta">
+      <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#d97706;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#888;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${(()=>{const all=r.allIngredients||r.ingredients||[];const counts={sale:0,onHand:0,pantry:0,additional:0};all.forEach(i=>{const t=(i.type||"").toUpperCase();if(t==="SALE"&&i.onSale)counts.sale++;else if(t==="ON_HAND")counts.onHand++;else if(t==="PANTRY")counts.pantry++;else if(t==="ADDITIONAL")counts.additional++;});const parts=[];if(counts.onHand)parts.push(counts.onHand+" have");if(counts.sale)parts.push(counts.sale+" on sale");if(counts.pantry)parts.push(counts.pantry+" pantry");if(counts.additional)parts.push(counts.additional+" to buy");return parts.length?`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${parts.join(" · ")}</span>`:`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} on sale</span>`;})()}
@@ -1435,12 +1457,18 @@ function formatAmount(n) {
 function adjustServings(delta) {
   modalServings = Math.max(1, Math.min(20, modalServings + delta));
   document.getElementById("servingsCount").textContent = modalServings;
-  // Rescale ingredients
   const ratio = modalServings / modalOrigServings;
   document.querySelectorAll("[data-orig-amount]").forEach(el => {
     const orig = parseFloat(el.dataset.origAmount);
     if (orig > 0) el.textContent = formatAmount(orig * ratio);
   });
+  // Update scaled cost
+  const r = state.currentRecipe;
+  if (r?.estimatedCost > 0) {
+    const scaledCost = (r.estimatedCost / (r.servings || 4)) * modalServings;
+    const costEl = document.getElementById("scaledCostDisplay");
+    if (costEl) costEl.textContent = "$" + scaledCost.toFixed(2);
+  }
 }
 
 function openModal(i){state.currentRecipe={...state.recipes[i],index:i};modalServings=state.currentRecipe.servings||4;modalOrigServings=modalServings;renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
@@ -1454,11 +1482,13 @@ function renderModal(r){
     ${r.image?`<img class="modal-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" />${r.photoCredit?`<div style="text-align:center;font-size:10px;color:#999;padding:4px 0">Photo by ${escapeHtml(r.photoCredit)} on <a href="${escapeHtml(r.photoUrl||'https://pexels.com')}" target="_blank" style="color:#999">Pexels</a></div>`:""}`:`<div class="modal-img-placeholder">🍽️</div>`}
     <div class="modal-body">
       <div class="modal-header"><div class="modal-title">${escapeHtml(r.title)}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      ${r.reasoning?`<div style="background:#f0fdf4;border-left:4px solid #52b788;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:13px;"><strong style="color:#2d6a4f;">Why this recipe:</strong> <span style="color:#555;">${escapeHtml(r.reasoning)}</span></div>`:""}
       <div class="modal-stats">
         ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         <span class="stat-pill stat-servings">👥 ${escapeHtml(r.servings)} servings</span>
         ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}</span>`:""}
         ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
+        ${r.estimatedCost>0?`<span class="stat-pill" style="background:#FEF3C7;color:#92400E" id="scaledCostDisplay">💰 $${r.estimatedCost.toFixed(2)} total</span>`:""}
       </div>
       ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
         const costNum=ing.actualCost||String(ing.salePrice).replace(/[^0-9.]/g,"");
@@ -1494,14 +1524,26 @@ function renderModal(r){
         const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;
         const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
         const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap</button>` : "";
-        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span></div><div id="swap-panel-${idx}" style="display:none"></div>`;
+        // Price comparison: find if other stores have this item
+        let bestPriceBadge = "";
+        if (isOnSale && ing.matchedDeal) {
+          const ingWords = rest.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const otherDeals = state.deals.filter(d => d.storeName !== ing.matchedDeal.storeName && ingWords.some(w => (d.name||"").toLowerCase().includes(w)));
+          if (otherDeals.length > 0) {
+            const prices = otherDeals.slice(0, 2).map(d => escapeHtml(d.storeName || "") + " $" + String(d.salePrice).replace(/[^0-9.]/g, "")).join(" | ");
+            bestPriceBadge = '<div style="font-size:10px;color:#888;margin-top:2px;">Also: ' + prices + '</div>';
+          }
+        }
+        return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><div><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${bestPriceBadge}</div></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
+      <div id="ratingFormArea"></div>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
         <button class="modal-btn modal-btn-list" onclick="showShoppingList()">📋 Shopping List</button>
-        <button class="modal-btn" onclick="markCooked('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#FEF3C7;color:#92400E;border:2px solid #FCD34D">👨‍🍳 I Made This</button>
+        <button class="modal-btn" onclick="showRatingForm()" style="background:#FEF3C7;color:#92400E;border:2px solid #FCD34D">👨‍🍳 I Made This</button>
+        <button class="modal-btn" onclick="printRecipe()" style="background:none;border:2px solid #d0c5a0;color:#666">🖨️ Print</button>
         <button class="modal-btn" onclick="shareRecipe('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#E8F0F8;color:#2D4A6A;border:2px solid #90CAF9">🔗 Share</button>
       </div></div>`;
 }
@@ -1574,6 +1616,150 @@ function getRecipeTags(recipe) {
 async function markCooked(title) {
   trackInteraction(title, "cooked", getRecipeTags(state.currentRecipe));
   showToast("Nice! Marked as cooked", "success");
+}
+
+// ── Weekly Meal Plan ────────────────────────────────────────────────────────
+async function generateWeeklyPlan() {
+  const payload = getRecipePayload(0);
+  if (!payload) { showToast("Include at least one deal item."); return; }
+  payload.weeklyPlan = true;
+  const btn = document.querySelector('[onclick="generateWeeklyPlan()"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Planning your week..."; }
+  showCookingLoading();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000);
+  try {
+    const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
+    const data = await res.json();
+    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate plan"); }
+    if (!data.recipes?.length) throw new Error("No recipes generated.");
+    state.recipes = data.recipes;
+    state.lastSavings = data.savings || null;
+    state.recipeOffset = 0;
+    state._isWeeklyPlan = true;
+    renderRecipeGrid(); renderSavingsBanner(); goTo(6);
+    document.getElementById("recipesTitle").textContent = "📅 Your Weekly Meal Plan";
+    document.getElementById("resultsCount").textContent = state.recipes.length + " dinners planned for the week";
+  } catch (err) {
+    if (err.name === "AbortError") showToast("Timed out. Please try again.");
+    else showToast(err.message);
+  } finally {
+    clearTimeout(timeout); hideLoading();
+    if (btn) { btn.disabled = false; btn.textContent = "📅 Plan My Week (5 Dinners)"; }
+  }
+}
+
+// ── Rating Form ─────────────────────────────────────────────────────────────
+function showRatingForm() {
+  const r = state.currentRecipe;
+  if (!r) return;
+  trackInteraction(r.title, "cooked", getRecipeTags(r));
+  const area = document.getElementById("ratingFormArea");
+  if (!area) return;
+  if (area.innerHTML) { area.innerHTML = ""; return; }
+  area.innerHTML = '<div style="background:#fffdf7;border:2px solid #d0c5a0;border-radius:14px;padding:20px;margin-bottom:12px;">' +
+    '<h3 style="color:#2d6a4f;font-size:16px;margin-bottom:12px;">How was it?</h3>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#555;">Taste:</label> ' +
+    '<span id="tasteStars">' + [1,2,3,4,5].map(n => '<span onclick="setRatingStars(\'taste\',' + n + ')" style="cursor:pointer;font-size:24px;color:#d0c5a0;" data-star="' + n + '">&#9733;</span>').join("") + '</span></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#555;">Ease:</label> ' +
+    '<span id="easeStars">' + [1,2,3,4,5].map(n => '<span onclick="setRatingStars(\'ease\',' + n + ')" style="cursor:pointer;font-size:24px;color:#d0c5a0;" data-star="' + n + '">&#9733;</span>').join("") + '</span></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#555;">Would make again?</label> ' +
+    '<button onclick="state._wouldMakeAgain=true;this.style.background=\'#e8f5e9\';this.nextElementSibling.style.background=\'white\'" style="padding:6px 16px;border:2px solid #d0c5a0;border-radius:8px;background:white;cursor:pointer;margin-left:8px;">Yes</button> ' +
+    '<button onclick="state._wouldMakeAgain=false;this.style.background=\'#fef2f2\';this.previousElementSibling.style.background=\'white\'" style="padding:6px 16px;border:2px solid #d0c5a0;border-radius:8px;background:white;cursor:pointer;">No</button></div>' +
+    '<textarea id="ratingNotes" placeholder="Any tips or changes you made?" style="width:100%;height:50px;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:none;font-family:inherit;margin-bottom:8px;"></textarea>' +
+    '<button onclick="submitRating()" style="width:100%;padding:12px;background:#2d6a4f;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Submit Rating</button></div>';
+  state._tasteRating = 0;
+  state._easeRating = 0;
+  state._wouldMakeAgain = null;
+}
+
+function setRatingStars(type, n) {
+  state["_" + type + "Rating"] = n;
+  const container = document.getElementById(type + "Stars");
+  if (container) container.querySelectorAll("span").forEach(s => { s.style.color = parseInt(s.dataset.star) <= n ? "#fbbf24" : "#d0c5a0"; });
+}
+
+async function submitRating() {
+  const r = state.currentRecipe;
+  if (!r) return;
+  const hash = recipeHash(r);
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) { showSignInModal("rate this recipe"); return; }
+    const res = await fetch("/api/recipes/rate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+      body: JSON.stringify({
+        recipe_name: r.title, recipe_hash: hash,
+        taste_rating: state._tasteRating || null, ease_rating: state._easeRating || null,
+        would_make_again: state._wouldMakeAgain,
+        notes: document.getElementById("ratingNotes")?.value?.trim() || null
+      })
+    });
+    if (res.ok) {
+      document.getElementById("ratingFormArea").innerHTML = '<div style="text-align:center;padding:16px;color:#2d6a4f;font-weight:600;">Thanks for your rating!</div>';
+      showToast("Rating submitted!", "success");
+    } else { showToast("Could not submit rating"); }
+  } catch (e) { showToast("Could not submit rating"); }
+}
+
+// ── Print Recipe ────────────────────────────────────────────────────────────
+function printRecipe() {
+  const r = state.currentRecipe;
+  if (!r) return;
+  trackInteraction(r.title, "printed", getRecipeTags(r));
+  const ings = (r.allIngredients || []).map(i => "<li>" + escapeHtml(i.name) + (i.type === "SALE" && i.onSale ? " (on sale)" : "") + "</li>").join("");
+  const steps = (r.instructions || []).map((s, i) => '<div style="margin-bottom:12px;"><strong>' + (i + 1) + '.</strong> ' + escapeHtml(s) + '</div>').join("");
+  const costLine = r.estimatedCost > 0 ? " &middot; ~$" + r.estimatedCost.toFixed(2) + " total" : "";
+  const pw = window.open("", "_blank");
+  pw.document.write('<!DOCTYPE html><html><head><title>' + escapeHtml(r.title) + ' — Dishcount</title>' +
+    '<style>body{font-family:Georgia,serif;max-width:600px;margin:40px auto;padding:20px;color:#333}h1{font-size:24px;margin-bottom:4px}.meta{color:#888;font-size:14px;margin-bottom:20px}h2{font-size:18px;border-bottom:1px solid #ddd;padding-bottom:4px}li{margin-bottom:6px}.footer{margin-top:40px;text-align:center;color:#aaa;font-size:12px}@media print{.no-print{display:none}}</style></head><body>' +
+    '<h1>' + escapeHtml(r.title) + '</h1>' +
+    '<div class="meta">' + escapeHtml(r.time || "") + ' &middot; ' + (r.servings || 4) + ' servings' + costLine + '</div>' +
+    (r.storage ? '<p style="font-style:italic;color:#666;font-size:13px;">' + escapeHtml(r.storage) + '</p>' : '') +
+    '<h2>Ingredients</h2><ul>' + ings + '</ul>' +
+    '<h2>Instructions</h2>' + steps +
+    '<div class="footer">Recipe from Dishcount.co — Meals from Deals</div></body></html>');
+  pw.document.close();
+  pw.print();
+}
+
+// ── Community Recipe Submission ─────────────────────────────────────────────
+function showShareRecipeForm() {
+  const container = document.getElementById("communityFormSection");
+  if (!container) return;
+  if (container.style.display !== "none") { container.style.display = "none"; return; }
+  container.style.display = "block";
+  container.innerHTML = '<div style="background:#fffdf7;border:2px solid #d0c5a0;border-radius:14px;padding:20px;margin-top:8px;">' +
+    '<h3 style="color:#2d6a4f;margin-bottom:12px;">Share Your Budget Recipe</h3>' +
+    '<input type="text" id="communityTitle" placeholder="Recipe name" style="width:100%;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:8px;" />' +
+    '<textarea id="communityIngredients" placeholder="Ingredients (one per line)" style="width:100%;height:80px;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:none;font-family:inherit;margin-bottom:8px;"></textarea>' +
+    '<textarea id="communityInstructions" placeholder="Instructions" style="width:100%;height:80px;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:none;font-family:inherit;margin-bottom:8px;"></textarea>' +
+    '<input type="text" id="communityStores" placeholder="Stores used (e.g. Kroger, ALDI)" style="width:100%;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:8px;" />' +
+    '<input type="number" id="communityCost" placeholder="Est. cost per serving ($)" step="0.01" style="width:100%;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:8px;" />' +
+    '<button onclick="submitCommunityRecipe()" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Share Recipe</button></div>';
+}
+
+async function submitCommunityRecipe() {
+  const title = document.getElementById("communityTitle")?.value?.trim();
+  const ingredients = document.getElementById("communityIngredients")?.value?.trim();
+  const instructions = document.getElementById("communityInstructions")?.value?.trim();
+  if (!title || !ingredients || !instructions) { showToast("Fill in title, ingredients, and instructions"); return; }
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) { showSignInModal("share your recipe"); return; }
+    const stores = (document.getElementById("communityStores")?.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    const cost = parseFloat(document.getElementById("communityCost")?.value) || null;
+    const res = await fetch("/api/community/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+      body: JSON.stringify({ title, ingredients, instructions, stores_used: stores, cost_per_serving: cost })
+    });
+    if (res.ok) {
+      document.getElementById("communityFormSection").innerHTML = '<div style="text-align:center;padding:20px;color:#2d6a4f;font-weight:600;">Thanks for sharing! Your recipe has been submitted.</div>';
+      showToast("Recipe shared!", "success");
+    } else { showToast("Could not share recipe"); }
+  } catch (e) { showToast("Could not share recipe"); }
 }
 
 // ── Ingredient Substitution ─────────────────────────────────────────────────

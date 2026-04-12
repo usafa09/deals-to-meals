@@ -445,6 +445,30 @@ function renderProfile() {
         ${p.preferences.dislikes ? '<span style="background:#fef2f2;padding:6px 12px;border-radius:8px;">Dislikes: ' + escapeHtml(p.preferences.dislikes) + '</span>' : ''}
       </div>` : '<p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Fill out a quick survey so we can personalize your recipes.</p>'}
       <button onclick="editPreferencesFromProfile()" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">${p.preferences?.skill_level ? 'Edit Preferences' : 'Take Quick Survey'}</button>
+    </div>
+    <div class="section">
+      <div style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:24px;color:white;text-align:center;">
+        <h3 style="margin:0 0 16px;font-size:16px;">Your Dishcount Savings</h3>
+        <div style="font-size:36px;font-weight:800;color:#52b788;">$${(parseFloat(p.total_savings)||0).toFixed(2)}</div>
+        <div style="font-size:14px;opacity:0.8;">Estimated savings since joining</div>
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:16px;">
+          <div><strong style="font-size:20px;">${parseInt(p.recipes_generated)||0}</strong><br><span style="font-size:12px;opacity:0.8;">Recipes</span></div>
+          <div><strong style="font-size:20px;">${parseInt(p.weeks_active)||0}</strong><br><span style="font-size:12px;opacity:0.8;">Weeks</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">📧 Deal Alerts</div><button class="section-save" onclick="saveEmailPrefs()">Save</button></div>
+      <label style="display:block;margin-bottom:12px;font-size:14px;cursor:pointer;"><input type="checkbox" id="weeklyEmail" ${(p.email_prefs?.weekly_digest!==false)?"checked":""} style="margin-right:8px;"> Weekly email: Top deals + recipe ideas for your area</label>
+      <label style="display:block;margin-bottom:8px;font-size:14px;cursor:pointer;"><input type="checkbox" id="priceAlertToggle" onchange="document.getElementById('priceAlertItems').style.display=this.checked?'block':'none'" ${(p.email_prefs?.price_alerts?.length)?"checked":""} style="margin-right:8px;"> Alert me when specific items drop below a target price</label>
+      <div id="priceAlertItems" style="display:${(p.email_prefs?.price_alerts?.length)?"block":"none"};margin-top:8px;">
+        <div id="existingAlerts">${(p.email_prefs?.price_alerts||[]).map((a,i)=>'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>'+escapeHtml(a.item)+' under $'+a.price+'</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>').join("")}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" placeholder="Item name" id="alertItem" style="flex:1;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />
+          <input type="number" placeholder="Price" id="alertPrice" step="0.01" style="width:80px;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />
+          <button onclick="addPriceAlert()" style="padding:8px 12px;background:var(--green-dark);color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;">Add</button>
+        </div>
+      </div>
     </div>`;
   } else if (tab === "saved") {
     content = savedRecipes.length === 0
@@ -523,6 +547,34 @@ function editPreferencesFromProfile() {
   // Open the main app page with a flag to show the survey
   localStorage.setItem("dishcount_show_survey", "1");
   window.location.href = "/";
+}
+
+function addPriceAlert() {
+  const item = document.getElementById("alertItem")?.value?.trim();
+  const price = parseFloat(document.getElementById("alertPrice")?.value);
+  if (!item || !price) { showToast("Enter item name and target price"); return; }
+  const container = document.getElementById("existingAlerts");
+  if (container) {
+    container.insertAdjacentHTML("beforeend", '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>' + escapeHtml(item) + ' under $' + price.toFixed(2) + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>');
+  }
+  document.getElementById("alertItem").value = "";
+  document.getElementById("alertPrice").value = "";
+}
+
+async function saveEmailPrefs() {
+  const token = await getToken();
+  const alerts = [...document.querySelectorAll("#existingAlerts > div")].map(div => {
+    const text = div.querySelector("span")?.textContent || "";
+    const match = text.match(/(.+)\s+under\s+\$(\d+\.?\d*)/);
+    return match ? { item: match[1].trim(), price: parseFloat(match[2]) } : null;
+  }).filter(Boolean);
+  const res = await fetch("/api/profile", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ email_prefs: { weekly_digest: document.getElementById("weeklyEmail")?.checked ?? true, price_alerts: alerts } })
+  });
+  if (res.ok) showToast("Email preferences saved!", "success");
+  else showToast("Could not save", "error");
 }
 
 async function getToken() {

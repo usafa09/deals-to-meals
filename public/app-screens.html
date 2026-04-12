@@ -71,6 +71,7 @@
   </div>
 
   <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
+  <button onclick="generateWeeklyPlan()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#128197; Plan My Week (5 Dinners)</button>
 </div>
 
 <!-- SCREEN 6: RECIPE GRID -->
@@ -86,6 +87,7 @@
       <button class="sort-btn" id="sort-time" onclick="sortRecipes('time')">&#9201; Quickest</button>
     </div>
   </div>
+  <div id="savingsBanner"></div>
   <div class="recipe-grid" id="recipeGrid"></div>
   <p style="font-size:12px;color:#999;font-style:italic;text-align:center;margin-top:12px;line-height:1.5">&#9888;&#65039; Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
   <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px"><a href="mailto:support@dishcount.co?subject=Recipe%20Issue&amp;body=Recipe:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">Recipe doesn't look right? Report it &#8594;</a></p>
@@ -96,4 +98,6 @@
   </div>
   <button onclick="showLeftoverInput()" style="width:100%;padding:14px;background:none;border:2px solid #52b788;border-radius:12px;color:#2d6a4f;font-size:15px;font-weight:600;cursor:pointer;margin-top:16px;">&#9851;&#65039; Have leftovers? Get recipes to use them up</button>
   <div id="leftoverSection" style="display:none;"></div>
+  <button onclick="showShareRecipeForm()" style="background:none;border:2px dashed #d0c5a0;border-radius:12px;padding:16px;width:100%;color:#888;cursor:pointer;margin-top:16px;font-size:14px;">&#127859; Have a budget recipe? Share it with the community</button>
+  <div id="communityFormSection" style="display:none;"></div>
 </div>

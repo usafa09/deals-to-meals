@@ -272,7 +272,7 @@ function selectSmartIngredients(deals, maxCount = 100) {
 }
 
 async function handleRecipeGeneration(req, res) {
-  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, preferences, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, preferences, weeklyPlan, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
@@ -459,7 +459,12 @@ RECIPE GENERATION RULES:
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
 7. BEGINNER FRIENDLY: ${prefs.skill_level === "confident" || prefs.skill_level === "advanced" ? "The user is an experienced cook — you can use advanced techniques, assume knife skills, and skip basic explanations." : "Write instructions that a beginner cook can follow. Use common terms, specify heat levels (medium-high), and include timing cues (cook until golden brown, about 5 minutes)."}
 
-Generate exactly 8 recipes. Each recipe should:
+${weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday through Friday). Each recipe MUST include a "day" field ("Monday", "Tuesday", etc.). These recipes MUST:
+- Share ingredients across multiple meals to minimize the total shopping list
+- Use the same protein in no more than 2 meals
+- Progress from easiest on Monday (everyone is tired) to more involved later in the week
+- Total combined cost should stay under $50 for a family of ${prefs.household_size || "4"}
+- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 8 recipes."} Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
@@ -484,6 +489,7 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       "servings": 4,
       "costPerServing": 2.50,
       "storage": "Keeps 3 days in the fridge. Reheat in skillet.",
+      "reasoning": "Chicken thighs are 56% off at Kroger this week, and combined with sale broccoli and pantry rice, this meal costs only $1.85 per serving.",
       "saleItemsUsed": ["Chicken Thighs", "Rice"],
       "ingredients": [
         {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs"},
@@ -512,7 +518,8 @@ IMPORTANT ingredient type rules:
 - "ADDITIONAL" = item the customer said they want to buy (from ADDITIONAL ITEMS list).
 - "ON_HAND" = item the customer already has (from ON HAND list).
 - "PANTRY" = ONLY non-perishable staples most kitchens have: salt, pepper, cooking oil, butter, flour, sugar, dried spices/herbs (paprika, cumin, oregano, chili powder, etc.), vinegar, soy sauce, hot sauce, mustard, ketchup, honey, vanilla extract, baking powder, baking soda, cornstarch. PANTRY does NOT include any fresh/perishable items — garlic, onion, lemon, lime, ginger, fresh herbs, eggs, milk, cream, cheese, and all fresh vegetables/fruits must be "ADDITIONAL" (things the customer needs to buy).
-- Do NOT include "estimatedCost" — we calculate that from real prices.`;
+- Do NOT include "estimatedCost" — we calculate that from real prices.
+- "reasoning" = 1-2 sentences explaining WHY you chose this recipe — mention specific sale prices, savings percentages, and how the sale items work together. Be specific with numbers.`;
 
     console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);
 
@@ -766,7 +773,27 @@ IMPORTANT ingredient type rules:
     const totalIngredients = (req.body.ingredients || []).length;
     const dealHunterScore = totalIngredients > 0 ? { used: usedDealNames.size, total: totalIngredients, percent: Math.round((usedDealNames.size / totalIngredients) * 100) } : null;
 
-    // Track gamification stats
+    // Calculate savings summary across all recipes
+    let totalSalePrice = 0, totalRegularPrice = 0, totalServings = 0;
+    recipes.forEach(r => {
+      totalServings += (r.servings || 4);
+      (r.usedSaleItems || []).forEach(item => {
+        const sale = parseFloat(String(item.salePrice || item.actualCost || "0").replace(/[^0-9.]/g, "")) || 0;
+        const reg = parseFloat(String(item.regularPrice || "0").replace(/[^0-9.]/g, "")) || 0;
+        totalSalePrice += sale;
+        totalRegularPrice += reg > sale ? reg : sale;
+      });
+    });
+    const savingsSummary = {
+      totalSalePrice: Math.round(totalSalePrice * 100) / 100,
+      totalRegularPrice: Math.round(totalRegularPrice * 100) / 100,
+      totalSavings: Math.round((totalRegularPrice - totalSalePrice) * 100) / 100,
+      savingsPercent: totalRegularPrice > 0 ? Math.round(((totalRegularPrice - totalSalePrice) / totalRegularPrice) * 100) : 0,
+      costPerServing: totalServings > 0 ? Math.round((totalSalePrice / totalServings) * 100) / 100 : 0,
+      servings: totalServings,
+    };
+
+    // Track gamification stats + update savings tracker
     const user = req._user;
     if (user) {
       const totalSavings = recipes.reduce((s, r) => s + (r.totalSavings || 0), 0);
@@ -774,13 +801,23 @@ IMPORTANT ingredient type rules:
         count: recipes.length, savings: totalSavings, mealType: req.body.style,
         diets: req.body.diets, dealHunterPercent: dealHunterScore?.percent || 0,
       });
-      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult, dealHunterScore });
+      // Update cumulative savings tracker
+      try {
+        const { data: profile } = await supabase.from("profiles").select("total_savings, recipes_generated").eq("id", user.id).single();
+        if (profile) {
+          await supabase.from("profiles").update({
+            total_savings: (parseFloat(profile.total_savings) || 0) + savingsSummary.totalSavings,
+            recipes_generated: (parseInt(profile.recipes_generated) || 0) + recipes.length,
+          }).eq("id", user.id);
+        }
+      } catch (e) { /* savings tracking failed, continue */ }
+      res.json({ recipes, savings: savingsSummary, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, badges: badgeResult, dealHunterScore });
     } else {
       // Track anonymous generation count
       const anonId = req.headers["x-anon-id"] || req.ip;
       const count = (anonRecipeCount.get(anonId) || 0) + 1;
       anonRecipeCount.set(anonId, count);
-      res.json({ recipes, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, dealHunterScore, anonGenerations: count });
+      res.json({ recipes, savings: savingsSummary, cached: false, tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) }, dealHunterScore, anonGenerations: count });
     }
   } catch (err) {
     logError("POST /api/recipes/ai", err.message);
@@ -996,6 +1033,64 @@ router.get("/api/recipes/history", async (req, res) => {
     res.json({ interactions: data || [] });
   } catch (e) {
     res.json({ interactions: [] });
+  }
+});
+
+// ══ RECIPE RATINGS ════════════════════════════════════════════════════════════
+
+router.post("/api/recipes/rate", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Sign in to rate recipes" });
+  const { recipe_name, recipe_hash, taste_rating, ease_rating, would_make_again, notes } = req.body;
+  if (!recipe_name || !recipe_hash) return res.status(400).json({ error: "recipe_name and recipe_hash required" });
+  if (taste_rating && (taste_rating < 1 || taste_rating > 5)) return res.status(400).json({ error: "Ratings must be 1-5" });
+  try {
+    await supabase.from("recipe_ratings").insert({
+      user_id: user.id, recipe_name, recipe_hash,
+      taste_rating: taste_rating || null, ease_rating: ease_rating || null,
+      would_make_again: would_make_again ?? null, notes: notes || null,
+    });
+    // Fetch aggregated stats
+    const { data: ratings } = await supabase.from("recipe_ratings").select("taste_rating, ease_rating, would_make_again").eq("recipe_hash", recipe_hash);
+    const count = ratings?.length || 0;
+    const avgTaste = count > 0 ? Math.round(ratings.reduce((s, r) => s + (r.taste_rating || 0), 0) / ratings.filter(r => r.taste_rating).length * 10) / 10 : 0;
+    const avgEase = count > 0 ? Math.round(ratings.reduce((s, r) => s + (r.ease_rating || 0), 0) / ratings.filter(r => r.ease_rating).length * 10) / 10 : 0;
+    const makeAgainPct = count > 0 ? Math.round(ratings.filter(r => r.would_make_again).length / count * 100) : 0;
+    res.json({ success: true, stats: { count, avgTaste, avgEase, makeAgainPct } });
+  } catch (e) {
+    console.error("Rating error:", e.message);
+    res.status(500).json({ error: "Could not save rating" });
+  }
+});
+
+router.get("/api/recipes/ratings/:hash", async (req, res) => {
+  try {
+    const { data: ratings } = await supabase.from("recipe_ratings").select("taste_rating, ease_rating, would_make_again").eq("recipe_hash", req.params.hash);
+    const count = ratings?.length || 0;
+    if (count === 0) return res.json({ count: 0 });
+    const avgTaste = Math.round(ratings.reduce((s, r) => s + (r.taste_rating || 0), 0) / ratings.filter(r => r.taste_rating).length * 10) / 10;
+    const makeAgainPct = Math.round(ratings.filter(r => r.would_make_again).length / count * 100);
+    res.json({ count, avgTaste, makeAgainPct });
+  } catch (e) { res.json({ count: 0 }); }
+});
+
+// ══ COMMUNITY RECIPE SUBMISSIONS ═════════════════════════════════════════════
+
+router.post("/api/community/recipes", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Sign in to share recipes" });
+  const { title, ingredients, instructions, stores_used, cost_per_serving } = req.body;
+  if (!title || !ingredients || !instructions) return res.status(400).json({ error: "title, ingredients, and instructions required" });
+  try {
+    const { data, error } = await supabase.from("community_recipes").insert({
+      user_id: user.id, title, ingredients, instructions,
+      stores_used: stores_used || [], cost_per_serving: cost_per_serving || null,
+    }).select().single();
+    if (error) throw error;
+    res.json({ success: true, recipe: data });
+  } catch (e) {
+    console.error("Community recipe error:", e.message);
+    res.status(500).json({ error: "Could not save recipe" });
   }
 });
 

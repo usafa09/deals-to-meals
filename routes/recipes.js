@@ -405,6 +405,15 @@ ${mustIncludeNote}${wantNote}${batchNote}
 
 CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 
+RECIPE GENERATION RULES:
+1. COST OPTIMIZATION: Using the sale prices provided, calculate the approximate cost per serving for each recipe. Sort recipes from cheapest to most expensive. Include "costPerServing" (a number in dollars, e.g. 2.50) in each recipe object.
+2. INGREDIENT SHARING: Design recipes that share ingredients with each other. If chicken thighs are on sale, use them in 2-3 different recipes with different preparations (stir fry, baked, soup). This minimizes what the user needs to buy.
+3. VARIETY: Do not repeat the same protein in more than 3 of 8 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
+4. PRACTICAL COOKING: Assume a home kitchen with basic equipment (oven, stovetop, one sheet pan, one pot, one skillet). No specialty equipment unless the user mentions it.
+5. REALISTIC PORTIONS: Default to 4 servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
+6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
+7. BEGINNER FRIENDLY: Unless told otherwise, write instructions that a beginner cook can follow. Use common terms, specify heat levels (medium-high), and include timing cues (cook until golden brown, about 5 minutes).
+
 Generate exactly 8 recipes. Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
@@ -428,6 +437,8 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       "title": "Recipe Name",
       "cookTime": 25,
       "servings": 4,
+      "costPerServing": 2.50,
+      "storage": "Keeps 3 days in the fridge. Reheat in skillet.",
       "saleItemsUsed": ["Chicken Thighs", "Rice"],
       "ingredients": [
         {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs"},

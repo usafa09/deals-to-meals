@@ -466,11 +466,12 @@
         const { data: { session } } = await sb.auth.getSession();
         const signInEl = document.querySelector('.nav-signin');
         if (session && signInEl) {
-          signInEl.textContent = 'My Account';
+          const { data: p } = await sb.from('profiles').select('full_name').eq('id', session.user.id).single();
+          const name = p?.full_name || session.user.email?.split('@')[0] || 'Account';
+          signInEl.textContent = name.split(' ')[0];
+          signInEl.classList.add('logged-in');
         }
-      } catch (e) {
-        // Silently ignore auth check failures
-      }
+      } catch (e) {}
     }
     checkAuth();
   </script>

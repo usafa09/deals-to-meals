@@ -166,7 +166,7 @@ header .logo-link { position: absolute; left: 50%; transform: translateX(-50%); 
 .header-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 .profile-btn { padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; text-decoration: none; border: none; background: none; color: #c8d6cb; }
 .profile-btn:hover { color: white; }
-.profile-btn.logged-in { color: white; }
+.profile-btn.logged-in, .nav-signin.logged-in { color: white; background: rgba(82,183,136,0.2); }
 .profile-avatar { display: none; }
 .saved-recipes-btn { display: none; }
 
@@ -384,6 +384,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .logo-link svg { width: 24px; height: 24px; }
   .nav-signin { padding: 4px 8px; font-size: 0; }
   .nav-signin::before { content: '\1F464'; font-size: 16px; }
+  .nav-signin.logged-in { font-size: 11px; }
+  .nav-signin.logged-in::before { content: none; }
   .nav-right { gap: 4px; }
   header .logo-link svg { width: 24px; height: 24px; }
 }

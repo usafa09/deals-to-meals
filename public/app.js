@@ -430,6 +430,7 @@ function updateAuthUI(session) {
     setHref("profileBtn", "/profile.html");
     setHref("landingSigninBtn", "/profile.html");
     const btn = document.getElementById("profileBtn"); if (btn) btn.classList.remove("logged-in");
+    const lBtn = document.getElementById("landingSigninBtn"); if (lBtn) lBtn.classList.remove("logged-in");
     return;
   }
   const user = session.user;
@@ -441,6 +442,7 @@ function updateAuthUI(session) {
     setText("profileBtnText", firstName);
     setText("landingSigninBtn", firstName);
     const btn = document.getElementById("profileBtn"); if (btn) btn.classList.add("logged-in");
+    const lBtn = document.getElementById("landingSigninBtn"); if (lBtn) lBtn.classList.add("logged-in");
   });
 }
 

@@ -27,6 +27,63 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ── First-Visit Welcome Modal ───────────────────────────────────────────────
+if (!localStorage.getItem("dishcount_visited")) {
+  window.addEventListener("DOMContentLoaded", () => {
+    const wm = document.createElement("div");
+    wm.id = "welcomeModal";
+    wm.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:6000;";
+    wm.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:500px;width:90%;text-align:center;">' +
+      '<div style="font-size:48px;margin-bottom:12px;">&#128722;</div>' +
+      '<h2 style="color:#2d6a4f;margin-bottom:8px;">Welcome to Dishcount!</h2>' +
+      '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:20px;">Meal planning that starts with savings. Here\'s how it works:</p>' +
+      '<div style="text-align:left;max-width:350px;margin:0 auto 24px;">' +
+      [["1","Enter your zip code to find local stores"],["2","Browse this week's deals from your stores"],["3","Get personalized meals built around the savings"],["4","Build your shopping list or add to Kroger cart"]]
+        .map(([n,t])=>'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><span style="background:#2d6a4f;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">'+n+'</span><span style="color:#555;font-size:14px;">'+t+'</span></div>').join("") +
+      '</div>' +
+      '<button onclick="document.getElementById(\'welcomeModal\').remove();localStorage.setItem(\'dishcount_visited\',\'true\');" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Go! &#8594;</button></div>';
+    document.body.appendChild(wm);
+  });
+}
+
+// ── Contextual Tooltip System ───────────────────────────────────────────────
+function showTooltip(id, targetSelector, message, position) {
+  if (localStorage.getItem("tooltip_" + id)) return;
+  setTimeout(() => {
+    const target = document.querySelector(targetSelector);
+    if (!target) return;
+    const tip = document.createElement("div");
+    tip.className = "feature-tooltip";
+    tip.id = "tooltip-" + id;
+    tip.innerHTML = '<div style="background:#2d6a4f;color:white;padding:12px 16px;border-radius:12px;font-size:13px;max-width:250px;box-shadow:0 4px 12px rgba(0,0,0,0.2);position:relative;">' +
+      '<button onclick="dismissTooltip(\'' + id + '\')" style="position:absolute;top:4px;right:8px;background:none;border:none;color:white;font-size:16px;cursor:pointer;">\u00d7</button>' +
+      '<p style="margin:0;line-height:1.4;">' + message + '</p>' +
+      '<div style="margin-top:8px;text-align:right;"><button onclick="dismissTooltip(\'' + id + '\')" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Got it</button></div></div>';
+    tip.style.cssText = "position:absolute;z-index:100;" + (position || "top:100%;left:0;margin-top:8px;");
+    const origPos = target.style.position;
+    if (!origPos || origPos === "static") target.style.position = "relative";
+    target.appendChild(tip);
+  }, 600);
+}
+
+function dismissTooltip(id) {
+  const el = document.getElementById("tooltip-" + id);
+  if (el) el.remove();
+  localStorage.setItem("tooltip_" + id, "true");
+}
+
+// ── Feature Discovery Prompts ───────────────────────────────────────────────
+function showFeatureDiscovery(id, html) {
+  if (localStorage.getItem("discovery_" + id)) return;
+  const el = document.getElementById("savingsBanner") || document.getElementById("recipeGrid");
+  if (!el) return;
+  const div = document.createElement("div");
+  div.style.cssText = "background:#f0fdf4;border:1px solid #52b788;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;";
+  div.innerHTML = '<span style="font-size:24px;">&#10024;</span><div>' + html + '</div><button onclick="this.closest(\'div\').remove();localStorage.setItem(\'discovery_' + id + '\',\'true\')" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;flex-shrink:0;">\u00d7</button>';
+  el.parentNode.insertBefore(div, el);
+  localStorage.setItem("discovery_" + id, "true");
+}
+
 // ── Anonymous session tracking ──────────────────────────────────────────────
 var _anonId = localStorage.getItem("dishcount_anon_id");
 if (!_anonId) { _anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem("dishcount_anon_id", _anonId); }
@@ -674,7 +731,9 @@ async function goTo(step) {
   if (!goTo._noPush) history.pushState({ screen: step }, "", "");
   goTo._noPush = false;
   window.scrollTo({ top:0, behavior:"smooth" });
-  if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); }
+  if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); showTooltip("budget","#budgetTarget","Set a weekly budget and we'll keep your meal plan under that amount using real sale prices.","top:100%;left:0;margin-top:8px;"); showTooltip("mealrequest","#mealRequest","Tell us what you're in the mood for! \"I want tacos\" or \"easy slow cooker meals\" — we'll work it in.","top:100%;left:0;margin-top:8px;"); }
+  if (step === 4) { showTooltip("deals",".sale-card:first-child","Green &#10003; = must include. Red &#10007; = exclude. Or skip picking — we'll choose the best deals for you.","top:100%;left:0;margin-top:8px;"); showTooltip("pantry","#haveItems","Add items you already have at home. Recipes will use these first. Try the camera button to scan your pantry!","top:100%;left:0;margin-top:8px;"); }
+  if (step === 2) { showTooltip("stores",".brand-card:first-child","Tap stores to select them. Pick all the ones you shop at — we'll combine their deals.","top:100%;left:0;margin-top:8px;"); }
 }
 function renderProgress(step) {
   // Progress dots removed — header stays clean
@@ -1344,6 +1403,7 @@ async function searchRecipes() {
     state._isWeeklyPlan=false; state._isFreezerPlan=false;
     state.recipeOffset=8;
     renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
+    setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
@@ -1615,7 +1675,7 @@ function adjustServings(delta) {
   }
 }
 
-function openModal(i){state.currentRecipe={...state.recipes[i],index:i};modalServings=state.currentRecipe.servings||4;modalOrigServings=modalServings;renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";}
+function openModal(i){state.currentRecipe={...state.recipes[i],index:i};modalServings=state.currentRecipe.servings||4;modalOrigServings=modalServings;renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";setTimeout(()=>{showTooltip("cookalong",'button[onclick*="startCookAlong"]',"Tap this for step-by-step cooking mode with built-in timers!","bottom:100%;left:0;margin-bottom:8px;");},500);}
 function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("modalOverlay").classList.contains("show"))closeModal();});

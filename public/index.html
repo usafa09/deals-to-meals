@@ -102,6 +102,7 @@
       <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
       <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
       <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
+      <a href="/tips.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;position:relative;">Tips &amp; Features <span style="background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">NEW</span></a>
     </div>
   </div>
   <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
@@ -428,6 +429,36 @@
     </div>
   </section>
 
+  <!-- Feature Carousel -->
+  <section style="padding:60px 20px;text-align:center;">
+    <h2 style="color:var(--green-dark);font-size:24px;margin-bottom:4px;">More than recipes. A complete savings system.</h2>
+    <p style="color:#888;margin-bottom:32px;font-size:15px;">Discover what Dishcount can do for your family</p>
+    <div id="featureCarousel" style="max-width:500px;margin:0 auto;min-height:160px;"></div>
+  </section>
+  <script>
+  (function(){
+    var cf=0,feats=[
+      {i:"\ud83d\udcf7",t:"Scan your pantry",d:"Take a photo of your fridge or pantry and we'll identify what you have"},
+      {i:"\ud83d\udcb0",t:"Set a weekly budget",d:"We'll keep your meal plan under your target using real sale prices"},
+      {i:"\ud83d\udcc5",t:"Plan your whole week",d:"Five dinners with shared ingredients \u2014 buy less, waste less"},
+      {i:"\u2744\ufe0f",t:"Freezer meals",d:"Cook now, eat later \u2014 with freezing and reheating instructions"},
+      {i:"\ud83d\udd04",t:"Swap any ingredient",d:"Don't like something? Tap swap for alternatives with updated cost"},
+      {i:"\u267b\ufe0f",t:"Use your leftovers",d:"Tell us what's left and get recipes to use it up"},
+      {i:"\ud83c\udf73",t:"Cook-along mode",d:"Step-by-step instructions with built-in timers"},
+      {i:"\ud83e\uddfe",t:"Scan your receipt",d:"Track your actual savings after every shopping trip"},
+      {i:"\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66",t:"Family profiles",d:"Meals personalized for every family member's needs"},
+      {i:"\ud83d\udd17",t:"Share with family",d:"Send your meal plan to family members to collaborate"}
+    ];
+    function render(){
+      var f=feats[cf],el=document.getElementById("featureCarousel");if(!el)return;
+      el.innerHTML='<div style="animation:featureIn 0.5s ease;"><div style="font-size:56px;margin-bottom:12px;">'+f.i+'</div><h3 style="color:#2d6a4f;margin-bottom:8px;font-size:20px;">'+f.t+'</h3><p style="color:#666;font-size:15px;">'+f.d+'</p></div><div style="display:flex;justify-content:center;gap:6px;margin-top:20px;">'+feats.map(function(_,i){return'<div onclick="window._goFeat('+i+')" style="width:8px;height:8px;border-radius:50%;background:'+(i===cf?'#2d6a4f':'#d0c5a0')+';cursor:pointer;transition:background 0.3s;"></div>';}).join("")+'</div>';
+    }
+    window._goFeat=function(i){cf=i;render();};
+    setInterval(function(){cf=(cf+1)%feats.length;render();},4000);
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",render);else render();
+  })();
+  </script>
+
   <!-- 8. Email Capture -->
   <section class="email-capture-section">
     <div class="email-capture-inner">
@@ -464,7 +495,7 @@
 
   <!-- Footer -->
   <footer class="landing-footer">
-    <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+    <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/tips.html">Tips</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
     <p>&copy; 2026 Dishcount. All rights reserved.</p>
   </footer>
 

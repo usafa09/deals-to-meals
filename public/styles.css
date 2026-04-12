@@ -466,6 +466,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .survey-skip { background:none;border:none;color:#999;font-size:13px;cursor:pointer;text-decoration:underline; }
 @keyframes surveyFadeIn { from { opacity:0;transform:translateX(20px); } to { opacity:1;transform:translateX(0); } }
 @keyframes surveyFadeOut { from { opacity:1;transform:translateX(0); } to { opacity:0;transform:translateX(-20px); } }
+@keyframes featureIn { from { opacity:0;transform:translateY(10px); } to { opacity:1;transform:translateY(0); } }
+.feature-tooltip { animation: featureIn 0.3s ease; }
 .meal-request-box { margin:20px 0; }
 .meal-request-box label { font-weight:600;color:#2d6a4f;font-size:15px; }
 .meal-request-box p { color:#888;font-size:13px;margin:4px 0 8px; }

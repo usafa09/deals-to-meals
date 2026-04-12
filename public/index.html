@@ -75,10 +75,9 @@
       <button id="hamBtn" type="button" onclick="var m=document.getElementById('hamMenu');m.style.display=m.style.display==='block'?'none':'block'" style="background:none;border:none;color:#c8d6cb;font-size:28px;cursor:pointer;padding:8px 12px;-webkit-tap-highlight-color:rgba(255,255,255,0.2);touch-action:manipulation;" aria-label="Menu">&#9776;</button>
       <div id="hamMenu" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
         <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu').style.display='none'">How It Works</a>
+        <a href="/features.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Features</a>
         <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
         <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
-        <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
-        <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
       </div>
     </div>
     <a href="/" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
@@ -86,8 +85,8 @@
     </a>
     <div class="landing-nav-links">
       <a href="#how-it-works">How It Works</a>
+      <a href="/features.html">Features</a>
       <a href="/about.html">About</a>
-      <a href="/contact.html">Contact</a>
     </div>
     <div class="nav-right"><span id="shoppingBadgeLanding" onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin" id="landingSigninBtn">Sign In</a></div>
   </div>
@@ -99,11 +98,10 @@
     <button id="hamBtn2" type="button" onclick="var m=document.getElementById('hamMenu2');m.style.display=m.style.display==='block'?'none':'block'" style="background:none;border:none;color:#c8d6cb;font-size:28px;cursor:pointer;padding:8px 12px;-webkit-tap-highlight-color:rgba(255,255,255,0.2);touch-action:manipulation;" aria-label="Menu">&#9776;</button>
     <div id="hamMenu2" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
       <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu2').style.display='none'">How It Works</a>
+      <a href="/features.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Features</a>
       <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
       <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
-      <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
-      <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
-      <a href="/tips.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;position:relative;">Tips &amp; Features <span style="background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">NEW</span></a>
+      <a href="/tips.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Tips <span style="background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:4px;">NEW</span></a>
     </div>
   </div>
   <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
@@ -163,11 +161,6 @@
     </div>
   </section>
 
-  <!-- Founding Member Banner -->
-  <section class="founding-banner" id="foundingBanner">
-    <div class="founding-banner-inner" id="foundingText">&#11088; Join as a Founding Member &mdash; free forever, exclusive badge, early supporter status. <a href="/profile.html">No cost, ever.</a></div>
-  </section>
-
   <!-- Personalized Dashboard (signed in only) -->
   <section id="personalDashboard" style="display:none;padding:20px 24px;background:var(--cream)">
     <div style="max-width:720px;margin:0 auto" id="dashboardContent"></div>
@@ -181,252 +174,33 @@
       <div class="trust-stat"><div class="num">&#127919;</div><div class="lbl">Personalized to your family</div></div>
       <div class="trust-stat"><div class="num">100%</div><div class="lbl">Free</div></div>
     </div>
-    <details style="max-width:760px;margin:12px auto 0;text-align:center">
-      <summary style="font-size:13px;color:var(--muted);cursor:pointer;list-style:none;display:inline-block">How we calculate these numbers &#9662;</summary>
-      <div style="text-align:left;font-size:14px;color:#d0ddd3;line-height:1.7;padding:16px 24px;background:rgba(0,0,0,0.25);border-radius:12px;margin-top:8px">
-        <p style="margin-bottom:10px"><strong style="color:#52b788">80+ grocery chains:</strong> Dishcount aggregates weekly deals from over 80 grocery store chains including Kroger family stores (24 banners), ALDI, Walmart, Publix, Albertsons, Meijer, H-E-B, and many more through our weekly ad scanning pipeline.</p>
-        <p style="margin-bottom:10px"><strong style="color:#52b788">6,000+ weekly deals:</strong> This is the typical number of unique sale items available across all supported stores in a given week. The actual number varies by location and which stores are near you.</p>
-        <p style="margin-bottom:10px"><strong style="color:#52b788">$30&ndash;$50/week savings:</strong> This estimate is based on the average price difference between sale prices and regular prices across a typical weekly meal plan of 5&ndash;7 dinners using sale items. Individual savings depend on your location, stores, and what you buy.</p>
-        <p><strong style="color:#52b788">8+ recipes per search:</strong> Dishcount builds 8 personalized recipe suggestions per batch from your selected sale items and preferences. You can generate additional batches for more options.</p>
-      </div>
-    </details>
   </section>
 
-  <!-- 4. How It Works -->
+  <!-- How It Works -->
   <section class="how-section" id="how-it-works">
     <div class="how-section-inner">
       <h2 class="how-title">How It Works</h2>
-      <div style="background:#f0fdf4;border:2px solid #52b788;border-radius:16px;padding:20px;text-align:center;margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto;">
-        <p style="color:#2d6a4f;font-size:15px;font-weight:600;margin:0;">Other apps: Pick recipes &#8594; buy ingredients &#8594; hope it fits your budget</p>
-        <p style="color:#d97706;font-size:15px;font-weight:600;margin:8px 0 0;">Dishcount: See what's on sale &#8594; build meals around the deals &#8594; save real money</p>
-      </div>
-      <div class="how-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+      <div class="how-grid">
         <div class="how-card">
           <div class="how-num">1</div>
           <img src="/images/how-choose-stores.jpg" alt="Enter your zip code" loading="lazy" />
-          <h3>Enter your zip code</h3>
-          <p>We find every grocery store near you and pull their weekly sales &mdash; all in one place.</p>
+          <h3>Find local deals</h3>
+          <p>Enter your zip and we pull this week's sales from every store near you.</p>
         </div>
         <div class="how-card">
           <div class="how-num">2</div>
-          <img src="/images/how-browse-deals.jpg" alt="Tell us about your family" loading="lazy" />
-          <h3>Tell us about your family</h3>
-          <p>A quick 30-second survey lets us learn your household size, cooking skill, time constraints, dietary needs, and flavor preferences.</p>
+          <img src="/images/how-browse-deals.jpg" alt="Browse deals and set preferences" loading="lazy" />
+          <h3>Set your preferences</h3>
+          <p>Tell us your budget, dietary needs, and what you already have at home.</p>
         </div>
         <div class="how-card">
           <div class="how-num">3</div>
           <img src="/images/how-get-recipes.jpg" alt="Get your personalized meal plan" loading="lazy" />
-          <h3>Get your personalized meal plan</h3>
-          <p>Dishcount builds meals around what's on sale, what you already have at home, and what your family loves. See exactly how much you're saving.</p>
-        </div>
-        <div class="how-card">
-          <div class="how-num">4</div>
-          <div style="background:var(--green-light);border-radius:12px;padding:24px;text-align:center;font-size:48px;">&#128722;</div>
-          <h3>Shop smarter</h3>
-          <p>One-tap shopping list with every ingredient. Kroger shoppers can add everything to their cart for pickup. See price comparisons across stores.</p>
+          <h3>Get meals built from savings</h3>
+          <p>Dishcount plans meals around what's on sale and shows you exactly how much you're saving.</p>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- Why Dishcount Is Different -->
-  <section style="padding:60px 20px;text-align:center;">
-    <h2 style="font-size:28px;color:var(--green-dark);margin-bottom:8px;">This isn't another recipe app. It's your weekly savings engine.</h2>
-    <p style="color:#888;max-width:640px;margin:0 auto 32px;font-size:15px;">Recipe apps start with food and ignore your wallet. Deal apps show sales but leave you to figure out dinner. Dishcount connects both &mdash; real prices from your stores, meals your family will love, and the math to prove you're saving.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:900px;margin:0 auto;">
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#128176;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Real savings, not estimates</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">We use actual sale prices from your local stores to calculate your exact savings on every meal. No guessing.</p>
-      </div>
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#128104;&#8205;&#128105;&#8205;&#128103;&#8205;&#128102;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Personalized to your family</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">Household size, cooking skill, dietary needs, time constraints, and flavor preferences all shape your recipes.</p>
-      </div>
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#129504;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Gets smarter over time</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">Dishcount learns what you save, cook, and skip. The more you use it, the better your recommendations get.</p>
-      </div>
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#128197;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Weekly meal plans, not random recipes</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">Plan your whole week with shared ingredients across meals. Buy less, waste less, eat better.</p>
-      </div>
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#128260;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Swap any ingredient</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">Don't like mushrooms? Tap swap and see alternatives with adjusted instructions and updated cost.</p>
-      </div>
-      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
-        <div style="font-size:24px;margin-bottom:8px;">&#9851;&#65039;</div>
-        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Leftover intelligence</h3>
-        <p style="color:#666;font-size:14px;line-height:1.5;">Tell us what's left in the fridge and we'll suggest recipes to use it up. Zero food waste, maximum savings.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Comparison Table -->
-  <section style="padding:40px 20px;text-align:center;">
-    <h2 style="font-size:22px;color:var(--green-dark);margin-bottom:4px;">Recipe apps show meals. Deal apps show prices. Only Dishcount does both.</h2>
-    <div style="max-width:700px;margin:20px auto;overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <thead>
-          <tr style="border-bottom:2px solid #2d6a4f;">
-            <th style="text-align:left;padding:12px;"></th>
-            <th style="padding:12px;color:#2d6a4f;font-weight:700;">Dishcount</th>
-            <th style="padding:12px;color:#888;">Recipe Apps</th>
-            <th style="padding:12px;color:#888;">Deal Apps</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Real local sale prices</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#52b788;">&#10003;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Personalized recipes</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#52b788;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Recipes from sale items</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Weekly meal planning</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#52b788;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Exact savings calculated</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">One-tap cart add</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Learns your preferences</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#888;">Some</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
-          <tr><td style="text-align:left;padding:12px;">100% free</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#888;">Mostly paid</td><td style="padding:12px;color:#52b788;">&#10003;</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- 5. Kroger Cart Sync Hero -->
-  <section class="kroger-hero">
-    <div class="kroger-hero-inner">
-      <div class="kroger-hero-text">
-        <span class="kroger-hero-badge">Exclusive Feature</span>
-        <h2 class="kroger-hero-heading">Add to your Kroger family cart in one tap</h2>
-        <p class="kroger-hero-desc">Found a recipe you love? We'll search Kroger for every ingredient and add them straight to your cart for pickup or delivery. No more wandering the aisles with a paper list.</p>
-        <p class="kroger-hero-sub">Works with Kroger, King Soopers, Ralphs, Fred Meyer, Harris Teeter, Fry's, Smith's, QFC, Mariano's, Pick 'n Save, Dillons, and more.</p>
-        <button type="button" class="kroger-hero-cta" onclick="document.getElementById('zipInput').focus();document.getElementById('zipInput').scrollIntoView({behavior:'smooth',block:'center'})">Start Saving &#8594;</button>
-        <p style="font-size:14px;color:var(--muted);margin-top:16px">Don't shop at a Kroger family store? No problem — Dishcount works with 80+ grocery chains nationwide. The cart feature is a bonus for Kroger family shoppers.</p>
-      </div>
-      <div class="kroger-hero-graphic">
-        <div class="kroger-phone-mock">
-          <div class="kroger-phone-header">&#128722; Kroger Cart</div>
-          <div class="kroger-phone-item added"><span>&#10003;</span> Chicken Thighs</div>
-          <div class="kroger-phone-item added"><span>&#10003;</span> Broccoli Crowns</div>
-          <div class="kroger-phone-item added"><span>&#10003;</span> Jasmine Rice</div>
-          <div class="kroger-phone-item added"><span>&#10003;</span> Soy Sauce</div>
-          <div class="kroger-phone-item added"><span>&#10003;</span> Garlic</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 6. Recipe Screenshots -->
-  <section class="recipe-preview-section">
-    <div class="recipe-preview-inner">
-      <h2 class="recipe-preview-heading">Recipes built from this week's deals</h2>
-      <div class="recipe-preview-grid">
-        <div class="recipe-preview-card" onclick="showPreviewRecipe(0)" style="cursor:pointer">
-          <div class="rp-img-ph">&#127831;</div>
-          <div class="rp-body">
-            <div class="rp-title">Honey Garlic Chicken Thighs</div>
-            <div class="rp-meta">
-              <span class="rp-chip rp-time">&#9201; 35 min</span>
-              <span class="rp-chip rp-servings">&#127869; 4 servings</span>
-            </div>
-            <div class="rp-sale-tag">&#127991;&#65039; 4 of 6 ingredients on sale &middot; Under $12</div>
-          </div>
-        </div>
-        <div class="recipe-preview-card" onclick="showPreviewRecipe(1)" style="cursor:pointer">
-          <div class="rp-img-ph">&#127837;</div>
-          <div class="rp-body">
-            <div class="rp-title">One-Pot Pasta Primavera</div>
-            <div class="rp-meta">
-              <span class="rp-chip rp-time">&#9201; 25 min</span>
-              <span class="rp-chip rp-servings">&#127869; 6 servings</span>
-            </div>
-            <div class="rp-sale-tag">&#127991;&#65039; 5 of 7 ingredients on sale &middot; Under $9</div>
-          </div>
-        </div>
-        <div class="recipe-preview-card" onclick="showPreviewRecipe(2)" style="cursor:pointer">
-          <div class="rp-img-ph">&#129367;</div>
-          <div class="rp-body">
-            <div class="rp-title">Sheet Pan Sausage &amp; Veggies</div>
-            <div class="rp-meta">
-              <span class="rp-chip rp-time">&#9201; 40 min</span>
-              <span class="rp-chip rp-servings">&#127869; 4 servings</span>
-            </div>
-            <div class="rp-sale-tag">&#127991;&#65039; 4 of 5 ingredients on sale &middot; Under $14</div>
-          </div>
-        </div>
-      </div>
-      <p class="recipe-preview-note">These recipes change every week based on what's on sale near you.</p>
-    </div>
-  </section>
-
-  <!-- Worked Examples -->
-  <section style="padding:40px 24px;background:var(--cream)">
-    <p style="text-align:center;color:var(--green-dark);font-size:16px;font-weight:600;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;">Here's what meal planning from deals looks like in practice:</p>
-    <div style="max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:24px">
-      <!-- Dayton -->
-      <div style="background:#fff;border:2px solid var(--sand);border-radius:20px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.04)">
-        <h2 style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700;color:var(--green-dark);margin-bottom:4px">This week in Dayton, OH</h2>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Stores: Kroger, ALDI, Meijer</p>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Chicken Thighs</span><span><strong style="color:var(--green-dark)">$1.99/lb</strong> <s style="color:#999;font-size:12px">$4.49</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Broccoli Crowns</span><span><strong style="color:var(--green-dark)">$0.99</strong> <s style="color:#999;font-size:12px">$1.89</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Shredded Cheese</span><span><strong style="color:var(--green-dark)">$2.50</strong> <s style="color:#999;font-size:12px">$3.99</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Penne Pasta</span><span><strong style="color:var(--green-dark)">$0.89</strong> <s style="color:#999;font-size:12px">$1.29</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Kroger Olive Oil</span><span><strong style="color:var(--green-dark)">$3.99</strong> <s style="color:#999;font-size:12px">$6.49</s></span></div>
-        </div>
-        <div style="border-top:2px solid var(--sand);padding-top:16px">
-          <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">&#127859; Recipe: Cheesy Chicken &amp; Broccoli Pasta Bake</p>
-          <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;color:#555;margin-bottom:12px">
-            <span>&#127869; 4 servings</span><span>&#9201; 35 min</span><span>&#127991;&#65039; 5 of 6 on sale</span>
-          </div>
-          <div style="display:flex;gap:20px;flex-wrap:wrap">
-            <div><span style="font-size:13px;color:var(--muted)">Total cost</span><br><strong style="font-size:20px;color:var(--text)">$10.36</strong><span style="font-size:13px;color:var(--muted)"> ($2.59/serving)</span></div>
-            <div><span style="font-size:13px;color:var(--muted)">Regular price</span><br><strong style="font-size:20px;color:#999;text-decoration:line-through">$17.15</strong></div>
-            <div><span style="font-size:13px;color:var(--muted)">You save</span><br><strong style="font-size:20px;color:var(--green-dark)">$6.79 (40%)</strong></div>
-          </div>
-        </div>
-      </div>
-      <!-- Los Angeles -->
-      <div style="background:#fff;border:2px solid var(--sand);border-radius:20px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.04)">
-        <h2 style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700;color:var(--green-dark);margin-bottom:4px">This week in Los Angeles, CA</h2>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Stores: Ralphs, ALDI, Albertsons</p>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Ralphs Ground Turkey</span><span><strong style="color:var(--green-dark)">$3.29/lb</strong> <s style="color:#999;font-size:12px">$5.49</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Taco Shells</span><span><strong style="color:var(--green-dark)">$0.99</strong> <s style="color:#999;font-size:12px">$1.69</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Ralphs Shredded Cheddar</span><span><strong style="color:var(--green-dark)">$2.49</strong> <s style="color:#999;font-size:12px">$3.99</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>ALDI Black Beans</span><span><strong style="color:var(--green-dark)">$0.69</strong> <s style="color:#999;font-size:12px">$1.09</s></span></div>
-          <div style="display:flex;justify-content:space-between;font-size:14px"><span>Ralphs Avocados</span><span><strong style="color:var(--green-dark)">$0.79 ea</strong> <s style="color:#999;font-size:12px">$1.49</s></span></div>
-        </div>
-        <div style="border-top:2px solid var(--sand);padding-top:16px">
-          <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">&#127790; Recipe: Turkey Taco Night with All the Fixings</p>
-          <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;color:#555;margin-bottom:12px">
-            <span>&#127869; 4 servings</span><span>&#9201; 25 min</span><span>&#127991;&#65039; 5 of 7 on sale</span>
-          </div>
-          <div style="display:flex;gap:20px;flex-wrap:wrap">
-            <div><span style="font-size:13px;color:var(--muted)">Total cost</span><br><strong style="font-size:20px;color:var(--text)">$8.25</strong><span style="font-size:13px;color:var(--muted)"> ($2.06/serving)</span></div>
-            <div><span style="font-size:13px;color:var(--muted)">Regular price</span><br><strong style="font-size:20px;color:#999;text-decoration:line-through">$13.75</strong></div>
-            <div><span style="font-size:13px;color:var(--muted)">You save</span><br><strong style="font-size:20px;color:var(--green-dark)">$5.50 (40%)</strong></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p style="font-size:12px;color:var(--muted);font-style:italic;text-align:center;margin-top:16px">Prices shown are based on typical weekly sales in these areas. Actual deals update weekly and vary by location.</p>
-  </section>
-
-  <!-- 7. Features Grid -->
-  <section class="features-section">
-    <div class="features-inner">
-      <h2 class="features-title">Everything you need to save</h2>
-      <div class="features-grid">
-        <div class="feature-card"><div class="fc-icon">&#128176;</div><div class="fc-title">Real Savings Calculated</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">See exactly how much you save on every meal with real local prices</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128197;</div><div class="fc-title">Weekly Meal Plans</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">5 dinners planned with shared ingredients &mdash; buy less, waste less</div></div>
-        <div class="feature-card"><div class="fc-icon">&#129504;</div><div class="fc-title">Learns Your Taste</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Gets smarter every week based on what you save, cook, and skip</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128260;</div><div class="fc-title">Swap Any Ingredient</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Tap swap for alternatives with updated cost and instructions</div></div>
-        <div class="feature-card"><div class="fc-icon">&#9851;&#65039;</div><div class="fc-title">Use Your Leftovers</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Tell us what's in the fridge and get recipes to use it up</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128722;</div><div class="fc-title">One-Tap Kroger Cart</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Add every ingredient to your Kroger cart for pickup or delivery</div></div>
-      </div>
+      <p style="text-align:center;margin-top:20px;"><a href="/features.html" style="color:var(--green-dark);font-weight:600;text-decoration:none;">See all features &#8594;</a></p>
     </div>
   </section>
 
@@ -499,7 +273,7 @@
 
   <!-- Footer -->
   <footer class="landing-footer">
-    <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/tips.html">Tips</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+    <p>Dishcount — Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/about.html">About</a> &middot; <a href="/features.html">Features</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/tips.html">Tips</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
     <p>&copy; 2026 Dishcount. All rights reserved.</p>
   </footer>
 

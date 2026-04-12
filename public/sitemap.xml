@@ -31,6 +31,12 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://dishcount.co/features.html</loc>
+    <lastmod>2026-04-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://dishcount.co/login.html</loc>
     <lastmod>2026-04-02</lastmod>
     <changefreq>monthly</changefreq>

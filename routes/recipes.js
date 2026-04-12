@@ -272,7 +272,7 @@ function selectSmartIngredients(deals, maxCount = 100) {
 }
 
 async function handleRecipeGeneration(req, res) {
-  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, preferences, weeklyPlan, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, preferences, weeklyPlan, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
@@ -310,9 +310,28 @@ These items cost the user $0. Use as many of these as possible in EVERY recipe. 
       ? `\n\nSPECIAL REQUEST FROM USER: "${mealRequest.trim()}"\nThis is the user's top priority. Try to incorporate this request into as many recipes as possible while still using the sale items. If the request conflicts with available sale items, prioritize the request and find the cheapest way to fulfill it.`
       : "";
 
+    // Build budget constraint note
+    const budgetNote = budgetTarget && budgetTarget > 0
+      ? `\n\nBUDGET CONSTRAINT: The user wants to spend no more than $${budgetTarget} total for all meals this week. Using the sale prices provided, ensure the combined cost of all recipes stays under this target. If the budget is very tight, prioritize the cheapest possible meals and maximize use of pantry items. Show the total cost prominently.`
+      : "";
+
+    // Build family members note
+    let familyNote = "";
+    const prefs = preferences || {};
+    const members = prefs.family_members || [];
+    if (members.length > 0) {
+      const memberLines = members.map(m => {
+        const parts = [`- ${m.name || "Family member"} (${m.ageGroup || "adult"})`];
+        if (m.dietary) parts.push(m.dietary);
+        if (m.dislikes) parts.push(`dislikes: ${m.dislikes}`);
+        if (m.notes) parts.push(m.notes);
+        return parts.join(": ");
+      });
+      familyNote = `\n\nFAMILY MEMBERS:\n${memberLines.join("\n")}\n\nGenerate recipes that work for the WHOLE FAMILY. If a recipe can't please everyone, suggest a simple modification (e.g. "For picky eaters: serve the sauce on the side"). Flag any allergen conflicts.`;
+    }
+
     // Build user profile note from preferences
     let profileNote = "";
-    const prefs = preferences || {};
     if (prefs.household_size || prefs.skill_level || prefs.cook_time || prefs.dietary?.length || prefs.flavor_preferences?.length || prefs.dislikes) {
       const parts = ["USER PROFILE:"];
       if (prefs.household_size) parts.push(`- Cooking for: ${prefs.household_size} people${prefs.has_kids ? " (including kids under 12 — keep recipes kid-friendly)" : ""}`);
@@ -446,7 +465,7 @@ ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
 ${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
-${mustIncludeNote}${wantNote}${mealRequestNote}${profileNote}${historyNote}${batchNote}
+${mustIncludeNote}${wantNote}${mealRequestNote}${budgetNote}${profileNote}${familyNote}${historyNote}${batchNote}
 
 CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 
@@ -846,6 +865,53 @@ router.get("/api/recipe-image", async (req, res) => {
     });
   } catch (e) {
     res.json({ url: null });
+  }
+});
+
+// ══ PANTRY PHOTO SCAN ═════════════════════════════════════════════════════════
+
+const scanHourlyCount = new Map();
+setInterval(() => { const h = Math.floor(Date.now() / 3600000); for (const k of scanHourlyCount.keys()) { if (!k.endsWith(String(h))) scanHourlyCount.delete(k); } }, 60 * 60 * 1000);
+
+router.post("/api/scan-pantry", async (req, res) => {
+  const userId = req.headers["x-anon-id"] || req.ip;
+  const hour = Math.floor(Date.now() / 3600000);
+  const key = userId + "-" + hour;
+  const used = scanHourlyCount.get(key) || 0;
+  if (used >= 5) return res.status(429).json({ error: "Scan limit reached. Try again in a bit.", items: [] });
+  scanHourlyCount.set(key, used + 1);
+
+  const { image } = req.body;
+  if (!image) return res.status(400).json({ error: "No image provided", items: [] });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "API key not configured", items: [] });
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+            { type: "text", text: 'List every food ingredient visible in this photo. Return ONLY a JSON array of simple ingredient names, no brands, no sizes. Example: ["rice", "butter", "garlic", "olive oil"]. Return ONLY the JSON array.' }
+          ]
+        }]
+      }),
+    });
+    const result = await response.json();
+    const text = result.content?.[0]?.text?.trim() || "[]";
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const items = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    console.log(`Pantry scan: found ${items.length} items`);
+    res.json({ items });
+  } catch (e) {
+    console.error("Pantry scan error:", e.message);
+    res.json({ items: [] });
   }
 });
 

@@ -182,11 +182,19 @@ function showOnboardingSurvey() {
     '<h3>Any ingredients your family won\'t eat?</h3>' +
     '<p class="survey-subtitle">These ingredients will never appear in your recipes</p>' +
     '<textarea id="surveyDislikes" placeholder="e.g. mushrooms, seafood, cilantro, tofu" style="width:100%;height:80px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>' +
+    '</div>',
+
+    // Step 7: Family Members (optional)
+    '<div class="survey-step" data-step="7">' +
+    '<h3>Add family members?</h3>' +
+    '<p class="survey-subtitle">This helps us find meals everyone will enjoy (optional)</p>' +
+    '<div id="familyMembersList"></div>' +
+    '<button type="button" onclick="addFamilyMember()" style="padding:10px 20px;background:white;border:2px dashed #d0c5a0;border-radius:10px;color:#2d6a4f;font-size:14px;cursor:pointer;width:100%;margin-top:8px;">+ Add Family Member</button>' +
     '</div>'
   ];
 
-  // Progress dots for steps 1-6 (not the welcome screen)
-  const totalQuestions = 6;
+  // Progress dots for steps 1-7 (not the welcome screen)
+  const totalQuestions = 7;
   overlay.innerHTML = '<div class="survey-card">' +
     '<div class="survey-progress" id="surveyProgress" style="display:none;">' +
     '<div class="survey-progress-label" id="surveyProgressLabel">Step 1 of 6</div>' +
@@ -257,11 +265,15 @@ async function saveSurveyAndClose() {
     state.survey.dietary = state.survey.dietary.filter(d => d !== "other");
     state.survey.dietary.push(otherEl.value.trim());
   }
+  // Collect family members
+  const familyMembers = (state.survey._familyMembers || []).filter(m => m && m.name);
+
   const surveyData = {
     household_size: state.survey.household_size,
     has_kids: state.survey.has_kids,
     skill_level: state.survey.skill,
     cook_time: state.survey.cook_time,
+    family_members: familyMembers,
     dietary: state.survey.dietary,
     flavor_preferences: state.survey.flavors,
     dislikes: state.survey.dislikes
@@ -1303,9 +1315,10 @@ function getRecipePayload(offset) {
   const wantItems=(document.getElementById("wantItems")?.value||"").trim();
   const haveItems=(document.getElementById("haveItems")?.value||"").trim();
   const mealRequest=(document.getElementById("mealRequest")?.value||"").trim();
+  const budgetTarget=parseFloat(document.getElementById("budgetTarget")?.value)||null;
   return {
     ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
-    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, preferences:state.userPreferences||null, offset:offset||0
+    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, budgetTarget, preferences:state.userPreferences||null, offset:offset||0
   };
 }
 
@@ -1326,6 +1339,7 @@ async function searchRecipes() {
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
+    state._lastBudgetTarget=payload.budgetTarget||null;
     state.recipeOffset=8;
     renderRecipeGrid(); renderSavingsBanner(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
@@ -1369,6 +1383,14 @@ function renderSavingsBanner() {
   if (!el) return;
   const s = state.lastSavings;
   if (!s || s.totalSavings <= 0) { el.innerHTML = ""; return; }
+  const budget = state._lastBudgetTarget;
+  let budgetLine = "";
+  if (budget && budget > 0) {
+    const remaining = budget - s.totalSalePrice;
+    budgetLine = remaining >= 0
+      ? '<div style="margin-top:12px;padding:10px;background:rgba(82,183,136,0.2);border-radius:8px;font-size:14px;">Budget: $' + s.totalSalePrice.toFixed(2) + ' of $' + budget.toFixed(2) + ' used — <strong style="color:#52b788;">$' + remaining.toFixed(2) + ' remaining &#10003;</strong></div>'
+      : '<div style="margin-top:12px;padding:10px;background:rgba(251,191,36,0.2);border-radius:8px;font-size:14px;">Budget: $' + s.totalSalePrice.toFixed(2) + ' of $' + budget.toFixed(2) + ' — <strong style="color:#fbbf24;">$' + Math.abs(remaining).toFixed(2) + ' over.</strong> Try removing a recipe or swapping proteins.</div>';
+  }
   el.innerHTML = '<div style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:24px;color:white;margin-bottom:24px;text-align:center;">' +
     '<h3 style="margin:0 0 16px;font-size:18px;">Your Meal Plan Savings</h3>' +
     '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:16px;">' +
@@ -1376,7 +1398,7 @@ function renderSavingsBanner() {
     '<div><div style="font-size:28px;font-weight:800;text-decoration:line-through;opacity:0.6;">$' + s.totalRegularPrice.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Regular prices</div></div>' +
     '<div><div style="font-size:28px;font-weight:800;color:#fbbf24;">$' + s.totalSavings.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">You save (' + s.savingsPercent + '%)</div></div>' +
     '<div><div style="font-size:28px;font-weight:800;color:#52b788;">$' + s.costPerServing.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Per serving</div></div>' +
-    '</div></div>';
+    '</div>' + budgetLine + '</div>';
 }
 
 function recipeHash(r) {
@@ -1537,6 +1559,7 @@ function renderModal(r){
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><div><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${bestPriceBadge}</div></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
+      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step</button>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div id="ratingFormArea"></div>
       <div class="modal-actions">
@@ -1760,6 +1783,125 @@ async function submitCommunityRecipe() {
       showToast("Recipe shared!", "success");
     } else { showToast("Could not share recipe"); }
   } catch (e) { showToast("Could not share recipe"); }
+}
+
+// ── Pantry Photo Scan ───────────────────────────────────────────────────────
+function scanPantry() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "environment";
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    showToast("Scanning your pantry...");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+      try {
+        const res = await fetch("/api/scan-pantry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId },
+          body: JSON.stringify({ image: base64 })
+        });
+        const data = await res.json();
+        if (data.items?.length > 0) {
+          const el = document.getElementById("haveItems");
+          if (el) {
+            const existing = el.value.trim();
+            const newItems = data.items.join(", ");
+            el.value = existing ? existing + ", " + newItems : newItems;
+          }
+          showToast("Found " + data.items.length + " items!", "success");
+        } else { showToast("Could not identify items. Try a clearer photo."); }
+      } catch (err) { showToast("Scan failed. Try again."); }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// ── Cook-Along Step-by-Step Mode ────────────────────────────────────────────
+function getStepEmoji(step) {
+  const s = (step || "").toLowerCase();
+  if (s.includes("preheat") || s.includes("oven")) return "🔥";
+  if (s.includes("chop") || s.includes("dice") || s.includes("cut") || s.includes("slice")) return "🔪";
+  if (s.includes("mix") || s.includes("stir") || s.includes("combine") || s.includes("whisk")) return "🥄";
+  if (s.includes("boil") || s.includes("simmer")) return "♨️";
+  if (s.includes("bake")) return "🫕";
+  if (s.includes("serve") || s.includes("plate") || s.includes("enjoy")) return "🍽️";
+  if (s.includes("season") || s.includes("salt") || s.includes("pepper")) return "🧂";
+  return "👨‍🍳";
+}
+
+function extractTimer(step) {
+  const match = (step || "").match(/(\d+)\s*(?:minutes?|mins?)/i);
+  return match ? parseInt(match[1]) : null;
+}
+
+var _cookAlongTimer = null;
+function startCookAlong() {
+  const r = state.currentRecipe;
+  if (!r?.instructions?.length) { showToast("No instructions available"); return; }
+  const steps = r.instructions;
+  let currentStep = 0;
+
+  const overlay = document.createElement("div");
+  overlay.id = "cookAlongOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:#fffdf7;z-index:6000;display:flex;flex-direction:column;padding:20px;overflow-y:auto;";
+
+  function renderStep() {
+    const timer = extractTimer(steps[currentStep]);
+    overlay.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+      '<button onclick="document.getElementById(\'cookAlongOverlay\').remove();if(_cookAlongTimer)clearInterval(_cookAlongTimer)" style="background:none;border:none;font-size:16px;cursor:pointer;color:#666;">✕ Exit</button>' +
+      '<span style="color:#888;font-size:14px;">Step ' + (currentStep + 1) + ' of ' + steps.length + '</span></div>' +
+      '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">' +
+      '<div><div style="font-size:56px;margin-bottom:20px;">' + getStepEmoji(steps[currentStep]) + '</div>' +
+      '<p style="font-size:22px;line-height:1.6;color:#333;max-width:500px;margin:0 auto;">' + escapeHtml(steps[currentStep]) + '</p>' +
+      (timer ? '<button onclick="startCookTimer(' + timer + ')" style="margin-top:20px;padding:12px 24px;background:#52b788;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;">⏱️ Start ' + timer + ' min timer</button><div id="cookTimerDisplay" style="font-size:36px;color:#d97706;margin-top:12px;font-weight:800;"></div>' : '') +
+      '</div></div>' +
+      '<div style="display:flex;gap:12px;">' +
+      '<button onclick="cookAlongPrev()" style="flex:1;padding:14px;background:' + (currentStep === 0 ? "#eee" : "#e8e0d0") + ';border:none;border-radius:12px;font-size:16px;cursor:pointer;"' + (currentStep === 0 ? " disabled" : "") + '>&#8592; Previous</button>' +
+      '<button onclick="' + (currentStep === steps.length - 1 ? "cookAlongFinish()" : "cookAlongNext()") + '" style="flex:1;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">' + (currentStep === steps.length - 1 ? "🎉 Done!" : "Next →") + '</button></div>';
+  }
+
+  window.cookAlongNext = () => { if (currentStep < steps.length - 1) { currentStep++; if (_cookAlongTimer) clearInterval(_cookAlongTimer); renderStep(); } };
+  window.cookAlongPrev = () => { if (currentStep > 0) { currentStep--; if (_cookAlongTimer) clearInterval(_cookAlongTimer); renderStep(); } };
+  window.cookAlongFinish = () => { if (_cookAlongTimer) clearInterval(_cookAlongTimer); overlay.remove(); trackInteraction(r.title, "cooked", getRecipeTags(r)); showToast("Great job! Don't forget to rate this recipe.", "success"); };
+  window.startCookTimer = (minutes) => {
+    if (_cookAlongTimer) clearInterval(_cookAlongTimer);
+    let seconds = minutes * 60;
+    const display = document.getElementById("cookTimerDisplay");
+    if (display) display.textContent = Math.floor(seconds / 60) + ":" + (seconds % 60).toString().padStart(2, "0");
+    _cookAlongTimer = setInterval(() => {
+      seconds--;
+      if (display) display.textContent = Math.floor(seconds / 60) + ":" + (seconds % 60).toString().padStart(2, "0");
+      if (seconds <= 0) { clearInterval(_cookAlongTimer); _cookAlongTimer = null; if (display) display.textContent = "⏰ Time's up!"; }
+    }, 1000);
+  };
+
+  renderStep();
+  document.body.appendChild(overlay);
+}
+
+// ── Family Member Profiles (survey add-on) ──────────────────────────────────
+function addFamilyMember() {
+  if (!state.survey._familyMembers) state.survey._familyMembers = [];
+  const idx = state.survey._familyMembers.length;
+  state.survey._familyMembers.push({ name: "", ageGroup: "adult", dietary: "", dislikes: "", notes: "" });
+  const container = document.getElementById("familyMembersList");
+  if (!container) return;
+  container.insertAdjacentHTML("beforeend",
+    '<div style="background:#f9f9f0;border:1px solid #e8e0d0;border-radius:10px;padding:12px;margin-bottom:8px;" id="familyMember' + idx + '">' +
+    '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
+    '<input type="text" placeholder="Name or nickname" onchange="state.survey._familyMembers[' + idx + '].name=this.value" style="flex:1;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />' +
+    '<select onchange="state.survey._familyMembers[' + idx + '].ageGroup=this.value" style="padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;"><option value="toddler">Toddler</option><option value="kid">Kid</option><option value="teen">Teen</option><option value="adult" selected>Adult</option></select>' +
+    '<button onclick="document.getElementById(\'familyMember' + idx + '\').remove();state.survey._familyMembers[' + idx + ']=null" style="background:none;border:none;color:#c00;cursor:pointer;font-size:16px;">✕</button></div>' +
+    '<input type="text" placeholder="Dietary restrictions (e.g. dairy-free)" onchange="state.survey._familyMembers[' + idx + '].dietary=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:4px;" />' +
+    '<input type="text" placeholder="Dislikes (e.g. mushrooms, spicy food)" onchange="state.survey._familyMembers[' + idx + '].dislikes=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:4px;" />' +
+    '<input type="text" placeholder="Notes (e.g. only likes plain pasta)" onchange="state.survey._familyMembers[' + idx + '].notes=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;" />' +
+    '</div>');
 }
 
 // ── Ingredient Substitution ─────────────────────────────────────────────────

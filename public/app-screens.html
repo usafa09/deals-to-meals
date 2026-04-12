@@ -34,9 +34,12 @@
   <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
   <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy</p>
 
-  <div class="section-title" style="margin-top:12px">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+    <div class="section-title" style="margin:0">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+    <button type="button" onclick="scanPantry()" style="background:#2d6a4f;color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap;">&#128247; Scan Pantry</button>
+  </div>
   <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-  <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have</p>
+  <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have &mdash; or snap a photo</p>
 
   <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
   <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
@@ -68,6 +71,16 @@
     <label>Any special requests for this week?</label>
     <p>Tell us what you're in the mood for and we'll work it in with the sale items.</p>
     <textarea id="mealRequest" placeholder="e.g. I want tacos this week, something for a birthday dinner, easy slow cooker meals, high protein for meal prep"></textarea>
+  </div>
+
+  <div style="margin:16px 0;">
+    <label style="font-weight:600;color:#2d6a4f;font-size:15px;">Weekly budget target <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></label>
+    <p style="color:#888;font-size:13px;margin:4px 0 8px;">We'll keep your meal plan under this amount</p>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:20px;color:#2d6a4f;font-weight:700;">$</span>
+      <input type="number" id="budgetTarget" placeholder="50" min="10" max="500" style="width:100px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:18px;text-align:center;">
+      <span style="color:#888;font-size:13px;">for the week</span>
+    </div>
   </div>
 
   <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>

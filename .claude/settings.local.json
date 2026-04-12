@@ -108,7 +108,9 @@
       "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+chuck+roast&locationId=01400943\" --max-time 15)",
       "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=chuck+roast&locationId=01400943\" --max-time 15)",
       "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=pot+roast&locationId=01400943\" --max-time 15)",
-      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+roast&locationId=01400943\" --max-time 15)"
+      "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+roast&locationId=01400943\" --max-time 15)",
+      "Bash(footer)",
+      "Bash(contact\")"
     ]
   }
 }

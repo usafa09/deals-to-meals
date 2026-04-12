@@ -8,7 +8,7 @@
     if(localStorage.getItem('dishcount_cookies_accepted'))loadGA();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Dishcount — Turn local grocery deals into personalized meals. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable. Free." />
+  <meta name="description" content="Save $30-50 every week on groceries. Dishcount plans your meals around what's on sale at your local stores, personalized to your family's tastes, dietary needs, and schedule. Free." />
   <title>Dishcount — Meals from Deals</title>
   <link rel="canonical" href="https://dishcount.co/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,8 +19,8 @@
   <link rel="stylesheet" href="/styles.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <meta property="og:title" content="Dishcount — Turn Local Grocery Deals into Meals" />
-  <meta property="og:description" content="Pick nearby stores, browse this week's sales, and get recipe ideas based on what's actually affordable." />
+  <meta property="og:title" content="Dishcount — Save $30-50/week on groceries with personalized meal plans" />
+  <meta property="og:description" content="Save $30-50 every week on groceries. Dishcount plans your meals around what's on sale at your local stores, personalized to your family's tastes, dietary needs, and schedule. Free." />
   <meta property="og:image" content="https://dishcount.co/images/og-hero.jpg" />
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -141,8 +141,8 @@
   <section class="landing-hero">
     <div class="landing-hero-content">
       <div class="landing-badge">&#128293; Families can save $30&#8211;$50/week on groceries</div>
-      <h1 class="landing-headline">Turn Local Grocery <span class="highlight">Deals</span> into Personalized Meals</h1>
-      <p class="landing-subtitle">Pick nearby stores, browse this week's sales, and get recipe ideas based on what's actually affordable.</p>
+      <h1 class="landing-headline">Save $30&#8211;50 Every Week on <span class="highlight">Groceries</span></h1>
+      <p class="landing-subtitle">Dishcount knows what's on sale near you right now. Pick your stores, and we'll plan your meals, build your shopping list, and show you exactly how much you're saving.</p>
       <div class="landing-search">
         <input id="zipInput" type="text" maxlength="5" placeholder="Enter zip code" inputmode="numeric" aria-label="Enter your zip code" onkeydown="if(event.key==='Enter'&&typeof findStores==='function')findStores();" />
         <button id="zipBtn" type="button" aria-label="Find stores near me" onclick="if(typeof findStores==='function')findStores();else alert('Still loading, please wait...');">Find Stores &#8594;</button>
@@ -174,10 +174,10 @@
   <!-- Trust Bar -->
   <section class="trust-bar">
     <div class="trust-bar-inner">
+      <div class="trust-stat"><div class="num">$30&#8211;50</div><div class="lbl">Saved per week</div></div>
       <div class="trust-stat"><div class="num">80+</div><div class="lbl">Grocery chains</div></div>
-      <div class="trust-stat"><div class="num">6,000+</div><div class="lbl">Weekly deals</div></div>
-      <div class="trust-stat"><div class="num">8+</div><div class="lbl">Recipes per search</div></div>
-      <div class="trust-stat"><div class="num">100%</div><div class="lbl">Free to use</div></div>
+      <div class="trust-stat"><div class="num">&#127919;</div><div class="lbl">Personalized to your family</div></div>
+      <div class="trust-stat"><div class="num">100%</div><div class="lbl">Free</div></div>
     </div>
     <details style="max-width:760px;margin:12px auto 0;text-align:center">
       <summary style="font-size:13px;color:var(--muted);cursor:pointer;list-style:none;display:inline-block">How we calculate these numbers &#9662;</summary>
@@ -194,31 +194,99 @@
   <section class="how-section" id="how-it-works">
     <div class="how-section-inner">
       <h2 class="how-title">How It Works</h2>
-      <div class="how-grid">
+      <div class="how-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
         <div class="how-card">
           <div class="how-num">1</div>
-          <img src="/images/how-choose-stores.jpg" alt="Pick your stores" loading="lazy" />
-          <h3>Pick your stores</h3>
-          <p>Enter your zip code and pick which local stores you want to shop.</p>
+          <img src="/images/how-choose-stores.jpg" alt="Enter your zip code" loading="lazy" />
+          <h3>Enter your zip code</h3>
+          <p>We find every grocery store near you and pull their weekly sales &mdash; all in one place.</p>
         </div>
         <div class="how-card">
           <div class="how-num">2</div>
-          <img src="/images/how-browse-deals.jpg" alt="See what's on sale" loading="lazy" />
-          <h3>See what's on sale</h3>
-          <p>Browse this week's deals from the stores you picked.</p>
+          <img src="/images/how-browse-deals.jpg" alt="Tell us about your family" loading="lazy" />
+          <h3>Tell us about your family</h3>
+          <p>A quick 30-second survey lets us learn your household size, cooking skill, time constraints, dietary needs, and flavor preferences.</p>
         </div>
         <div class="how-card">
           <div class="how-num">3</div>
-          <img src="/images/how-get-recipes.jpg" alt="Turn deals into meals" loading="lazy" />
-          <h3>Turn deals into meals</h3>
-          <p>Get recipe ideas built around what's on sale this week.</p>
+          <img src="/images/how-get-recipes.jpg" alt="Get your personalized meal plan" loading="lazy" />
+          <h3>Get your personalized meal plan</h3>
+          <p>Our AI builds recipes around what's on sale, what you already have at home, and what your family loves. See exactly how much you're saving.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-num">4</div>
+          <div style="background:var(--green-light);border-radius:12px;padding:24px;text-align:center;font-size:48px;">&#128722;</div>
+          <h3>Shop smarter</h3>
+          <p>One-tap shopping list with every ingredient. Kroger shoppers can add everything to their cart for pickup. See price comparisons across stores.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Why It's Different -->
-  <p style="text-align:center;font-style:italic;font-size:18px;color:var(--green-dark);max-width:640px;margin:32px auto;padding:0 24px">Most meal planners start with recipes. Dishcount starts with savings.</p>
+  <!-- Why Dishcount Is Different -->
+  <section style="padding:60px 20px;text-align:center;">
+    <h2 style="font-size:28px;color:var(--green-dark);margin-bottom:8px;">This isn't another recipe app</h2>
+    <p style="color:#888;max-width:600px;margin:0 auto 32px;font-size:15px;">Most recipe apps give you meals and hope you can afford the ingredients. Dishcount starts with what's cheap and builds from there.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:900px;margin:0 auto;">
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#128176;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Real savings, not estimates</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">We use actual sale prices from your local stores to calculate your exact savings on every meal. No guessing.</p>
+      </div>
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#128104;&#8205;&#128105;&#8205;&#128103;&#8205;&#128102;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Personalized to your family</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">Household size, cooking skill, dietary needs, time constraints, and flavor preferences all shape your recipes.</p>
+      </div>
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#129504;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Gets smarter over time</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">Dishcount learns what you save, cook, and skip. The more you use it, the better your recommendations get.</p>
+      </div>
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#128197;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Weekly meal plans, not random recipes</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">Plan your whole week with shared ingredients across meals. Buy less, waste less, eat better.</p>
+      </div>
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#128260;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Swap any ingredient</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">Don't like mushrooms? Tap swap and see alternatives with adjusted instructions and updated cost.</p>
+      </div>
+      <div style="background:#f9f9f0;border-radius:16px;padding:24px;text-align:left;">
+        <div style="font-size:24px;margin-bottom:8px;">&#9851;&#65039;</div>
+        <h3 style="color:#2d6a4f;margin-bottom:8px;font-size:16px;">Leftover intelligence</h3>
+        <p style="color:#666;font-size:14px;line-height:1.5;">Tell us what's left in the fridge and we'll suggest recipes to use it up. Zero food waste, maximum savings.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Table -->
+  <section style="padding:40px 20px;text-align:center;">
+    <h2 style="font-size:24px;color:var(--green-dark);margin-bottom:4px;">How Dishcount compares</h2>
+    <div style="max-width:700px;margin:20px auto;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="border-bottom:2px solid #2d6a4f;">
+            <th style="text-align:left;padding:12px;"></th>
+            <th style="padding:12px;color:#2d6a4f;font-weight:700;">Dishcount</th>
+            <th style="padding:12px;color:#888;">Recipe Apps</th>
+            <th style="padding:12px;color:#888;">Deal Apps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Real local sale prices</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#52b788;">&#10003;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Personalized recipes</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#52b788;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Recipes from sale items</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Weekly meal planning</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#52b788;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Exact savings calculated</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">One-tap cart add</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#ccc;">&#10007;</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="text-align:left;padding:12px;">Learns your preferences</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#888;">Some</td><td style="padding:12px;color:#ccc;">&#10007;</td></tr>
+          <tr><td style="text-align:left;padding:12px;">100% free</td><td style="padding:12px;color:#52b788;font-weight:700;">&#10003;</td><td style="padding:12px;color:#888;">Mostly paid</td><td style="padding:12px;color:#52b788;">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <!-- 5. Kroger Cart Sync Hero -->
   <section class="kroger-hero">
@@ -345,10 +413,12 @@
     <div class="features-inner">
       <h2 class="features-title">Everything you need to save</h2>
       <div class="features-grid">
-        <div class="feature-card"><div class="fc-icon">&#128205;</div><div class="fc-title">80+ Grocery Chains</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Deals from Kroger, ALDI, Walmart, Publix, and more</div></div>
-        <div class="feature-card"><div class="fc-icon">&#129302;</div><div class="fc-title">AI-Powered Recipes</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Personalized meal ideas from this week's sale items</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128203;</div><div class="fc-title">Smart Shopping Lists</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Build and share lists, export or save for later</div></div>
-        <div class="feature-card"><div class="fc-icon">&#128293;</div><div class="fc-title">Weekly Quests &amp; Rewards</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Earn badges, build streaks, climb the leaderboard</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128176;</div><div class="fc-title">Real Savings Calculated</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">See exactly how much you save on every meal with real local prices</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128197;</div><div class="fc-title">Weekly Meal Plans</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">5 dinners planned with shared ingredients &mdash; buy less, waste less</div></div>
+        <div class="feature-card"><div class="fc-icon">&#129504;</div><div class="fc-title">Learns Your Taste</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Gets smarter every week based on what you save, cook, and skip</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128260;</div><div class="fc-title">Swap Any Ingredient</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Tap swap for alternatives with updated cost and instructions</div></div>
+        <div class="feature-card"><div class="fc-icon">&#9851;&#65039;</div><div class="fc-title">Use Your Leftovers</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Tell us what's in the fridge and get recipes to use it up</div></div>
+        <div class="feature-card"><div class="fc-icon">&#128722;</div><div class="fc-title">One-Tap Kroger Cart</div><div class="fc-desc" style="font-size:12px;color:var(--muted);margin-top:4px">Add every ingredient to your Kroger cart for pickup or delivery</div></div>
       </div>
     </div>
   </section>

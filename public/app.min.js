@@ -2004,7 +2004,7 @@ function scanPantry() {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/*";
-  input.capture = "environment";
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) input.capture = "environment";
   input.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;

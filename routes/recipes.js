@@ -272,7 +272,7 @@ function selectSmartIngredients(deals, maxCount = 100) {
 }
 
 async function handleRecipeGeneration(req, res) {
-  let { ingredients, style, mealType, diets, wantItems, haveItems, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, preferences, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
@@ -284,7 +284,7 @@ async function handleRecipeGeneration(req, res) {
   if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured. Add it to your .env file." });
 
   try {
-    const cacheKey = JSON.stringify({ items: ingredients.slice(0, 25).map(i => i.name).sort(), style, diets, wantItems: wantItems || "", haveItems: haveItems || "", offset: offset || 0 });
+    const cacheKey = JSON.stringify({ items: ingredients.slice(0, 25).map(i => i.name).sort(), style, diets, wantItems: wantItems || "", haveItems: haveItems || "", mealRequest: mealRequest || "", prefs: preferences ? JSON.stringify(preferences) : "", offset: offset || 0 });
     const cached = aiRecipeCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < 1800000) {
       console.log("Serving cached AI recipes");
@@ -305,7 +305,26 @@ ${haveItems.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
 
 These items cost the user $0. Use as many of these as possible in EVERY recipe. They are your most valuable ingredients because they save the most money. Build recipes AROUND these items + sale items. Mark them as type "ON_HAND". Do NOT include them in the estimated cost.`
       : "";
-    // haveNote and wantNote are inserted directly in the prompt template
+    // Build meal request note
+    const mealRequestNote = mealRequest?.trim()
+      ? `\n\nSPECIAL REQUEST FROM USER: "${mealRequest.trim()}"\nThis is the user's top priority. Try to incorporate this request into as many recipes as possible while still using the sale items. If the request conflicts with available sale items, prioritize the request and find the cheapest way to fulfill it.`
+      : "";
+
+    // Build user profile note from preferences
+    let profileNote = "";
+    const prefs = preferences || {};
+    if (prefs.household_size || prefs.skill_level || prefs.cook_time || prefs.dietary?.length || prefs.flavor_preferences?.length || prefs.dislikes) {
+      const parts = ["USER PROFILE:"];
+      if (prefs.household_size) parts.push(`- Cooking for: ${prefs.household_size} people${prefs.has_kids ? " (including kids under 12 — keep recipes kid-friendly)" : ""}`);
+      if (prefs.skill_level) parts.push(`- Skill level: ${prefs.skill_level}`);
+      if (prefs.cook_time) parts.push(`- Available time: ${prefs.cook_time === "any" ? "no limit" : prefs.cook_time + " minutes"}`);
+      if (prefs.dietary?.length && !prefs.dietary.includes("none")) parts.push(`- Dietary needs: ${prefs.dietary.join(", ")}`);
+      if (prefs.flavor_preferences?.length && !prefs.flavor_preferences.includes("anything")) parts.push(`- Flavor preferences: ${prefs.flavor_preferences.join(", ")}`);
+      if (prefs.dislikes) parts.push(`- Dislikes (NEVER include these ingredients): ${prefs.dislikes}`);
+      parts.push("");
+      parts.push(`IMPORTANT: Respect ALL dietary restrictions and dislikes. NEVER include disliked ingredients. Adjust recipe complexity to match the skill level.${prefs.cook_time && prefs.cook_time !== "any" ? " Keep total cook time within " + prefs.cook_time + " minutes." : ""}${prefs.household_size ? " Default serving size to " + prefs.household_size + " people." : ""}`);
+      profileNote = "\n\n" + parts.join("\n");
+    }
 
     const DIET_RULES = {
       "Vegetarian": {
@@ -401,7 +420,7 @@ ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
 ${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
-${mustIncludeNote}${wantNote}${batchNote}
+${mustIncludeNote}${wantNote}${mealRequestNote}${profileNote}${batchNote}
 
 CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 
@@ -410,9 +429,9 @@ RECIPE GENERATION RULES:
 2. INGREDIENT SHARING: Design recipes that share ingredients with each other. If chicken thighs are on sale, use them in 2-3 different recipes with different preparations (stir fry, baked, soup). This minimizes what the user needs to buy.
 3. VARIETY: Do not repeat the same protein in more than 3 of 8 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
 4. PRACTICAL COOKING: Assume a home kitchen with basic equipment (oven, stovetop, one sheet pan, one pot, one skillet). No specialty equipment unless the user mentions it.
-5. REALISTIC PORTIONS: Default to 4 servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
+5. REALISTIC PORTIONS: Default to ${prefs.household_size || "4"} servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
-7. BEGINNER FRIENDLY: Unless told otherwise, write instructions that a beginner cook can follow. Use common terms, specify heat levels (medium-high), and include timing cues (cook until golden brown, about 5 minutes).
+7. BEGINNER FRIENDLY: ${prefs.skill_level === "confident" || prefs.skill_level === "advanced" ? "The user is an experienced cook — you can use advanced techniques, assume knife skills, and skip basic explanations." : "Write instructions that a beginner cook can follow. Use common terms, specify heat levels (medium-high), and include timing cues (cook until golden brown, about 5 minutes)."}
 
 Generate exactly 8 recipes. Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)

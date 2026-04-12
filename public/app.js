@@ -49,6 +49,209 @@ function showSignInModal(reason) {
   document.body.appendChild(overlay);
 }
 
+// ── Onboarding Survey ──────────────────────────────────────────────────────
+function selectSurvey(key, val) {
+  state.survey[key] = val;
+  // Highlight selected button, deselect siblings
+  const step = document.querySelector(".survey-step.active");
+  if (step) {
+    step.querySelectorAll(".survey-btn").forEach(b => b.classList.remove("selected"));
+    event.target.classList.add("selected");
+  }
+  // Enable next button
+  const nextBtn = document.getElementById("surveyNextBtn");
+  if (nextBtn) nextBtn.disabled = false;
+}
+
+function toggleSurveyMulti(btn, key, val) {
+  if (val === "none" || val === "anything") {
+    // Exclusive: deselect all others
+    state.survey[key] = [val];
+    btn.closest(".survey-multi").querySelectorAll(".survey-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+  } else {
+    // Remove "none"/"anything" if selecting something specific
+    state.survey[key] = (state.survey[key] || []).filter(v => v !== "none" && v !== "anything");
+    const idx = state.survey[key].indexOf(val);
+    if (idx > -1) { state.survey[key].splice(idx, 1); btn.classList.remove("selected"); }
+    else { state.survey[key].push(val); btn.classList.add("selected"); }
+    btn.closest(".survey-multi").querySelectorAll(".survey-btn").forEach(b => {
+      if (b.textContent.includes("None") || b.textContent.includes("anything")) b.classList.remove("selected");
+    });
+  }
+  // Show "other" text input if needed
+  if (key === "dietary") {
+    const otherBox = document.getElementById("surveyOtherDietary");
+    if (otherBox) otherBox.style.display = state.survey.dietary.includes("other") ? "block" : "none";
+  }
+  const nextBtn = document.getElementById("surveyNextBtn");
+  if (nextBtn) nextBtn.disabled = false;
+}
+
+function showOnboardingSurvey() {
+  const existing = document.getElementById("onboardingSurvey"); if (existing) existing.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "onboardingSurvey";
+  overlay.className = "survey-overlay";
+
+  const steps = [
+    // Step 1: Household
+    '<div class="survey-step active" data-step="0">' +
+    '<h3>Who are you cooking for?</h3>' +
+    '<div class="survey-options">' +
+    '<button onclick="selectSurvey(\'household_size\',\'1\')" class="survey-btn">Just me</button>' +
+    '<button onclick="selectSurvey(\'household_size\',\'2\')" class="survey-btn">2 people</button>' +
+    '<button onclick="selectSurvey(\'household_size\',\'3-4\')" class="survey-btn">3-4 people</button>' +
+    '<button onclick="selectSurvey(\'household_size\',\'5+\')" class="survey-btn">5 or more</button>' +
+    '</div>' +
+    '<div style="margin-top:16px;"><label style="font-size:14px;color:#555;cursor:pointer;"><input type="checkbox" id="surveyHasKids" onchange="state.survey.has_kids=this.checked" style="margin-right:8px;"> I have kids under 12</label></div>' +
+    '</div>',
+
+    // Step 2: Cooking Skill
+    '<div class="survey-step" data-step="1">' +
+    '<h3>How comfortable are you in the kitchen?</h3>' +
+    '<div class="survey-options">' +
+    '<button onclick="selectSurvey(\'skill\',\'beginner\')" class="survey-btn">Just starting out — keep it simple</button>' +
+    '<button onclick="selectSurvey(\'skill\',\'intermediate\')" class="survey-btn">I can follow a recipe</button>' +
+    '<button onclick="selectSurvey(\'skill\',\'confident\')" class="survey-btn">Pretty comfortable — surprise me</button>' +
+    '<button onclick="selectSurvey(\'skill\',\'advanced\')" class="survey-btn">I love a challenge</button>' +
+    '</div></div>',
+
+    // Step 3: Time
+    '<div class="survey-step" data-step="2">' +
+    '<h3>How much time do you usually have for dinner?</h3>' +
+    '<div class="survey-options">' +
+    '<button onclick="selectSurvey(\'cook_time\',\'15\')" class="survey-btn">15 minutes or less</button>' +
+    '<button onclick="selectSurvey(\'cook_time\',\'30\')" class="survey-btn">About 30 minutes</button>' +
+    '<button onclick="selectSurvey(\'cook_time\',\'60\')" class="survey-btn">Up to an hour</button>' +
+    '<button onclick="selectSurvey(\'cook_time\',\'any\')" class="survey-btn">I enjoy long cooks</button>' +
+    '</div></div>',
+
+    // Step 4: Dietary
+    '<div class="survey-step" data-step="3">' +
+    '<h3>Any dietary preferences?</h3>' +
+    '<div class="survey-multi">' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'none\')" class="survey-btn">None</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'vegetarian\')" class="survey-btn">Vegetarian</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'vegan\')" class="survey-btn">Vegan</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'gluten-free\')" class="survey-btn">Gluten-free</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'dairy-free\')" class="survey-btn">Dairy-free</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'low-carb\')" class="survey-btn">Low-carb / Keto</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'nut-allergy\')" class="survey-btn">Nut allergy</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'other\')" class="survey-btn">Other</button>' +
+    '</div>' +
+    '<input type="text" id="surveyOtherDietary" placeholder="Describe your dietary needs..." style="display:none;width:100%;margin-top:12px;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;" />' +
+    '</div>',
+
+    // Step 5: Flavors
+    '<div class="survey-step" data-step="4">' +
+    '<h3>What flavors does your family enjoy?</h3>' +
+    '<div class="survey-multi">' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'mild\')" class="survey-btn">Mild and familiar</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'spicy\')" class="survey-btn">Spicy</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'sweet-savory\')" class="survey-btn">Sweet and savory</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'mediterranean\')" class="survey-btn">Mediterranean</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'asian\')" class="survey-btn">Asian-inspired</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'mexican\')" class="survey-btn">Mexican / Latin</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'southern\')" class="survey-btn">Southern / Comfort food</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'flavors\',\'anything\')" class="survey-btn">We\'ll try anything</button>' +
+    '</div></div>',
+
+    // Step 6: Dislikes
+    '<div class="survey-step" data-step="5">' +
+    '<h3>Any ingredients your family won\'t eat?</h3>' +
+    '<p style="color:#888;font-size:14px;">We\'ll make sure these never show up in your recipes.</p>' +
+    '<textarea id="surveyDislikes" placeholder="e.g. mushrooms, seafood, cilantro, tofu" style="width:100%;height:80px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>' +
+    '</div>'
+  ];
+
+  overlay.innerHTML = '<div class="survey-card">' +
+    '<div class="survey-progress">' + steps.map((_,i) => '<div class="survey-progress-dot' + (i===0?' active':'') + '"></div>').join('') + '</div>' +
+    steps.join('') +
+    '<div class="survey-nav">' +
+    '<button class="survey-skip" onclick="skipOnboardingSurvey()">Skip for now</button>' +
+    '<button class="survey-next" id="surveyNextBtn" onclick="surveyNext()">Next</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  state.survey = {household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""};
+}
+
+var _surveyStep = 0;
+function surveyNext() {
+  const allSteps = document.querySelectorAll("#onboardingSurvey .survey-step");
+  const totalSteps = allSteps.length;
+  // On last step, save
+  if (_surveyStep >= totalSteps - 1) { saveSurveyAndClose(); return; }
+  allSteps[_surveyStep].classList.remove("active");
+  _surveyStep++;
+  allSteps[_surveyStep].classList.add("active");
+  // Update progress dots
+  document.querySelectorAll("#onboardingSurvey .survey-progress-dot").forEach((dot,i) => {
+    dot.classList.toggle("active", i <= _surveyStep);
+  });
+  // Update button text on last step
+  const nextBtn = document.getElementById("surveyNextBtn");
+  if (_surveyStep === totalSteps - 1) nextBtn.textContent = "Save & Start Cooking";
+  else nextBtn.textContent = "Next";
+  nextBtn.disabled = false;
+}
+
+function skipOnboardingSurvey() {
+  // Mark as skipped so we don't show again immediately (they can fill it out from profile)
+  localStorage.setItem("dishcount_survey_skipped", "1");
+  _surveyStep = 0;
+  const el = document.getElementById("onboardingSurvey"); if (el) el.remove();
+}
+
+async function saveSurveyAndClose() {
+  // Collect dislikes from textarea
+  const dislikesEl = document.getElementById("surveyDislikes");
+  if (dislikesEl) state.survey.dislikes = dislikesEl.value.trim();
+  // Collect other dietary if present
+  const otherEl = document.getElementById("surveyOtherDietary");
+  if (otherEl && otherEl.value.trim() && state.survey.dietary.includes("other")) {
+    state.survey.dietary = state.survey.dietary.filter(d => d !== "other");
+    state.survey.dietary.push(otherEl.value.trim());
+  }
+  const surveyData = {
+    household_size: state.survey.household_size,
+    has_kids: state.survey.has_kids,
+    skill_level: state.survey.skill,
+    cook_time: state.survey.cook_time,
+    dietary: state.survey.dietary,
+    flavor_preferences: state.survey.flavors,
+    dislikes: state.survey.dislikes
+  };
+  state.userPreferences = surveyData;
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (sessionData?.session) {
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+        body: JSON.stringify({ preferences: surveyData })
+      });
+    }
+  } catch(e) { console.error("Survey save error:", e); }
+  _surveyStep = 0;
+  const el = document.getElementById("onboardingSurvey"); if (el) el.remove();
+  showToast("Preferences saved!", "success");
+}
+
+async function loadUserPreferences() {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) return;
+    const res = await fetch("/api/profile", { headers: { Authorization: "Bearer " + sessionData.session.access_token } });
+    if (res.ok) {
+      const profile = await res.json();
+      if (profile.preferences && Object.keys(profile.preferences).length > 0) {
+        state.userPreferences = profile.preferences;
+      }
+    }
+  } catch(e) { console.error("loadUserPreferences error:", e); }
+}
+
 function showSignupNudge(count) {
   // Remove any existing nudge
   const old = document.getElementById("signupNudge"); if (old) old.remove();
@@ -126,6 +329,13 @@ sb.auth.onAuthStateChange((event, session) => {
   updateAuthUI(session);
   // Restore app state after sign-in redirect
   if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+    // Load user preferences
+    loadUserPreferences().then(() => {
+      // Show onboarding survey for new users who haven't filled it out
+      if (!state.userPreferences && !localStorage.getItem("dishcount_survey_skipped")) {
+        setTimeout(() => showOnboardingSurvey(), 500);
+      }
+    });
     // Transfer anonymous recipe count to user account
     const anonCount = getAnonRecipeCount();
     if (anonCount > 0 && session.access_token) {
@@ -340,6 +550,7 @@ let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
   selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
+  userPreferences:null, survey:{household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""},
 };
 
 // Fetch app screens from separate file on first use (keeps them out of static HTML for crawlers)
@@ -1024,9 +1235,10 @@ function getRecipePayload(offset) {
   const mustFirst=[...selectedDeals.filter(d=>mustInclude.has(d.id)).map(d=>({...d,mustInclude:true})),...selectedDeals.filter(d=>!mustInclude.has(d.id))];
   const wantItems=(document.getElementById("wantItems")?.value||"").trim();
   const haveItems=(document.getElementById("haveItems")?.value||"").trim();
+  const mealRequest=(document.getElementById("mealRequest")?.value||"").trim();
   return {
     ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
-    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, offset:offset||0
+    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, preferences:state.userPreferences||null, offset:offset||0
   };
 }
 

@@ -432,6 +432,18 @@ function renderProfile() {
     <div class="section">
       <div class="section-header"><div class="section-title">🍽️ Favorite Recipe Types</div><button class="section-save" onclick="saveFavoriteTypes()">Save</button></div>
       <div class="chips-group" id="recipeTypeChips">${RECIPE_TYPES.map(t=>`<div class="chip ${favTypes.includes(t)?"selected":""}" onclick="toggleChip(this)">${t}</div>`).join("")}</div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">🎯 Cooking Preferences</div></div>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:12px;">${p.preferences && Object.keys(p.preferences).length > 0 ? "Your preferences help us personalize recipes to your household." : "Fill out a quick survey so we can personalize your recipes."}</p>
+      ${p.preferences?.skill_level ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:13px;color:var(--text);">
+        ${p.preferences.household_size ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Household: ' + escapeHtml(p.preferences.household_size) + (p.preferences.has_kids ? ' (kids)' : '') + '</span>' : ''}
+        <span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Skill: ${escapeHtml(p.preferences.skill_level)}</span>
+        ${p.preferences.cook_time ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Time: ' + (p.preferences.cook_time === 'any' ? 'No limit' : escapeHtml(p.preferences.cook_time) + ' min') + '</span>' : ''}
+        ${p.preferences.flavor_preferences?.length ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Flavors: ' + escapeHtml(p.preferences.flavor_preferences.join(', ')) + '</span>' : ''}
+        ${p.preferences.dislikes ? '<span style="background:#fef2f2;padding:6px 12px;border-radius:8px;">Dislikes: ' + escapeHtml(p.preferences.dislikes) + '</span>' : ''}
+      </div>` : ''}
+      <button onclick="window.location.href='/';setTimeout(()=>{if(typeof showOnboardingSurvey==='function')showOnboardingSurvey();},500)" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">${p.preferences?.skill_level ? 'Edit Preferences' : 'Take Quick Survey'}</button>
     </div>`;
   } else if (tab === "saved") {
     content = savedRecipes.length === 0

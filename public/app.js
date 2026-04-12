@@ -90,14 +90,30 @@ function toggleSurveyMulti(btn, key, val) {
 
 function showOnboardingSurvey() {
   const existing = document.getElementById("onboardingSurvey"); if (existing) existing.remove();
+  _surveyStep = 0;
+  state.survey = {household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""};
   const overlay = document.createElement("div");
   overlay.id = "onboardingSurvey";
   overlay.className = "survey-overlay";
 
+  const logoSvg = '<svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg>';
+
   const steps = [
-    // Step 1: Household
+    // Step 0: Welcome
     '<div class="survey-step active" data-step="0">' +
+    '<div style="text-align:center;padding:20px 0;">' +
+    '<div style="margin-bottom:16px;">' + logoSvg + '</div>' +
+    '<h2 style="color:#2d6a4f;margin-bottom:12px;font-size:24px;">Welcome to Dishcount!</h2>' +
+    '<p style="color:#555;font-size:16px;line-height:1.6;max-width:400px;margin:0 auto 24px;">We\'d love to learn a little about you so we can tailor your recipe recommendations. Your answers help our AI suggest meals that match your family\'s size, tastes, dietary needs, and schedule.</p>' +
+    '<p style="color:#888;font-size:13px;max-width:400px;margin:0 auto 24px;">This takes about 30 seconds. You can update your answers anytime from your profile. Your information is only used to personalize your recipes — we never share it.</p>' +
+    '<button onclick="surveyNext()" style="width:100%;max-width:300px;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Get Started</button>' +
+    '<br><a onclick="skipOnboardingSurvey()" style="display:inline-block;margin-top:12px;color:#999;font-size:13px;cursor:pointer;text-decoration:underline;">Skip for now</a>' +
+    '</div></div>',
+
+    // Step 1: Household
+    '<div class="survey-step" data-step="1">' +
     '<h3>Who are you cooking for?</h3>' +
+    '<p class="survey-subtitle">So we can set the right serving sizes</p>' +
     '<div class="survey-options">' +
     '<button onclick="selectSurvey(\'household_size\',\'1\')" class="survey-btn">Just me</button>' +
     '<button onclick="selectSurvey(\'household_size\',\'2\')" class="survey-btn">2 people</button>' +
@@ -108,8 +124,9 @@ function showOnboardingSurvey() {
     '</div>',
 
     // Step 2: Cooking Skill
-    '<div class="survey-step" data-step="1">' +
+    '<div class="survey-step" data-step="2">' +
     '<h3>How comfortable are you in the kitchen?</h3>' +
+    '<p class="survey-subtitle">We\'ll match recipe complexity to your comfort level</p>' +
     '<div class="survey-options">' +
     '<button onclick="selectSurvey(\'skill\',\'beginner\')" class="survey-btn">Just starting out — keep it simple</button>' +
     '<button onclick="selectSurvey(\'skill\',\'intermediate\')" class="survey-btn">I can follow a recipe</button>' +
@@ -118,8 +135,9 @@ function showOnboardingSurvey() {
     '</div></div>',
 
     // Step 3: Time
-    '<div class="survey-step" data-step="2">' +
+    '<div class="survey-step" data-step="3">' +
     '<h3>How much time do you usually have for dinner?</h3>' +
+    '<p class="survey-subtitle">We\'ll only suggest meals you have time to make</p>' +
     '<div class="survey-options">' +
     '<button onclick="selectSurvey(\'cook_time\',\'15\')" class="survey-btn">15 minutes or less</button>' +
     '<button onclick="selectSurvey(\'cook_time\',\'30\')" class="survey-btn">About 30 minutes</button>' +
@@ -128,8 +146,9 @@ function showOnboardingSurvey() {
     '</div></div>',
 
     // Step 4: Dietary
-    '<div class="survey-step" data-step="3">' +
+    '<div class="survey-step" data-step="4">' +
     '<h3>Any dietary preferences?</h3>' +
+    '<p class="survey-subtitle">We\'ll make sure every recipe is safe for you</p>' +
     '<div class="survey-multi">' +
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'none\')" class="survey-btn">None</button>' +
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'vegetarian\')" class="survey-btn">Vegetarian</button>' +
@@ -144,8 +163,9 @@ function showOnboardingSurvey() {
     '</div>',
 
     // Step 5: Flavors
-    '<div class="survey-step" data-step="4">' +
+    '<div class="survey-step" data-step="5">' +
     '<h3>What flavors does your family enjoy?</h3>' +
+    '<p class="survey-subtitle">So your recipes taste like something you\'d actually want to eat</p>' +
     '<div class="survey-multi">' +
     '<button onclick="toggleSurveyMulti(this,\'flavors\',\'mild\')" class="survey-btn">Mild and familiar</button>' +
     '<button onclick="toggleSurveyMulti(this,\'flavors\',\'spicy\')" class="survey-btn">Spicy</button>' +
@@ -158,56 +178,80 @@ function showOnboardingSurvey() {
     '</div></div>',
 
     // Step 6: Dislikes
-    '<div class="survey-step" data-step="5">' +
+    '<div class="survey-step" data-step="6">' +
     '<h3>Any ingredients your family won\'t eat?</h3>' +
-    '<p style="color:#888;font-size:14px;">We\'ll make sure these never show up in your recipes.</p>' +
+    '<p class="survey-subtitle">These ingredients will never appear in your recipes</p>' +
     '<textarea id="surveyDislikes" placeholder="e.g. mushrooms, seafood, cilantro, tofu" style="width:100%;height:80px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>' +
     '</div>'
   ];
 
+  // Progress dots for steps 1-6 (not the welcome screen)
+  const totalQuestions = 6;
   overlay.innerHTML = '<div class="survey-card">' +
-    '<div class="survey-progress">' + steps.map((_,i) => '<div class="survey-progress-dot' + (i===0?' active':'') + '"></div>').join('') + '</div>' +
+    '<div class="survey-progress" id="surveyProgress" style="display:none;">' +
+    '<div class="survey-progress-label" id="surveyProgressLabel">Step 1 of 6</div>' +
+    '<div class="survey-progress-track">' + Array.from({length:totalQuestions},(_,i) => '<div class="survey-progress-dot' + (i===0?' active':'') + '"></div>').join('') + '</div>' +
+    '</div>' +
     steps.join('') +
-    '<div class="survey-nav">' +
+    '<div class="survey-nav" id="surveyNav" style="display:none;">' +
     '<button class="survey-skip" onclick="skipOnboardingSurvey()">Skip for now</button>' +
     '<button class="survey-next" id="surveyNextBtn" onclick="surveyNext()">Next</button>' +
     '</div></div>';
   document.body.appendChild(overlay);
-  state.survey = {household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""};
 }
 
 var _surveyStep = 0;
 function surveyNext() {
   const allSteps = document.querySelectorAll("#onboardingSurvey .survey-step");
-  const totalSteps = allSteps.length;
+  const totalSteps = allSteps.length; // 7 (welcome + 6 questions)
+  const totalQuestions = 6;
+
   // On last step, save
   if (_surveyStep >= totalSteps - 1) { saveSurveyAndClose(); return; }
-  allSteps[_surveyStep].classList.remove("active");
-  _surveyStep++;
-  allSteps[_surveyStep].classList.add("active");
-  // Update progress dots
-  document.querySelectorAll("#onboardingSurvey .survey-progress-dot").forEach((dot,i) => {
-    dot.classList.toggle("active", i <= _surveyStep);
-  });
-  // Update button text on last step
-  const nextBtn = document.getElementById("surveyNextBtn");
-  if (_surveyStep === totalSteps - 1) nextBtn.textContent = "Save & Start Cooking";
-  else nextBtn.textContent = "Next";
-  nextBtn.disabled = false;
+
+  // Fade out current step
+  const currentStep = allSteps[_surveyStep];
+  currentStep.classList.add("fade-out");
+  setTimeout(() => {
+    currentStep.classList.remove("active", "fade-out");
+    _surveyStep++;
+    const nextStep = allSteps[_surveyStep];
+    nextStep.classList.add("active", "fade-in");
+    setTimeout(() => nextStep.classList.remove("fade-in"), 300);
+
+    // Show progress bar and nav starting from step 1 (after welcome)
+    const progress = document.getElementById("surveyProgress");
+    const nav = document.getElementById("surveyNav");
+    if (_surveyStep >= 1) {
+      if (progress) progress.style.display = "";
+      if (nav) nav.style.display = "";
+    }
+
+    // Update progress dots and label (question index = _surveyStep - 1)
+    const qIdx = _surveyStep - 1;
+    document.querySelectorAll("#onboardingSurvey .survey-progress-dot").forEach((dot,i) => {
+      dot.classList.toggle("active", i <= qIdx);
+    });
+    const label = document.getElementById("surveyProgressLabel");
+    if (label) label.textContent = "Step " + (_surveyStep) + " of " + totalQuestions;
+
+    // Update button text
+    const nextBtn = document.getElementById("surveyNextBtn");
+    if (_surveyStep === totalSteps - 1) nextBtn.textContent = "Save & Start Cooking";
+    else nextBtn.textContent = "Next";
+    nextBtn.disabled = false;
+  }, 200);
 }
 
 function skipOnboardingSurvey() {
-  // Mark as skipped so we don't show again immediately (they can fill it out from profile)
   localStorage.setItem("dishcount_survey_skipped", "1");
   _surveyStep = 0;
   const el = document.getElementById("onboardingSurvey"); if (el) el.remove();
 }
 
 async function saveSurveyAndClose() {
-  // Collect dislikes from textarea
   const dislikesEl = document.getElementById("surveyDislikes");
   if (dislikesEl) state.survey.dislikes = dislikesEl.value.trim();
-  // Collect other dietary if present
   const otherEl = document.getElementById("surveyOtherDietary");
   if (otherEl && otherEl.value.trim() && state.survey.dietary.includes("other")) {
     state.survey.dietary = state.survey.dietary.filter(d => d !== "other");
@@ -233,9 +277,17 @@ async function saveSurveyAndClose() {
       });
     }
   } catch(e) { console.error("Survey save error:", e); }
-  _surveyStep = 0;
-  const el = document.getElementById("onboardingSurvey"); if (el) el.remove();
-  showToast("Preferences saved!", "success");
+
+  // Show success screen
+  const card = document.querySelector("#onboardingSurvey .survey-card");
+  if (card) {
+    card.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
+      '<div style="font-size:48px;margin-bottom:16px;">&#10004;&#65039;</div>' +
+      '<h2 style="color:#2d6a4f;margin-bottom:12px;">You\'re all set!</h2>' +
+      '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:24px;">Your recipes will now be personalized to your preferences.</p>' +
+      '<button onclick="document.getElementById(\'onboardingSurvey\').remove();_surveyStep=0;" style="width:100%;max-width:300px;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Start Finding Deals &#8594;</button>' +
+      '</div>';
+  }
 }
 
 async function loadUserPreferences() {
@@ -370,8 +422,23 @@ sb.auth.onAuthStateChange((event, session) => {
   }
 });
 
-// Also check on page load
-sb.auth.getSession().then(({ data }) => updateAuthUI(data?.session));
+// Also check on page load — load preferences and show survey if needed
+sb.auth.getSession().then(({ data }) => {
+  updateAuthUI(data?.session);
+  if (data?.session) {
+    loadUserPreferences().then(() => {
+      // Show survey if: redirected from profile "Edit Preferences" button
+      if (localStorage.getItem("dishcount_show_survey")) {
+        localStorage.removeItem("dishcount_show_survey");
+        setTimeout(() => showOnboardingSurvey(), 400);
+      }
+      // Or if new user with no preferences and hasn't skipped
+      else if (!state.userPreferences && !localStorage.getItem("dishcount_survey_skipped")) {
+        setTimeout(() => showOnboardingSurvey(), 600);
+      }
+    });
+  }
+});
 
 // ── Recipe Preview Modal (landing page) ─────────────────────────────────────
 const PREVIEW_RECIPES = [

@@ -443,14 +443,18 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 }
 
 /* ── Onboarding Survey ───────────────────────────────────────────────────── */
-.survey-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:5000; }
+.survey-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:5000; }
 .survey-card { background:#fffdf7;border-radius:20px;padding:32px;max-width:480px;width:92%;max-height:90vh;overflow-y:auto;position:relative; }
-.survey-progress { display:flex;gap:6px;margin-bottom:24px; }
+.survey-progress { margin-bottom:24px; }
+.survey-progress-label { font-size:12px;color:#888;text-align:center;margin-bottom:8px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase; }
+.survey-progress-track { display:flex;gap:6px; }
 .survey-progress-dot { flex:1;height:4px;border-radius:4px;background:#e0dcd0;transition:background 0.3s; }
 .survey-progress-dot.active { background:#2d6a4f; }
 .survey-step { display:none; }
-.survey-step.active { display:block; }
-.survey-step h3 { color:#2d6a4f;font-size:20px;margin-bottom:16px; }
+.survey-step.active { display:block;animation:surveyFadeIn 0.3s ease; }
+.survey-step.fade-out { animation:surveyFadeOut 0.2s ease forwards; }
+.survey-step h3 { color:#2d6a4f;font-size:20px;margin-bottom:4px; }
+.survey-subtitle { color:#888;font-size:14px;margin-bottom:16px; }
 .survey-options { display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px; }
 .survey-btn { display:inline-block;padding:12px 20px;margin:4px;border:2px solid #d0c5a0;border-radius:12px;background:white;font-size:15px;cursor:pointer;transition:all 0.2s; }
 .survey-btn:hover { border-color:#2d6a4f;background:#f5faf5; }
@@ -460,6 +464,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .survey-next { padding:12px 32px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer; }
 .survey-next:disabled { background:#ccc;cursor:not-allowed; }
 .survey-skip { background:none;border:none;color:#999;font-size:13px;cursor:pointer;text-decoration:underline; }
+@keyframes surveyFadeIn { from { opacity:0;transform:translateX(20px); } to { opacity:1;transform:translateX(0); } }
+@keyframes surveyFadeOut { from { opacity:1;transform:translateX(0); } to { opacity:0;transform:translateX(-20px); } }
 .meal-request-box { margin:20px 0; }
 .meal-request-box label { font-weight:600;color:#2d6a4f;font-size:15px; }
 .meal-request-box p { color:#888;font-size:13px;margin:4px 0 8px; }

@@ -435,15 +435,16 @@ function renderProfile() {
     </div>
     <div class="section">
       <div class="section-header"><div class="section-title">🎯 Cooking Preferences</div></div>
-      <p style="font-size:14px;color:var(--muted);margin-bottom:12px;">${p.preferences && Object.keys(p.preferences).length > 0 ? "Your preferences help us personalize recipes to your household." : "Fill out a quick survey so we can personalize your recipes."}</p>
-      ${p.preferences?.skill_level ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:13px;color:var(--text);">
-        ${p.preferences.household_size ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Household: ' + escapeHtml(p.preferences.household_size) + (p.preferences.has_kids ? ' (kids)' : '') + '</span>' : ''}
+      ${p.preferences?.skill_level ? `<p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Your preferences help us personalize recipes to your household.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text);">
+        ${p.preferences.household_size ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Household: ' + escapeHtml(String(p.preferences.household_size)) + (p.preferences.has_kids ? ' (kids)' : '') + '</span>' : ''}
         <span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Skill: ${escapeHtml(p.preferences.skill_level)}</span>
-        ${p.preferences.cook_time ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Time: ' + (p.preferences.cook_time === 'any' ? 'No limit' : escapeHtml(p.preferences.cook_time) + ' min') + '</span>' : ''}
+        ${p.preferences.cook_time ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Time: ' + (p.preferences.cook_time === 'any' ? 'No limit' : escapeHtml(String(p.preferences.cook_time)) + ' min') + '</span>' : ''}
         ${p.preferences.flavor_preferences?.length ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Flavors: ' + escapeHtml(p.preferences.flavor_preferences.join(', ')) + '</span>' : ''}
+        ${p.preferences.dietary?.length && !p.preferences.dietary.includes('none') ? '<span style="background:#e8f5e9;padding:6px 12px;border-radius:8px;">Diet: ' + escapeHtml(p.preferences.dietary.join(', ')) + '</span>' : ''}
         ${p.preferences.dislikes ? '<span style="background:#fef2f2;padding:6px 12px;border-radius:8px;">Dislikes: ' + escapeHtml(p.preferences.dislikes) + '</span>' : ''}
-      </div>` : ''}
-      <button onclick="window.location.href='/';setTimeout(()=>{if(typeof showOnboardingSurvey==='function')showOnboardingSurvey();},500)" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">${p.preferences?.skill_level ? 'Edit Preferences' : 'Take Quick Survey'}</button>
+      </div>` : '<p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Fill out a quick survey so we can personalize your recipes.</p>'}
+      <button onclick="editPreferencesFromProfile()" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">${p.preferences?.skill_level ? 'Edit Preferences' : 'Take Quick Survey'}</button>
     </div>`;
   } else if (tab === "saved") {
     content = savedRecipes.length === 0
@@ -517,6 +518,12 @@ function renderProfile() {
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 function toggleChip(el) { el.classList.toggle("selected"); }
+
+function editPreferencesFromProfile() {
+  // Open the main app page with a flag to show the survey
+  localStorage.setItem("dishcount_show_survey", "1");
+  window.location.href = "/";
+}
 
 async function getToken() {
   return (await sb.auth.getSession()).data.session?.access_token;

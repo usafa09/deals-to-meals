@@ -272,7 +272,7 @@ function selectSmartIngredients(deals, maxCount = 100) {
 }
 
 async function handleRecipeGeneration(req, res) {
-  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, preferences, weeklyPlan, freezerMeals, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
@@ -305,6 +305,14 @@ ${haveItems.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
 
 These items cost the user $0. Use as many of these as possible in EVERY recipe. They are your most valuable ingredients because they save the most money. Build recipes AROUND these items + sale items. Mark them as type "ON_HAND". Do NOT include them in the estimated cost.`
       : "";
+    // Build leftovers note
+    const leftoversNote = leftovers?.trim()
+      ? `\n\n♻️ HIGHEST PRIORITY — LEFTOVERS TO USE UP:
+${leftovers.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
+
+These are leftovers that will be WASTED if not used. Use these FIRST in as many recipes as possible. Build at least 2-3 recipes around these leftovers combined with the sale items. Mark leftover items as type "ON_HAND". For each recipe, include "usesLeftovers": true if it uses any leftover items, otherwise "usesLeftovers": false.`
+      : "";
+
     // Build meal request note
     const mealRequestNote = mealRequest?.trim()
       ? `\n\nSPECIAL REQUEST FROM USER: "${mealRequest.trim()}"\nThis is the user's top priority. Try to incorporate this request into as many recipes as possible while still using the sale items. If the request conflicts with available sale items, prioritize the request and find the cheapest way to fulfill it.`
@@ -465,7 +473,7 @@ ${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
 
 ${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
-${mustIncludeNote}${wantNote}${mealRequestNote}${budgetNote}${profileNote}${familyNote}${historyNote}${batchNote}
+${leftoversNote}${mustIncludeNote}${wantNote}${mealRequestNote}${budgetNote}${profileNote}${familyNote}${historyNote}${batchNote}
 
 CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use items from MULTIPLE categories above (e.g. a protein + vegetables + dairy + a pantry item).${haveNote ? " ALSO use as many ON HAND items as possible — they are FREE and save the customer the most money." : ""} Only add non-sale items when absolutely necessary (salt, pepper, water, basic oil, spices). The whole point is cooking from what's cheap THIS WEEK.
 

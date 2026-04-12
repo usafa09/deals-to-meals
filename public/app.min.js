@@ -1407,9 +1407,10 @@ function getRecipePayload(offset) {
   const haveItems=(document.getElementById("haveItems")?.value||"").trim();
   const mealRequest=(document.getElementById("mealRequest")?.value||"").trim();
   const budgetTarget=parseFloat(document.getElementById("budgetTarget")?.value)||null;
+  const leftovers=(document.getElementById("leftoversInput")?.value||"").trim();
   return {
     ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
-    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, budgetTarget, preferences:state.userPreferences||null, offset:offset||0
+    style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences:state.userPreferences||null, offset:offset||0
   };
 }
 
@@ -1640,7 +1641,7 @@ function renderRecipeGrid(){
         ${r.servings>=6?'<span class="meta-chip" style="background:#EDE9FE;color:#6D28D9">Feeds a crowd</span>':""}
         ${/sheet pan|one.pot|one.pan|slow cooker|instant pot|crockpot/i.test(r.title)?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Easy cleanup</span>':""}
         ${r.servings>=4&&r.estimatedCost>0&&r.estimatedCost/r.servings<4?'<span class="meta-chip" style="background:#CCFBF1;color:#0F766E">Family-friendly</span>':""}
-        ${r._isLeftover&&r._leftoverItems?.length?'<span class="meta-chip" style="background:#D1FAE5;color:#065F46">&#9851;&#65039; Uses leftovers</span>':""}
+        ${r._isLeftover||r.usesLeftovers?'<span class="meta-chip" style="background:#D1FAE5;color:#065F46">&#9851;&#65039; Uses your leftovers</span>':""}
         ${r.shelfLife||r.freezeInstructions?'<span class="meta-chip" style="background:#e8f4fd;color:#1a5276">&#10052;&#65039; Freezer friendly</span>':""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them

@@ -272,7 +272,7 @@ function selectSmartIngredients(deals, maxCount = 100) {
 }
 
 async function handleRecipeGeneration(req, res) {
-  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, preferences, weeklyPlan, offset } = req.body;
+  let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
   // Smart selection: if too many ingredients, pick the best ones for recipes
@@ -478,7 +478,13 @@ RECIPE GENERATION RULES:
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
 7. BEGINNER FRIENDLY: ${prefs.skill_level === "confident" || prefs.skill_level === "advanced" ? "The user is an experienced cook — you can use advanced techniques, assume knife skills, and skip basic explanations." : "Write instructions that a beginner cook can follow. Use common terms, specify heat levels (medium-high), and include timing cues (cook until golden brown, about 5 minutes)."}
 
-${weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday through Friday). Each recipe MUST include a "day" field ("Monday", "Tuesday", etc.). These recipes MUST:
+${freezerMeals ? `Generate exactly 5 FREEZER-FRIENDLY recipes using the sale items. Each recipe MUST:
+- Be suitable for freezing and reheating (no salads, no fresh herbs that don't freeze)
+- Include freezing and reheating instructions
+- Be designed for batch cooking (double or triple batch)
+- Prioritize items with the deepest discounts — stock-up opportunities
+- Include extra fields: "freezeInstructions", "reheatInstructions", "batchSize", "shelfLife"` :
+weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday through Friday). Each recipe MUST include a "day" field ("Monday", "Tuesday", etc.). These recipes MUST:
 - Share ingredients across multiple meals to minimize the total shopping list
 - Use the same protein in no more than 2 meals
 - Progress from easiest on Monday (everyone is tired) to more involved later in the week
@@ -509,6 +515,11 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       "costPerServing": 2.50,
       "storage": "Keeps 3 days in the fridge. Reheat in skillet.",
       "reasoning": "Chicken thighs are 56% off at Kroger this week, and combined with sale broccoli and pantry rice, this meal costs only $1.85 per serving.",
+      "calories": 450,
+      "protein": 35,
+      "carbs": 40,
+      "fat": 15,
+      "fiber": 4,
       "saleItemsUsed": ["Chicken Thighs", "Rice"],
       "ingredients": [
         {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs"},
@@ -538,7 +549,8 @@ IMPORTANT ingredient type rules:
 - "ON_HAND" = item the customer already has (from ON HAND list).
 - "PANTRY" = ONLY non-perishable staples most kitchens have: salt, pepper, cooking oil, butter, flour, sugar, dried spices/herbs (paprika, cumin, oregano, chili powder, etc.), vinegar, soy sauce, hot sauce, mustard, ketchup, honey, vanilla extract, baking powder, baking soda, cornstarch. PANTRY does NOT include any fresh/perishable items — garlic, onion, lemon, lime, ginger, fresh herbs, eggs, milk, cream, cheese, and all fresh vegetables/fruits must be "ADDITIONAL" (things the customer needs to buy).
 - Do NOT include "estimatedCost" — we calculate that from real prices.
-- "reasoning" = 1-2 sentences explaining WHY you chose this recipe — mention specific sale prices, savings percentages, and how the sale items work together. Be specific with numbers.`;
+- "reasoning" = 1-2 sentences explaining WHY you chose this recipe — mention specific sale prices, savings percentages, and how the sale items work together. Be specific with numbers.
+- "calories", "protein", "carbs", "fat", "fiber" = estimated nutrition per serving (numbers only, no units). These are rough estimates.`;
 
     console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);
 
@@ -866,6 +878,89 @@ router.get("/api/recipe-image", async (req, res) => {
   } catch (e) {
     res.json({ url: null });
   }
+});
+
+// ══ RECEIPT SCANNER ═══════════════════════════════════════════════════════════
+
+const receiptDailyCount = new Map();
+setInterval(() => { const today = new Date().toISOString().slice(0, 10); for (const k of receiptDailyCount.keys()) { if (!k.endsWith(today)) receiptDailyCount.delete(k); } }, 60 * 60 * 1000);
+
+router.post("/api/scan-receipt", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ success: false, error: "Sign in to scan receipts" });
+  const today = new Date().toISOString().slice(0, 10);
+  const key = user.id + "-" + today;
+  const used = receiptDailyCount.get(key) || 0;
+  if (used >= 3) return res.status(429).json({ success: false, error: "3 scans per day limit reached" });
+  receiptDailyCount.set(key, used + 1);
+
+  const { image } = req.body;
+  if (!image) return res.status(400).json({ success: false, error: "No image provided" });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ success: false, error: "API key not configured" });
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001", max_tokens: 800,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
+          { type: "text", text: 'Read this grocery receipt. Return ONLY a JSON object: {"store": "store name", "totalSpent": total as number, "itemCount": number of items, "savingsOnReceipt": any savings/discounts shown on receipt as number or 0}. Return ONLY valid JSON.' }
+        ]}]
+      }),
+    });
+    const result = await response.json();
+    const text = result.content?.[0]?.text?.trim() || "{}";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const receiptData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    const totalSpent = parseFloat(receiptData.totalSpent) || 0;
+    const receiptSavings = parseFloat(receiptData.savingsOnReceipt) || 0;
+    const regularPrice = receiptSavings > 0 ? totalSpent + receiptSavings : Math.round(totalSpent * 1.35 * 100) / 100;
+    const saved = Math.round((regularPrice - totalSpent) * 100) / 100;
+
+    // Update user's total savings
+    try {
+      const { data: profile } = await supabase.from("profiles").select("total_savings").eq("id", user.id).single();
+      await supabase.from("profiles").update({ total_savings: (parseFloat(profile?.total_savings) || 0) + saved }).eq("id", user.id);
+    } catch (e) { /* continue */ }
+
+    res.json({ success: true, totalSpent: totalSpent.toFixed(2), regularPrice: regularPrice.toFixed(2), saved: saved.toFixed(2), itemCount: receiptData.itemCount || 0, store: receiptData.store || "" });
+  } catch (e) {
+    console.error("Receipt scan error:", e.message);
+    res.json({ success: false });
+  }
+});
+
+// ══ SHARED MEAL PLANS ════════════════════════════════════════════════════════
+
+router.post("/api/plans/share", async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Sign in to share plans" });
+  const { recipes, savings } = req.body;
+  if (!recipes?.length) return res.status(400).json({ error: "No recipes to share" });
+  const shareId = Math.random().toString(36).slice(2, 8);
+  try {
+    await supabase.from("shared_plans").insert({
+      share_id: shareId, user_id: user.id,
+      plan_data: { recipes, savings },
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    res.json({ shareUrl: `https://dishcount.co/plan/${shareId}`, shareId });
+  } catch (e) {
+    console.error("Share plan error:", e.message);
+    res.status(500).json({ error: "Could not share plan" });
+  }
+});
+
+router.get("/api/plans/:shareId", async (req, res) => {
+  try {
+    const { data } = await supabase.from("shared_plans").select("plan_data, created_at, expires_at").eq("share_id", req.params.shareId).single();
+    if (!data) return res.status(404).json({ error: "Plan not found or expired" });
+    if (new Date(data.expires_at) < new Date()) return res.status(410).json({ error: "This plan has expired" });
+    res.json(data.plan_data);
+  } catch (e) { res.status(404).json({ error: "Plan not found" }); }
 });
 
 // ══ PANTRY PHOTO SCAN ═════════════════════════════════════════════════════════

@@ -1269,6 +1269,7 @@ async function renderSaleItems() {
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
+      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
@@ -1340,8 +1341,9 @@ async function searchRecipes() {
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
+    state._isWeeklyPlan=false; state._isFreezerPlan=false;
     state.recipeOffset=8;
-    renderRecipeGrid(); renderSavingsBanner(); goTo(6);
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
     if (data.badges) handleBadgeResponse(data.badges);
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
@@ -1401,6 +1403,125 @@ function renderSavingsBanner() {
     '</div>' + budgetLine + '</div>';
 }
 
+function renderNutritionBanner() {
+  const el = document.getElementById("nutritionBanner");
+  if (!el) return;
+  const recipes = state.recipes;
+  if (!recipes?.length || !recipes[0].calories) { el.innerHTML = ""; return; }
+  const count = recipes.length;
+  const avg = (field) => Math.round(recipes.reduce((s, r) => s + (parseFloat(r[field]) || 0), 0) / count);
+  const cal = avg("calories"), pro = avg("protein"), carb = avg("carbs"), fat = avg("fat"), fib = avg("fiber");
+  let warnings = "";
+  if (pro < 20) warnings += '<p style="color:#d97706;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
+  if (fib < 5) warnings += '<p style="color:#d97706;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
+  el.innerHTML = '<div style="background:#f9f9f0;border-radius:16px;padding:20px;margin-bottom:20px;">' +
+    '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span style="color:#888;font-size:12px;font-weight:normal;">(estimates per serving)</span></h3>' +
+    '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;">' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#888;">Calories</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#d97706;">' + pro + 'g</div><div style="font-size:11px;color:#888;">Protein</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + carb + 'g</div><div style="font-size:11px;color:#888;">Carbs</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#888;">' + fat + 'g</div><div style="font-size:11px;color:#888;">Fat</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + fib + 'g</div><div style="font-size:11px;color:#888;">Fiber</div></div>' +
+    '</div>' + warnings + '</div>';
+}
+
+function renderSharePlanButton() {
+  const el = document.getElementById("sharePlanArea");
+  if (!el) return;
+  if (!state._isWeeklyPlan && !state._isFreezerPlan) { el.innerHTML = ""; return; }
+  el.innerHTML = '<div style="text-align:center;margin-bottom:16px;"><button onclick="sharePlan()" style="background:none;border:2px solid #52b788;border-radius:12px;padding:10px 20px;color:#2d6a4f;font-size:14px;font-weight:600;cursor:pointer;">&#128279; Share Plan with Family</button></div>';
+}
+
+async function sharePlan() {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) { showSignInModal("share your plan"); return; }
+    const res = await fetch("/api/plans/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+      body: JSON.stringify({ recipes: state.recipes, savings: state.lastSavings })
+    });
+    const data = await res.json();
+    if (data.shareUrl) {
+      navigator.clipboard.writeText(data.shareUrl).then(() => showToast("Share link copied!", "success")).catch(() => showToast("Link: " + data.shareUrl));
+    } else { showToast("Could not create share link"); }
+  } catch (e) { showToast("Could not share plan"); }
+}
+
+async function generateFreezerMeals() {
+  const payload = getRecipePayload(0);
+  if (!payload) { showToast("Include at least one deal item."); return; }
+  payload.freezerMeals = true;
+  const btn = document.querySelector('[onclick="generateFreezerMeals()"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Finding freezer meals..."; }
+  showCookingLoading();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000);
+  try {
+    const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
+    const data = await res.json();
+    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate"); }
+    if (!data.recipes?.length) throw new Error("No recipes generated.");
+    state.recipes = data.recipes;
+    state.lastSavings = data.savings || null;
+    state._isFreezerPlan = true; state._isWeeklyPlan = false;
+    state.recipeOffset = 0;
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
+    document.getElementById("recipesTitle").textContent = "&#10052;&#65039; Freezer Meal Plan";
+    document.getElementById("resultsCount").textContent = state.recipes.length + " freezer-friendly recipes";
+  } catch (err) {
+    if (err.name === "AbortError") showToast("Timed out.");
+    else showToast(err.message);
+  } finally {
+    clearTimeout(timeout); hideLoading();
+    if (btn) { btn.disabled = false; btn.textContent = "&#10052;&#65039; Freezer Meals — Cook Now, Eat Later"; }
+  }
+}
+
+// Receipt scanner
+async function scanReceipt() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "image/*"; input.capture = "environment";
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    showToast("Reading your receipt...");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+      try {
+        const { data: sessionData } = await sb.auth.getSession();
+        if (!sessionData?.session) { showSignInModal("scan your receipt"); return; }
+        const res = await fetch("/api/scan-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+          body: JSON.stringify({ image: base64 })
+        });
+        const data = await res.json();
+        if (data.success) showReceiptResults(data);
+        else showToast(data.error || "Could not read receipt. Try a clearer photo.");
+      } catch (err) { showToast("Scan failed."); }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function showReceiptResults(data) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:5000;";
+  overlay.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:400px;width:90%;position:relative;text-align:center;">' +
+    '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;">\u00d7</button>' +
+    '<div style="font-size:48px;margin-bottom:12px;">&#127881;</div>' +
+    '<h3 style="color:#2d6a4f;margin-bottom:16px;">Your Receipt Results</h3>' +
+    '<div style="display:flex;justify-content:space-around;margin-bottom:20px;">' +
+    '<div><div style="font-size:24px;font-weight:800;color:#2d6a4f;">$' + data.totalSpent + '</div><div style="font-size:12px;color:#888;">You spent</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;text-decoration:line-through;color:#999;">$' + data.regularPrice + '</div><div style="font-size:12px;color:#888;">Regular price</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;color:#d97706;">$' + data.saved + '</div><div style="font-size:12px;color:#888;">You saved!</div></div>' +
+    '</div>' +
+    '<p style="color:#888;font-size:13px;">This has been added to your savings tracker.</p></div>';
+  document.body.appendChild(overlay);
+}
+
 function recipeHash(r) {
   const key = (r.title || "") + "|" + ((r.allIngredients || r.ingredients || []).slice(0, 3).map(i => typeof i === "string" ? i : i.name || i.item || "").join(","));
   let h = 0; for (let i = 0; i < key.length; i++) { h = ((h << 5) - h) + key.charCodeAt(i); h |= 0; }
@@ -1429,6 +1550,7 @@ function renderRecipeGrid(){
         ${/sheet pan|one.pot|one.pan|slow cooker|instant pot|crockpot/i.test(r.title)?'<span class="meta-chip" style="background:#DBEAFE;color:#1E40AF">Easy cleanup</span>':""}
         ${r.servings>=4&&r.estimatedCost>0&&r.estimatedCost/r.servings<4?'<span class="meta-chip" style="background:#CCFBF1;color:#0F766E">Family-friendly</span>':""}
         ${r._isLeftover&&r._leftoverItems?.length?'<span class="meta-chip" style="background:#D1FAE5;color:#065F46">&#9851;&#65039; Uses leftovers</span>':""}
+        ${r.shelfLife||r.freezeInstructions?'<span class="meta-chip" style="background:#e8f4fd;color:#1a5276">&#10052;&#65039; Freezer friendly</span>':""}
       </div></div></div>`;}).join("");
   // Lazy-load images for cards without them
   lazyLoadRecipeImages();
@@ -1505,6 +1627,7 @@ function renderModal(r){
     <div class="modal-body">
       <div class="modal-header"><div class="modal-title">${escapeHtml(r.title)}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
       ${r.reasoning?`<div style="background:#f0fdf4;border-left:4px solid #52b788;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:13px;"><strong style="color:#2d6a4f;">Why this recipe:</strong> <span style="color:#555;">${escapeHtml(r.reasoning)}</span></div>`:""}
+      ${r.freezeInstructions?`<div style="background:#e8f4fd;border:1px solid #1a5276;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;"><span style="color:#1a5276;font-weight:600;">&#10052;&#65039; Freezer Friendly</span>${r.shelfLife?` &middot; <span style="color:#888;">${escapeHtml(r.shelfLife)}</span>`:""}${r.batchSize?` &middot; <span style="color:#888;">${escapeHtml(r.batchSize)}</span>`:""}<div style="color:#555;margin-top:4px;font-size:12px;"><strong>Freeze:</strong> ${escapeHtml(r.freezeInstructions)}</div>${r.reheatInstructions?`<div style="color:#555;margin-top:2px;font-size:12px;"><strong>Reheat:</strong> ${escapeHtml(r.reheatInstructions)}</div>`:""}</div>`:""}
       <div class="modal-stats">
         ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         <span class="stat-pill stat-servings">👥 ${escapeHtml(r.servings)} servings</span>
@@ -1659,8 +1782,8 @@ async function generateWeeklyPlan() {
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;
-    state._isWeeklyPlan = true;
-    renderRecipeGrid(); renderSavingsBanner(); goTo(6);
+    state._isWeeklyPlan = true; state._isFreezerPlan = false;
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
     document.getElementById("recipesTitle").textContent = "📅 Your Weekly Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " dinners planned for the week";
   } catch (err) {

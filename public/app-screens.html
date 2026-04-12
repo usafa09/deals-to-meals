@@ -85,6 +85,7 @@
 
   <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Generate Recipes with AI &#8594;</button>
   <button onclick="generateWeeklyPlan()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#128197; Plan My Week (5 Dinners)</button>
+  <button onclick="generateFreezerMeals()" style="width:100%;padding:14px;background:#1a5276;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#10052;&#65039; Freezer Meals — Cook Now, Eat Later</button>
 </div>
 
 <!-- SCREEN 6: RECIPE GRID -->
@@ -101,6 +102,8 @@
     </div>
   </div>
   <div id="savingsBanner"></div>
+  <div id="nutritionBanner"></div>
+  <div id="sharePlanArea"></div>
   <div class="recipe-grid" id="recipeGrid"></div>
   <p style="font-size:12px;color:#999;font-style:italic;text-align:center;margin-top:12px;line-height:1.5">&#9888;&#65039; Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
   <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px"><a href="mailto:support@dishcount.co?subject=Recipe%20Issue&amp;body=Recipe:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">Recipe doesn't look right? Report it &#8594;</a></p>

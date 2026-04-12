@@ -815,7 +815,7 @@ function showCookingLoading() {
   const subEl = document.getElementById("loadingSub");
   if (spinner) spinner.style.display = "none";
   if (emojiEl) emojiEl.style.display = "block";
-  subEl.textContent = "Our AI chef is crafting your recipes";
+  subEl.textContent = "Building your meal plan from this week's deals";
   emojiIdx = 0;
   const update = () => {
     const m = COOKING_EMOJIS[emojiIdx % COOKING_EMOJIS.length];
@@ -1328,7 +1328,7 @@ async function searchRecipes() {
   if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
   // Double-click prevention
   const btn=document.getElementById("findRecipesBtn");
-  if(btn){btn.disabled=true;btn.textContent="Generating...";}
+  if(btn){btn.disabled=true;btn.textContent="Building meals...";}
   state.recipeOffset=0;
   showCookingLoading();
   const controller=new AbortController();
@@ -1351,7 +1351,7 @@ async function searchRecipes() {
     if(err.name==="AbortError")showToast("Recipe generation timed out. Please try again.");
     else if(!navigator.onLine)showToast("You appear to be offline. Check your connection and try again.");
     else showToast(err.message);
-  }finally{clearTimeout(timeout);hideLoading();if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Generate Recipes with AI \u2192";}}
+  }finally{clearTimeout(timeout);hideLoading();if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Build My Meals";}}
 }
 
 async function loadMoreRecipes() {
@@ -1533,7 +1533,7 @@ function renderRecipeGrid(){
   const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Recipes"};
   const diets=state.selectedDiets.length?` · ${state.selectedDiets.join(", ")}`:"";
   document.getElementById("recipesTitle").textContent=`${styleInfo.icon} ${styleInfo.label} Recipes`;
-  document.getElementById("resultsCount").textContent=`${state.recipes.length} AI-generated recipes${diets}`;
+  document.getElementById("resultsCount").textContent=`${state.recipes.length} recipes built from this week's deals${diets}`;
   document.getElementById("recipeGrid").innerHTML=state.recipes.map((r,i)=>{
     const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
     return `<div class="recipe-card-tile" onclick="openModal(${i})">

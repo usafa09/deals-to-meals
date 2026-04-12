@@ -483,6 +483,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .skeleton { background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px; }
 @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 #backToTop { display:none;position:fixed;bottom:20px;right:20px;background:#2d6a4f;color:white;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100; }
+#zipBtn, #zipInput { pointer-events:auto !important; position:relative !important; z-index:999 !important; }
+.landing-search { position:relative; z-index:999; }
 @media (max-width: 768px) {
   button, .survey-btn, .filter-chip, .sale-filter-btn { min-height:44px; }
   input, select, textarea { font-size:16px !important; }

@@ -422,27 +422,33 @@ function showRateLimitModal() {
 }
 
 function updateAuthUI(session) {
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  const setHref = (id, val) => { const el = document.getElementById(id); if (el) el.href = val; };
+  // Find ALL sign-in links on the page (any link to profile.html with nav-signin class)
+  const allSignInLinks = document.querySelectorAll(".nav-signin");
   if (!session?.user) {
-    setText("profileBtnText", "Sign In");
-    setText("landingSigninBtn", "Sign In");
-    setHref("profileBtn", "/profile.html");
-    setHref("landingSigninBtn", "/profile.html");
-    const btn = document.getElementById("profileBtn"); if (btn) btn.classList.remove("logged-in");
-    const lBtn = document.getElementById("landingSigninBtn"); if (lBtn) lBtn.classList.remove("logged-in");
+    allSignInLinks.forEach(link => {
+      if (link.id === "profileBtn") {
+        const span = link.querySelector("#profileBtnText");
+        if (span) span.textContent = "Sign In";
+      } else {
+        link.textContent = "Sign In";
+      }
+      link.classList.remove("logged-in");
+    });
     return;
   }
   const user = session.user;
-  setHref("profileBtn", "/profile.html");
-  setHref("landingSigninBtn", "/profile.html");
   sb.from("profiles").select("full_name").eq("id", user.id).single().then(({ data: profile }) => {
     const name = profile?.full_name || user.email?.split("@")[0] || "Profile";
     const firstName = name.split(" ")[0];
-    setText("profileBtnText", firstName);
-    setText("landingSigninBtn", firstName);
-    const btn = document.getElementById("profileBtn"); if (btn) btn.classList.add("logged-in");
-    const lBtn = document.getElementById("landingSigninBtn"); if (lBtn) lBtn.classList.add("logged-in");
+    allSignInLinks.forEach(link => {
+      if (link.id === "profileBtn") {
+        const span = link.querySelector("#profileBtnText");
+        if (span) span.textContent = firstName;
+      } else {
+        link.textContent = firstName;
+      }
+      link.classList.add("logged-in");
+    });
   });
 }
 

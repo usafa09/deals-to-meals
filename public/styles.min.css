@@ -484,6 +484,7 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 #backToTop { display:none;position:fixed;bottom:20px;right:20px;background:#2d6a4f;color:white;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100; }
 #zipBtn, #zipInput { pointer-events:auto !important; position:relative !important; z-index:999 !important; }
+.beta-badge { display:inline-block;background:#d97706;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;letter-spacing:0.5px; }
 .mobile-only { display:none; }
 .desktop-only { display:inline; }
 @media (max-width: 768px) {

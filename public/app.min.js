@@ -1507,14 +1507,14 @@ function renderNutritionBanner() {
   if (pro < 20) warnings += '<p style="color:#d97706;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
   if (fib < 5) warnings += '<p style="color:#d97706;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
   el.innerHTML = '<div style="background:#f9f9f0;border-radius:16px;padding:20px;margin-bottom:20px;">' +
-    '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span style="color:#888;font-size:12px;font-weight:normal;">(estimates per serving)</span></h3>' +
+    '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span class="beta-badge">BETA</span> <span style="color:#999;font-size:11px;font-weight:normal;">Estimates — not verified nutritional data</span></h3>' +
     '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;">' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#888;">Calories</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#d97706;">' + pro + 'g</div><div style="font-size:11px;color:#888;">Protein</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + carb + 'g</div><div style="font-size:11px;color:#888;">Carbs</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#888;">' + fat + 'g</div><div style="font-size:11px;color:#888;">Fat</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + fib + 'g</div><div style="font-size:11px;color:#888;">Fiber</div></div>' +
-    '</div>' + warnings + '</div>';
+    '</div>' + warnings + '<div style="text-align:right;margin-top:8px;"><a href="/contact.html?topic=bug" style="color:#999;font-size:11px;">Nutrition data wrong? Report issue</a></div></div>';
 }
 
 function renderSharePlanButton() {
@@ -1758,7 +1758,7 @@ function renderModal(r){
         const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
         const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;
         const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
-        const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap</button>` : "";
+        const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap <span class="beta-badge">BETA</span></button>` : "";
         // Price comparison: find if other stores have this item
         let bestPriceBadge = "";
         if (isOnSale && ing.matchedDeal) {
@@ -1772,7 +1772,7 @@ function renderModal(r){
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><div><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${bestPriceBadge}</div></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
-      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step</button>`:""}
+      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step <span style="background:rgba(255,255,255,0.3);font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;">BETA</span></button>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div id="ratingFormArea"></div>
       <div class="modal-actions">

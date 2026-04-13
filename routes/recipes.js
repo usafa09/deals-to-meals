@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import fetch from "node-fetch";
 import rateLimit from "express-rate-limit";
 import { trackStat } from "./gamification.js";
@@ -948,7 +949,7 @@ router.post("/api/plans/share", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Sign in to share plans" });
   const { recipes, savings } = req.body;
   if (!recipes?.length) return res.status(400).json({ error: "No recipes to share" });
-  const shareId = Math.random().toString(36).slice(2, 8);
+  const shareId = randomBytes(6).toString("hex");
   try {
     await supabase.from("shared_plans").insert({
       share_id: shareId, user_id: user.id,

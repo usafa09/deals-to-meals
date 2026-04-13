@@ -110,7 +110,9 @@
       "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=pot+roast&locationId=01400943\" --max-time 15)",
       "Bash(curl -sk \"https://dishcount.co/api/kroger/search?query=beef+roast&locationId=01400943\" --max-time 15)",
       "Bash(footer)",
-      "Bash(contact\")"
+      "Bash(contact\")",
+      "Bash(sed -n '946,960p' routes/recipes.js)",
+      "Bash(sed -n '965,975p' routes/recipes.js)"
     ]
   }
 }

@@ -157,6 +157,12 @@ app.use("/api/nearby-stores", storeSearchLimiter);
 app.use("/auth/", authLimiter);
 app.use("/api/subscribe", subscribeLimiter);
 app.use("/api/stats/track", gamificationLimiter);
+app.use("/api/plans/share", contactLimiter); // 3/hour — prevent plan spam
+app.use("/api/community/recipes", contactLimiter); // 3/hour — prevent submission spam
+app.use("/api/recipes/interact", gamificationLimiter); // 30/15min — behavior tracking
+app.use("/api/recipes/rate", gamificationLimiter); // 30/15min — rating limit
+app.use("/api/scan-pantry", expensiveLimiter); // 10/15min — AI calls
+app.use("/api/scan-receipt", expensiveLimiter); // 10/15min — AI calls
 app.use("/api/badges", gamificationLimiter);
 app.use("/api/leaderboard", gamificationLimiter);
 app.use("/api/challenges", gamificationLimiter);

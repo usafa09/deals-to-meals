@@ -76,6 +76,9 @@ app.use(cors({
 }));
 
 // ── Body parsing with size limits ───────────────────────────────────────────
+// Larger limit for image scan endpoints (pantry photos, receipts)
+app.use("/api/scan-pantry", express.json({ limit: "20mb" }));
+app.use("/api/scan-receipt", express.json({ limit: "20mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 

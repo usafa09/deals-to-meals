@@ -1573,13 +1573,12 @@ async function generateFreezerMeals() {
 // Receipt scanner
 async function scanReceipt() {
   const input = document.createElement("input");
-  input.type = "file"; input.accept = "image/*"; input.capture = "environment";
+  input.type = "file"; input.accept = "image/*";
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) input.capture = "environment";
   input.onchange = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     showToast("Reading your receipt...");
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result.split(",")[1];
+    resizeImageForScan(file, 1200, 0.8, async (base64) => {
       try {
         const { data: sessionData } = await sb.auth.getSession();
         if (!sessionData?.session) { showSignInModal("scan your receipt"); return; }
@@ -1592,8 +1591,7 @@ async function scanReceipt() {
         if (data.success) showReceiptResults(data);
         else showToast(data.error || "Could not read receipt. Try a clearer photo.");
       } catch (err) { showToast("Scan failed."); }
-    };
-    reader.readAsDataURL(file);
+    });
   };
   input.click();
 }
@@ -2001,6 +1999,23 @@ async function submitCommunityRecipe() {
 }
 
 // ── Pantry Photo Scan ───────────────────────────────────────────────────────
+function resizeImageForScan(file, maxWidth, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function scanPantry() {
   const input = document.createElement("input");
   input.type = "file";
@@ -2010,9 +2025,7 @@ function scanPantry() {
     const file = e.target.files?.[0];
     if (!file) return;
     showToast("Scanning your pantry...");
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result.split(",")[1];
+    resizeImageForScan(file, 1024, 0.7, async (base64) => {
       try {
         const res = await fetch("/api/scan-pantry", {
           method: "POST",
@@ -2030,8 +2043,7 @@ function scanPantry() {
           showToast("Found " + data.items.length + " items!", "success");
         } else { showToast("Could not identify items. Try a clearer photo."); }
       } catch (err) { showToast("Scan failed. Try again."); }
-    };
-    reader.readAsDataURL(file);
+    });
   };
   input.click();
 }

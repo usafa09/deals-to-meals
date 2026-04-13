@@ -1007,13 +1007,14 @@ router.post("/api/scan-pantry", async (req, res) => {
       }),
     });
     const result = await response.json();
+    if (result.error) { console.error("Pantry scan API error:", result.error); return res.json({ items: [] }); }
     const text = result.content?.[0]?.text?.trim() || "[]";
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     const items = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-    console.log(`Pantry scan: found ${items.length} items`);
+    console.log(`Pantry scan: found ${items.length} items from ${(image.length / 1024).toFixed(0)}KB image`);
     res.json({ items });
   } catch (e) {
-    console.error("Pantry scan error:", e.message);
+    console.error("Pantry scan error:", e.message, e.stack?.split("\n")[1] || "");
     res.json({ items: [] });
   }
 });

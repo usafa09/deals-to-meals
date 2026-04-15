@@ -1346,6 +1346,42 @@ function dealCatIcon(cat) {
   return "🏷️";
 }
 
+const STORE_AD_URLS = {
+  "kroger":"https://www.kroger.com/savings/cl/weeklyad","ralphs":"https://www.ralphs.com/savings/cl/weeklyad",
+  "fred meyer":"https://www.fredmeyer.com/savings/cl/weeklyad","harris teeter":"https://www.harristeeter.com/savings/cl/weeklyad",
+  "king soopers":"https://www.kingsoopers.com/savings/cl/weeklyad","fry's":"https://www.frysfood.com/savings/cl/weeklyad",
+  "smith's":"https://www.smithsfoodanddrug.com/savings/cl/weeklyad","qfc":"https://www.qfc.com/savings/cl/weeklyad",
+  "dillons":"https://www.dillons.com/savings/cl/weeklyad","mariano's":"https://www.marianos.com/savings/cl/weeklyad",
+  "walmart":"https://www.walmart.com/shop/deals/flash-deals","aldi":"https://www.aldi.us/weekly-specials/this-weeks-aldi-finds/",
+  "meijer":"https://www.meijer.com/shopping/weekly-ad.html","publix":"https://www.publix.com/savings/weekly-ad",
+  "albertsons":"https://www.albertsons.com/savings/weekly-ad.html","safeway":"https://www.safeway.com/savings/weekly-ad.html",
+  "food lion":"https://www.foodlion.com/weekly-specials/","giant eagle":"https://www.gianteagle.com/weekly-ad",
+  "sprouts":"https://www.sprouts.com/weekly-ad/","hy-vee":"https://www.hy-vee.com/deals/weekly-ads",
+  "shoprite":"https://www.shoprite.com/circular","winn-dixie":"https://www.winndixie.com/weeklyad",
+  "save-a-lot":"https://www.savealot.com/weekly-ads","grocery outlet":"https://www.groceryoutlet.com/weekly-ad",
+  "whole foods":"https://www.wholefoodsmarket.com/sales-flyer","fresh thyme":"https://www.freshthyme.com/weekly-ad",
+  "stop & shop":"https://stopandshop.com/savings/weekly-circular","h-e-b":"https://www.heb.com/weekly-ad",
+};
+
+function openStoreAd(storeName) {
+  const lower = (storeName || "").toLowerCase();
+  let url = null;
+  for (const [key, val] of Object.entries(STORE_AD_URLS)) { if (lower.includes(key)) { url = val; break; } }
+  if (!url) { window.open("https://www.google.com/search?q=" + encodeURIComponent(storeName + " weekly ad"), "_blank"); return; }
+  // Most stores block iframes, so open directly in a new tab with a branded interstitial
+  const overlay = document.createElement("div");
+  overlay.id = "adModalOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
+  overlay.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:400px;width:90%;text-align:center;">' +
+    '<div style="font-size:48px;margin-bottom:12px;">&#128240;</div>' +
+    '<h3 style="color:#2d6a4f;margin-bottom:8px;">' + escapeHtml(storeName) + ' Weekly Ad</h3>' +
+    '<p style="color:#666;font-size:14px;margin-bottom:20px;">View this week\'s deals directly on the official ' + escapeHtml(storeName) + ' website.</p>' +
+    '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="document.getElementById(\'adModalOverlay\').remove()" style="display:block;padding:14px;background:#2d6a4f;color:white;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px;">View Weekly Ad &#8594;</a>' +
+    '<button onclick="document.getElementById(\'adModalOverlay\').remove()" style="background:none;border:none;color:#888;font-size:14px;cursor:pointer;">Close</button></div>';
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 // ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
 async function renderSaleItems() {
   await ensureAppScreens();
@@ -1419,12 +1455,12 @@ async function renderSaleItems() {
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
       ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
-      ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.textContent=dealCatIcon('${escapeHtml(d.category||d.name||"")}');this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
+      ${d.image&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
         <div class="sale-card-price">${price?`<span class="sale-card-sale">${escapeHtml(price.startsWith("$")?price:"$"+price)}${escapeHtml(unit)}</span>`:""} ${reg?`<span class="sale-card-reg">${escapeHtml(reg.startsWith("$")?reg:"$"+reg)}${escapeHtml(unit)}</span>`:""}</div>
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
-        <div class="sale-card-store">${escapeHtml(store)}${d.adSourceUrl?` · <a href="${escapeHtml(d.adSourceUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
+        <div class="sale-card-store">${escapeHtml(store)}${store?` · <a href="#" onclick="event.preventDefault();event.stopPropagation();openStoreAd('${escapeHtml(store).replace(/'/g,"&#039;")}')" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
         ${ds==="include"?`<button onclick="event.stopPropagation();addDealToList('${escapeHtml(d.id)}')" style="margin-top:4px;padding:3px 8px;border:1px solid var(--green-mid);border-radius:6px;background:var(--green-light);color:var(--green-dark);font-size:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🛒 Add to List</button>`:""}
       </div></div>`;}).join("");
 

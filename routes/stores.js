@@ -313,7 +313,8 @@ router.get("/api/deals/regional", async (req, res) => {
         }
       }
       if (adExtractDeals.length > 0) {
-        adExtractDeals = adExtractDeals.map(d => d.image ? d : { ...d, image: getCategoryImage(d.category) });
+        // Don't assign category images — let frontend use emoji fallback instead of unreliable URLs
+        adExtractDeals = adExtractDeals.map(d => d.image ? d : { ...d, image: null });
         results.sources.push({ store: "ad-extract", deals: adExtractDeals.length, cached: true });
         console.log(`  Ad-extracted deals: ${adExtractDeals.length} deals`);
       }
@@ -356,6 +357,14 @@ router.get("/api/deals/regional", async (req, res) => {
     });
     const removed = beforeDedup - allDeals.length;
     if (removed > 0) console.log(`  Cleaned: ${beforeDedup - beforeFilter} dupes, ${beforeFilter - allDeals.length} bad prices removed`);
+
+    // Sanitize images — remove unreliable external URLs, set null so frontend uses emoji fallback
+    allDeals = allDeals.map(d => {
+      if (d.image && (d.image.includes("unsplash.com") || d.image.includes("pexels.com") || d.image.includes("igroceryads") || d.image.includes("iweeklyads") || d.image.includes("ladysavings"))) {
+        d.image = null;
+      }
+      return d;
+    });
 
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
     logSearch(zip, results.sources.length, allDeals.length);

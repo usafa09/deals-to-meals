@@ -369,8 +369,24 @@ async function loadUserPreferences() {
       if (profile.preferences && Object.keys(profile.preferences).length > 0) {
         state.userPreferences = profile.preferences;
       }
+      // Restore saved store selection and budget
+      if (profile.selected_stores?.length) state._savedStores = profile.selected_stores;
+      if (profile.budget_target) state._savedBudget = profile.budget_target;
     }
   } catch(e) { console.error("loadUserPreferences error:", e); }
+}
+
+async function saveUserSelections() {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) return;
+    const budgetVal = parseFloat(document.getElementById("budgetTarget")?.value) || null;
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
+      body: JSON.stringify({ selected_stores: state.selectedBrands, budget_target: budgetVal })
+    });
+  } catch(e) { /* silent */ }
 }
 
 function showSignupNudge(count) {
@@ -756,7 +772,7 @@ async function goTo(step) {
   if (!goTo._noPush) history.pushState({ screen: step }, "", "");
   goTo._noPush = false;
   window.scrollTo({ top:0, behavior:"smooth" });
-  if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); showTooltip("budget","#budgetTarget","Set a weekly budget and we'll keep your meal plan under that amount using real sale prices.","top:100%;left:0;margin-top:8px;"); showTooltip("mealrequest","#mealRequest","Tell us what you're in the mood for! \"I want tacos\" or \"easy slow cooker meals\" — we'll work it in.","top:100%;left:0;margin-top:8px;"); }
+  if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); if(state._savedBudget&&!document.getElementById("budgetTarget")?.value){const bt=document.getElementById("budgetTarget");if(bt)bt.value=state._savedBudget;} showTooltip("budget","#budgetTarget","Set a weekly budget and we'll keep your meal plan under that amount using real sale prices.","top:100%;left:0;margin-top:8px;"); showTooltip("mealrequest","#mealRequest","Tell us what you're in the mood for! \"I want tacos\" or \"easy slow cooker meals\" — we'll work it in.","top:100%;left:0;margin-top:8px;"); }
   if (step === 4) { showTooltip("deals",".sale-card:first-child","Green &#10003; = must include. Red &#10007; = exclude. Or skip picking — we'll choose the best deals for you.","top:100%;left:0;margin-top:8px;"); showTooltip("pantry","#haveItems","Add items you already have at home. Recipes will use these first. Try the camera button to scan your pantry!","top:100%;left:0;margin-top:8px;"); }
   if (step === 2) { showTooltip("stores",".brand-card:first-child","Tap stores to select them. Pick all the ones you shop at — we'll combine their deals.","top:100%;left:0;margin-top:8px;"); }
 }
@@ -1263,6 +1279,10 @@ async function loadDealsAndShow() {
     const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
     state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
+    // Check which selected stores have no deals
+    const storesWithDeals = new Set(state.deals.map(d=>(d.storeName||d.source||"").toLowerCase()));
+    const storesWithout = state.selectedBrands.filter(b=>!storesWithDeals.has(b.toLowerCase()) && !state.deals.some(d=>(d.storeName||d.source||"").toLowerCase().includes(b.toLowerCase())));
+    if(storesWithout.length>0) showToast(storesWithout.join(", ")+" — no deals available this week. Deals update weekly.");
     if(state.deals.length===0){
       hideLoading();
       const onlyAldi = state.selectedBrands.length === 1 && state.selectedBrands[0] === "ALDI";
@@ -1288,6 +1308,19 @@ function findMatchingCoupon(dealName) {
   });
 }
 
+function dealCatIcon(cat) {
+  const c = (cat || "").toLowerCase();
+  if (/chicken|beef|pork|steak|salmon|shrimp|turkey|sausage|bacon|fish|meat|ham|ribs/i.test(c)) return "🥩";
+  if (/apple|banana|lettuce|tomato|onion|pepper|broccoli|carrot|potato|avocado|fruit|vegetable|produce|berr/i.test(c)) return "🥦";
+  if (/milk|cheese|butter|yogurt|cream|egg|dairy/i.test(c)) return "🧀";
+  if (/bread|bagel|muffin|croissant|bakery|tortilla|bun|roll/i.test(c)) return "🍞";
+  if (/frozen|ice cream/i.test(c)) return "❄️";
+  if (/pasta|rice|bean|can|soup|sauce|broth|oil|pantry/i.test(c)) return "🥫";
+  if (/juice|coffee|tea|soda|water|beverage/i.test(c)) return "🥤";
+  if (/chip|cracker|snack|popcorn|cookie|candy/i.test(c)) return "🍿";
+  return "🏷️";
+}
+
 // ── Screen 4: Sale Items Browser ──────────────────────────────────────────────
 async function renderSaleItems() {
   await ensureAppScreens();
@@ -1301,7 +1334,8 @@ async function renderSaleItems() {
   };
   function getCatGroup(cat){const c=(cat||"").toLowerCase();for(const[g,terms]of Object.entries(CATEGORY_GROUPS)){if(terms.some(t=>c.includes(t)||t.includes(c)))return g;}return"Other";}
 
-  let deals=state.deals;
+  const NON_FOOD_DISPLAY = /\b(lotion|shampoo|conditioner|toothpaste|toothbrush|soap|detergent|paper towel|toilet paper|trash bag|cleaning|laundry|dishwasher|bleach|deodorant|razor|batteries|light bulb|pet food|cat food|dog food|cat litter|diaper|wipes|feminine|tampon|band.aid|medicine|vitamin|mouthwash|floss|cotton|air freshener|candle)\b/i;
+  let deals=state.deals.filter(d=>!NON_FOOD_DISPLAY.test(d.name||""));
   if(state.saleStoreFilter!=="all")deals=deals.filter(d=>(d.storeName||d.source||"").toLowerCase().includes(state.saleStoreFilter.toLowerCase()));
   if(state.saleCategoryFilter!=="all")deals=deals.filter(d=>getCatGroup(d.category)===state.saleCategoryFilter);
 
@@ -1309,8 +1343,8 @@ async function renderSaleItems() {
   const krogerBanner = document.getElementById("krogerConnectBanner");
   if (krogerBanner) {
     const hasCoupons = state.coupons.length > 0 || state.boostDeals.length > 0;
-    const krogerBrandName = state.selectedBrands.find(b => isKrogerFamily(b)) || "Kroger";
-    const hasKF = !!krogerBrandName && isKrogerFamily(krogerBrandName);
+    const krogerBrandName = state.selectedBrands.find(b => isKrogerFamily(b));
+    const hasKF = !!krogerBrandName;
     const showBanner = hasKF && !hasCoupons && !state.krogerConnected;
     krogerBanner.style.display = showBanner ? "flex" : "none";
     if (showBanner) {
@@ -1360,7 +1394,7 @@ async function renderSaleItems() {
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
       ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
-      ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.innerHTML='🏷️';this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">🏷️</div>`}
+      ${d.image?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="${escapeHtml(d.name)}" onerror="this.className='sale-card-img-ph';this.textContent=dealCatIcon('${escapeHtml(d.category||d.name||"")}');this.removeAttribute('src')" />`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
         <div class="sale-card-price">${price?`<span class="sale-card-sale">${escapeHtml(price.startsWith("$")?price:"$"+price)}${escapeHtml(unit)}</span>`:""} ${reg?`<span class="sale-card-reg">${escapeHtml(reg.startsWith("$")?reg:"$"+reg)}${escapeHtml(unit)}</span>`:""}</div>
@@ -1437,6 +1471,7 @@ async function searchRecipes() {
     renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
+    saveUserSelections();
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } else { const gc=parseInt(localStorage.getItem("dishcount_gen_count")||"0")+1; localStorage.setItem("dishcount_gen_count",String(gc)); if(gc===3&&!localStorage.getItem("dishcount_subscribed")){ showFeatureDiscovery("emailprompt",'<strong style="color:#2d6a4f;">Want these deals in your inbox?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">Get a free weekly email with the best deals and meal ideas near you. <a href="#" onclick="document.getElementById(\'zipInput\').scrollIntoView({behavior:\'smooth\'});return false;" style="color:#2d6a4f;font-weight:600;">Subscribe below</a></p>'); } } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){

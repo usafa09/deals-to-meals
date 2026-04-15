@@ -1002,7 +1002,7 @@ router.post("/api/scan-pantry", async (req, res) => {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } },
-            { type: "text", text: 'List every food ingredient visible in this photo. Return ONLY a JSON array of simple ingredient names, no brands, no sizes. Example: ["rice", "butter", "garlic", "olive oil"]. Return ONLY the JSON array.' }
+            { type: "text", text: 'List every food PRODUCT visible in this photo. Return the product name as you would write it on a grocery list — NOT the ingredients that make up the product. For example: "jar of pasta sauce" NOT "tomatoes, garlic, basil". "Box of cereal" NOT "oats, wheat, sugar". "Bottle of olive oil" NOT "olives". Return ONLY a JSON array of product names, no brands. Example: ["pasta sauce", "olive oil", "rice", "canned tomatoes", "chicken broth"]. Return ONLY the JSON array.' }
           ]
         }]
       }),

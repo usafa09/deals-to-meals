@@ -772,12 +772,37 @@ async function goTo(step) {
   if (!goTo._noPush) history.pushState({ screen: step }, "", "");
   goTo._noPush = false;
   window.scrollTo({ top:0, behavior:"smooth" });
+  updateStepProgress(step);
   if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); if(state._savedBudget&&!document.getElementById("budgetTarget")?.value){const bt=document.getElementById("budgetTarget");if(bt)bt.value=state._savedBudget;} showTooltip("budget","#budgetTarget","Set a weekly budget and we'll keep your meal plan under that amount using real sale prices.","top:100%;left:0;margin-top:8px;"); showTooltip("mealrequest","#mealRequest","Tell us what you're in the mood for! \"I want tacos\" or \"easy slow cooker meals\" — we'll work it in.","top:100%;left:0;margin-top:8px;"); }
   if (step === 4) { showTooltip("deals",".sale-card:first-child","Green &#10003; = must include. Red &#10007; = exclude. Or skip picking — we'll choose the best deals for you.","top:100%;left:0;margin-top:8px;"); showTooltip("pantry","#haveItems","Add items you already have at home. Recipes will use these first. Try the camera button to scan your pantry!","top:100%;left:0;margin-top:8px;"); }
   if (step === 2) { showTooltip("stores",".brand-card:first-child","Tap stores to select them. Pick all the ones you shop at — we'll combine their deals.","top:100%;left:0;margin-top:8px;"); }
 }
+function updateStepProgress(screen) {
+  const bar = document.getElementById("progressSteps");
+  const instr = document.getElementById("stepInstruction");
+  // Map app screens to progress steps: 2→1(stores), 3/4→2(deals), 5→3(prefs), 6→4(meals)
+  const stepMap = { 2: 1, 3: 2, 4: 2, 5: 3, 6: 4 };
+  const current = stepMap[screen] || 0;
+  // Show progress only on screens 2-5
+  if (bar) bar.style.display = (screen >= 2 && screen <= 5) ? "flex" : "none";
+  if (instr) instr.style.display = (screen >= 2 && screen <= 5 && !localStorage.getItem("dishcount_flow_complete")) ? "block" : "none";
+  // Update dots and lines
+  document.querySelectorAll(".step-dot").forEach(dot => {
+    const s = parseInt(dot.dataset.step);
+    dot.classList.remove("active", "completed");
+    if (s === current) dot.classList.add("active");
+    else if (s < current) dot.classList.add("completed");
+  });
+  document.querySelectorAll("#progressSteps .step-line").forEach((line, i) => {
+    line.classList.toggle("completed", i + 1 < current);
+  });
+  // Instruction text (only for first-time users)
+  const instructions = { 2: "Tap the stores you shop at — you can pick more than one", 3: "Browse deals and pick items you want, or add pantry items", 4: "Browse deals and pick items you want, or add pantry items", 5: "Set your preferences and tap Build My Meals" };
+  if (instr && !localStorage.getItem("dishcount_flow_complete")) instr.textContent = instructions[screen] || "";
+}
+
 function renderProgress(step) {
-  // Progress dots removed — header stays clean
+  // Legacy — replaced by updateStepProgress
 }
 function resetApp() {
   state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
@@ -1468,6 +1493,7 @@ async function searchRecipes() {
     state._lastBudgetTarget=payload.budgetTarget||null;
     state._isWeeklyPlan=false; state._isFreezerPlan=false;
     state.recipeOffset=8;
+    localStorage.setItem("dishcount_flow_complete","true");
     renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);

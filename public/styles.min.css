@@ -484,6 +484,19 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 #backToTop { display:none;position:fixed;bottom:20px;right:20px;background:#2d6a4f;color:white;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:100; }
 #zipBtn, #zipInput { pointer-events:auto !important; position:relative !important; z-index:999 !important; }
+/* ── Step Progress Bar ────────────────────────────────────────────────────── */
+.step-dot { display:flex;flex-direction:column;align-items:center;min-width:50px; }
+.step-num { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#e8e0d0;color:#888;transition:all 0.3s; }
+.step-label { font-size:10px;color:#888;margin-top:4px;white-space:nowrap;transition:all 0.3s; }
+.step-dot.active .step-num { background:#2d6a4f;color:white; }
+.step-dot.active .step-label { color:#2d6a4f;font-weight:600; }
+.step-dot.completed .step-num { background:#52b788;color:white;font-size:0; }
+.step-dot.completed .step-num::after { content:'\2713';font-size:13px; }
+.step-dot.completed .step-label { color:#52b788; }
+.step-line { flex:1;height:2px;background:#e8e0d0;min-width:12px;max-width:40px;transition:background 0.3s; }
+.step-line.completed { background:#52b788; }
+@media (max-width:400px) { .step-label{display:none;} .step-dot{min-width:28px;} }
+
 .beta-badge { display:inline-block;background:#d97706;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;letter-spacing:0.5px; }
 .mobile-only { display:none; }
 .desktop-only { display:inline; }

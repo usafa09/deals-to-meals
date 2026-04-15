@@ -1347,20 +1347,31 @@ function dealCatIcon(cat) {
 }
 
 const STORE_AD_URLS = {
-  "kroger":"https://www.kroger.com/savings/cl/weeklyad","ralphs":"https://www.ralphs.com/savings/cl/weeklyad",
-  "fred meyer":"https://www.fredmeyer.com/savings/cl/weeklyad","harris teeter":"https://www.harristeeter.com/savings/cl/weeklyad",
-  "king soopers":"https://www.kingsoopers.com/savings/cl/weeklyad","fry's":"https://www.frysfood.com/savings/cl/weeklyad",
-  "smith's":"https://www.smithsfoodanddrug.com/savings/cl/weeklyad","qfc":"https://www.qfc.com/savings/cl/weeklyad",
-  "dillons":"https://www.dillons.com/savings/cl/weeklyad","mariano's":"https://www.marianos.com/savings/cl/weeklyad",
-  "walmart":"https://www.walmart.com/shop/deals/flash-deals","aldi":"https://www.aldi.us/weekly-specials/this-weeks-aldi-finds/",
-  "meijer":"https://www.meijer.com/shopping/weekly-ad.html","publix":"https://www.publix.com/savings/weekly-ad",
-  "albertsons":"https://www.albertsons.com/savings/weekly-ad.html","safeway":"https://www.safeway.com/savings/weekly-ad.html",
-  "food lion":"https://www.foodlion.com/weekly-specials/","giant eagle":"https://www.gianteagle.com/weekly-ad",
+  // Kroger family
+  "kroger":"https://www.kroger.com/weeklyad","ralphs":"https://www.ralphs.com/weeklyad",
+  "fred meyer":"https://www.fredmeyer.com/weeklyad","harris teeter":"https://www.harristeeter.com/weeklyad",
+  "king soopers":"https://www.kingsoopers.com/weeklyad","fry's":"https://www.frysfood.com/weeklyad",
+  "smith's":"https://www.smithsfoodanddrug.com/weeklyad","qfc":"https://www.qfc.com/weeklyad",
+  "dillons":"https://www.dillons.com/weeklyad","mariano's":"https://www.marianos.com/weeklyad",
+  "pick n save":"https://www.picknsave.com/weeklyad","baker's":"https://www.bakersplus.com/weeklyad",
+  "city market":"https://www.citymarket.com/weeklyad","food 4 less":"https://www.food4less.com/weeklyad",
+  "foods co":"https://www.foodsco.net/weeklyad","gerbes":"https://www.gerbes.com/weeklyad",
+  "jay c":"https://www.jaycfoods.com/weeklyad","pay less":"https://www.pay-less.com/weeklyad",
+  "metro market":"https://www.metromarket.net/weeklyad",
+  // Other chains
+  "walmart":"https://www.walmart.com/shop/deals/shop-advertised-deals",
+  "aldi":"https://www.aldi.us/weekly-specials/weekly-ads",
+  "meijer":"https://www.meijer.com/shopping/weeklyad.html","publix":"https://www.publix.com/savings/weekly-ad",
+  "albertsons":"https://www.albertsons.com/weekly-ad.html","safeway":"https://www.safeway.com/weekly-ad.html",
+  "food lion":"https://www.foodlion.com/weekly-specials/","giant eagle":"https://www.gianteagle.com/grocery/weekly-ad",
   "sprouts":"https://www.sprouts.com/weekly-ad/","hy-vee":"https://www.hy-vee.com/deals/weekly-ads",
-  "shoprite":"https://www.shoprite.com/circular","winn-dixie":"https://www.winndixie.com/weeklyad",
-  "save-a-lot":"https://www.savealot.com/weekly-ads","grocery outlet":"https://www.groceryoutlet.com/weekly-ad",
-  "whole foods":"https://www.wholefoodsmarket.com/sales-flyer","fresh thyme":"https://www.freshthyme.com/weekly-ad",
-  "stop & shop":"https://stopandshop.com/savings/weekly-circular","h-e-b":"https://www.heb.com/weekly-ad",
+  "shoprite":"https://www.shoprite.com/circulars","stop & shop":"https://stopandshop.com/weekly-ad",
+  "stop and shop":"https://stopandshop.com/weekly-ad","winn-dixie":"https://www.winndixie.com/weeklyad",
+  "winn dixie":"https://www.winndixie.com/weeklyad","piggly wiggly":"https://www.pigglywiggly.com/weekly-ad",
+  "save-a-lot":"https://www.savealot.com/weekly-ads","save a lot":"https://www.savealot.com/weekly-ads",
+  "grocery outlet":"https://www.groceryoutlet.com/weekly-ad","market basket":"https://www.shopmarketbasket.com/weekly-flyer",
+  "ingles":"https://www.ingles-markets.com/weekly-ad","whole foods":"https://www.wholefoodsmarket.com/sales-flyer",
+  "fresh thyme":"https://www.freshthyme.com/weekly-ad","h-e-b":"https://www.heb.com/weekly-ad",
 };
 
 function openStoreAd(storeName) {

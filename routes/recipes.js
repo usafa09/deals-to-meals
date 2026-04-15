@@ -563,23 +563,28 @@ IMPORTANT ingredient type rules:
 
     console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
-      }),
+    const claudeBody = JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 8192,
+      messages: [{ role: "user", content: prompt }],
     });
+    const claudeHeaders = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
+
+    let response = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: claudeHeaders, body: claudeBody });
+
+    // Retry once with 5s delay on overload (529)
+    if (response.status === 529) {
+      console.log("Claude API overloaded (529) — retrying in 5 seconds...");
+      await new Promise(r => setTimeout(r, 5000));
+      response = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: claudeHeaders, body: claudeBody });
+    }
 
     if (!response.ok) {
       const errText = await response.text();
       console.error("Claude API error:", response.status, errText);
+      if (response.status === 529) {
+        return res.status(503).json({ error: "ai_overloaded", message: "Our recipe builder is temporarily busy. Please try again in a minute." });
+      }
       throw new Error(`Claude API error ${response.status}: ${errText.substring(0, 200)}`);
     }
 

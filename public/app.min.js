@@ -933,6 +933,19 @@ function showLoading(text, sub="") {
   document.getElementById("loadingOverlay").classList.add("show");
   startTipRotation();
 }
+var _loadingProgressTimer = null;
+function showOverloadMessage() {
+  const el = document.getElementById("recipeGrid") || document.querySelector("main");
+  if (!el) { showToast("Our recipe builder is temporarily busy. Try again in a minute."); return; }
+  const msg = document.createElement("div");
+  msg.style.cssText = "background:#FEF3C7;border:2px solid #FCD34D;border-radius:16px;padding:24px;text-align:center;margin:20px auto;max-width:500px;";
+  msg.innerHTML = '<div style="font-size:40px;margin-bottom:8px;">&#128104;&#8205;&#127859;</div>' +
+    '<h3 style="color:#92400E;margin-bottom:8px;">Our recipe builder is taking a short break</h3>' +
+    '<p style="color:#666;font-size:14px;margin-bottom:16px;">This is a temporary issue with high demand — not a problem with your request. It usually resolves within a minute.</p>' +
+    '<button onclick="this.closest(\'div\').remove();searchRecipes()" style="padding:12px 28px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Try Again</button>';
+  el.parentNode.insertBefore(msg, el);
+}
+
 function showCookingLoading() {
   const spinner = document.getElementById("loadingSpinner");
   const emojiEl = document.getElementById("loadingEmoji");
@@ -941,6 +954,16 @@ function showCookingLoading() {
   if (spinner) spinner.style.display = "none";
   if (emojiEl) emojiEl.style.display = "block";
   subEl.textContent = "Building your meal plan from this week's deals";
+  // Timed progress messages
+  if (_loadingProgressTimer) clearTimeout(_loadingProgressTimer);
+  const progressMsgs = [
+    [5000, "Finding the best recipes from your deals..."],
+    [15000, "Almost there — building your meal plan..."],
+    [30000, "Taking a bit longer than usual — hang tight!"],
+  ];
+  progressMsgs.forEach(([delay, msg]) => {
+    setTimeout(() => { if (subEl && document.getElementById("loadingOverlay")?.classList.contains("show")) subEl.textContent = msg; }, delay);
+  });
   emojiIdx = 0;
   const update = () => {
     const m = COOKING_EMOJIS[emojiIdx % COOKING_EMOJIS.length];
@@ -1533,7 +1556,7 @@ async function searchRecipes() {
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
-    if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } throw new Error(data.error||"Could not generate recipes"); }
+    if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } if(data.error==="ai_overloaded"){ hideLoading(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;

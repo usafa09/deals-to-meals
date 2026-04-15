@@ -222,27 +222,37 @@ function showToast(msg, type="success") {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+var _profileLoading = false;
+
 async function initApp() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("kroger") === "success") showToast("✅ Kroger account connected!");
+  if (params.get("kroger") === "success") showToast("Kroger account connected!", "success");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
 
-  // Listen for all auth state changes (handles OAuth redirects, sign-in, sign-out)
+  // Set active tab from hash
+  const hash = window.location.hash;
+  if (hash === "#saved") activeProfileTab = "saved";
+  else if (hash === "#lists") activeProfileTab = "lists";
+  else if (hash === "#badges") activeProfileTab = "badges";
+  else activeProfileTab = "profile";
+
+  // Auth state change — only handle sign-out and fresh sign-in after redirect
   sb.auth.onAuthStateChange(async (event, session) => {
-    console.log("profile auth state change:", event, session?.user?.email);
-    if (event === "SIGNED_IN" && session?.user) {
-      currentUser = session.user;
-      await loadProfileData();
-      renderProfile();
-    } else if (event === "SIGNED_OUT") {
+    if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
     }
+    // Only reload on SIGNED_IN if we haven't loaded yet (prevents double-load)
+    if (event === "SIGNED_IN" && session?.user && !_profileLoading && !userProfile) {
+      currentUser = session.user;
+      await loadProfileData();
+      renderProfile();
+    }
   });
 
+  // Initial session check
   try {
-    const { data, error } = await sb.auth.getSession();
-    console.log("Session data:", data?.session?.user?.email, "Error:", error);
+    const { data } = await sb.auth.getSession();
     if (data?.session?.user) {
       currentUser = data.session.user;
       await loadProfileData();
@@ -254,33 +264,32 @@ async function initApp() {
     console.error("Session check failed:", e);
     renderAuth();
   }
-
-  // Set active tab from hash
-  const hash = window.location.hash;
-  if (hash === "#saved") activeProfileTab = "saved";
-  else if (hash === "#lists") activeProfileTab = "lists";
-  else if (hash === "#badges") activeProfileTab = "badges";
-  else activeProfileTab = "profile";
 }
 
 window.addEventListener("load", initApp);
 
 async function loadProfileData() {
+  if (_profileLoading) return; // prevent concurrent loads
+  _profileLoading = true;
   try {
     const token = (await sb.auth.getSession()).data.session?.access_token;
-    const [profileRes, recipesRes, listsRes, badgesRes, statsRes] = await Promise.all([
-      fetch("/api/profile",        { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/recipes/saved",  { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/lists",          { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/badges",         { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/stats",          { headers: { Authorization: `Bearer ${token}` } }),
+    if (!token) { _profileLoading = false; return; }
+    // Load profile first (needed for rendering), then rest in parallel
+    const profileRes = await fetch("/api/profile", { headers: { Authorization: "Bearer " + token } });
+    if (profileRes.ok) userProfile = await profileRes.json();
+    // Load remaining data in parallel (4 requests, within Safari's 6-connection limit)
+    const [recipesRes, listsRes, badgesRes, statsRes] = await Promise.all([
+      fetch("/api/recipes/saved", { headers: { Authorization: "Bearer " + token } }).catch(() => null),
+      fetch("/api/lists",         { headers: { Authorization: "Bearer " + token } }).catch(() => null),
+      fetch("/api/badges",        { headers: { Authorization: "Bearer " + token } }).catch(() => null),
+      fetch("/api/stats",         { headers: { Authorization: "Bearer " + token } }).catch(() => null),
     ]);
-    if (profileRes.ok)  userProfile  = await profileRes.json();
-    if (recipesRes.ok)  { const d = await recipesRes.json(); savedRecipes = d.recipes || []; }
-    if (listsRes.ok)    { const d = await listsRes.json(); savedLists = d.lists || []; }
-    if (badgesRes.ok)   { const d = await badgesRes.json(); userBadges = d.badges || []; }
-    if (statsRes.ok)    { userStatData = await statsRes.json(); }
+    if (recipesRes?.ok) { const d = await recipesRes.json(); savedRecipes = d.recipes || []; }
+    if (listsRes?.ok)   { const d = await listsRes.json(); savedLists = d.lists || []; }
+    if (badgesRes?.ok)  { const d = await badgesRes.json(); userBadges = d.badges || []; }
+    if (statsRes?.ok)   { userStatData = await statsRes.json(); }
   } catch (err) { console.error("loadProfileData error:", err); }
+  _profileLoading = false;
 }
 
 // ── Auth UI ───────────────────────────────────────────────────────────────────

@@ -6,7 +6,8 @@
   "scripts": {
     "build:js": "npx terser public/app.js -c -m -o public/app.min.js",
     "build:css": "npx csso public/styles.css -o public/styles.min.css",
-    "build": "npm run build:js && npm run build:css && echo 'Build complete — minified JS+CSS'",
+    "build:images": "node scripts/build-images.cjs",
+    "build": "npm run build:images && npm run build:js && npm run build:css && echo 'Build complete — images+JS+CSS'",
     "start": "node server.js",
     "test": "node tests/utils.test.js",
     "test:integration": "node tests/integration.test.js",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "csso-cli": "^4.0.2",
+    "sharp": "^0.34.5",
     "terser": "^5.46.1"
   }
 }

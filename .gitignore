@@ -2,6 +2,7 @@
 node_modules/
 public/app.min.js
 public/styles.min.css
+public/images/*.webp
 *.pem
 *.key
 *.p12

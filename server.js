@@ -187,7 +187,29 @@ app.get(['/profile.html', '/admin.html'], (req, res, next) => {
 });
 app.get('/login.html', (req, res) => { res.redirect(301, '/profile.html'); });
 app.get('*.map', (req, res) => { res.status(404).end(); });
-app.use(express.static(join(__dirname, "public")));
+app.use(express.static(join(__dirname, "public"), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    const ext = filePath.split(".").pop().toLowerCase();
+    // Images, fonts, favicons — long cache (1 year)
+    if (["jpg","jpeg","png","webp","avif","svg","ico","gif","woff","woff2","ttf"].includes(ext)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+    }
+    // JS/CSS — 1 hour with revalidation (filenames aren't content-hashed)
+    else if (["js","css"].includes(ext)) {
+      res.setHeader("Cache-Control", "public, max-age=3600, must-revalidate");
+    }
+    // HTML — 5 minutes with revalidation
+    else if (ext === "html") {
+      res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+    }
+    // Manifest, sitemap, robots — 5 minutes
+    else if (["json","xml","txt"].includes(ext)) {
+      res.setHeader("Cache-Control", "public, max-age=300");
+    }
+  }
+}));
 
 // ── Mount route modules ─────────────────────────────────────────────────────
 app.use(authRoutes);

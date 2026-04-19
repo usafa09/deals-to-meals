@@ -4,7 +4,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "build": "cp public/app.js public/app.min.js && cp public/styles.css public/styles.min.css && echo 'Build complete — files copied'",
+    "build:js": "npx terser public/app.js -c -m -o public/app.min.js",
+    "build:css": "npx csso public/styles.css -o public/styles.min.css",
+    "build": "npm run build:js && npm run build:css && echo 'Build complete — minified JS+CSS'",
     "start": "node server.js",
     "test": "node tests/utils.test.js",
     "test:integration": "node tests/integration.test.js",
@@ -22,5 +24,9 @@
     "playwright": "^1.41.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "csso-cli": "^4.0.2",
+    "terser": "^5.46.1"
   }
 }

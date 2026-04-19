@@ -1,5 +1,7 @@
 .env
 node_modules/
+public/app.min.js
+public/styles.min.css
 *.pem
 *.key
 *.p12

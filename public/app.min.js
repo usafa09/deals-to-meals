@@ -1544,6 +1544,61 @@ function getRecipePayload(offset) {
   };
 }
 
+function showRecipeSkeletons(count) {
+  const grid = document.getElementById("recipeGrid");
+  if (!grid) return;
+  grid.innerHTML = Array.from({length: count}, () =>
+    '<div class="recipe-card-tile skeleton-card">' +
+    '<div class="skeleton" style="height:140px;border-radius:16px 16px 0 0;"></div>' +
+    '<div style="padding:12px;">' +
+    '<div class="skeleton" style="height:16px;width:75%;margin-bottom:10px;border-radius:6px;"></div>' +
+    '<div class="skeleton" style="height:12px;width:50%;margin-bottom:12px;border-radius:6px;"></div>' +
+    '<div style="display:flex;gap:6px;">' +
+    '<div class="skeleton" style="height:22px;width:60px;border-radius:10px;"></div>' +
+    '<div class="skeleton" style="height:22px;width:70px;border-radius:10px;"></div>' +
+    '<div class="skeleton" style="height:22px;width:80px;border-radius:10px;"></div>' +
+    '</div></div></div>'
+  ).join("");
+}
+
+function showSkeletonBanner() {
+  const banner = document.getElementById("savingsBanner");
+  if (!banner) return;
+  const stores = (state.selectedBrands || []).slice(0, 3).join(", ") || "your stores";
+  const ingCount = state.deals?.length || 0;
+  const familySize = state.userPreferences?.household_size;
+  banner.innerHTML = '<div id="skeletonBanner" style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:20px;color:white;margin-bottom:20px;text-align:center;">' +
+    '<div id="skeletonEmoji" style="font-size:36px;margin-bottom:8px;animation:emojiPulse 2s ease-in-out infinite;">&#128373;&#65039;</div>' +
+    '<div id="skeletonText" style="font-size:15px;font-weight:600;margin-bottom:4px;">Building your meal plan from ' + ingCount + ' deals at ' + escapeHtml(stores) + '...</div>' +
+    '<div id="skeletonSub" style="font-size:13px;opacity:0.8;" class="cooking-tip"></div>' +
+    '</div>';
+  // Timed progress messages with real data
+  const msgs = [
+    [0, "Building your meal plan from " + ingCount + " deals at " + escapeHtml(stores) + "..."],
+    [5000, familySize ? "Finding recipes that fit your family of " + familySize + "..." : "Finding the best recipes from your deals..."],
+    [15000, "Matching " + ingCount + " sale ingredients to recipes..."],
+    [30000, "Taking a bit longer than usual — hang tight!"],
+  ];
+  msgs.forEach(([delay, msg]) => {
+    setTimeout(() => { const el = document.getElementById("skeletonText"); if (el) el.textContent = msg; }, delay);
+  });
+  // Rotate tips in the sub line
+  let tipI = 0;
+  const tipInterval = setInterval(() => {
+    const el = document.getElementById("skeletonSub");
+    if (!el) { clearInterval(tipInterval); return; }
+    el.textContent = "💡 " + getNextTip();
+    tipI++;
+  }, 6000);
+  setTimeout(() => { const el = document.getElementById("skeletonSub"); if (el) el.textContent = "💡 " + getNextTip(); }, 500);
+  banner._tipInterval = tipInterval;
+}
+
+function clearSkeletonBanner() {
+  const banner = document.getElementById("savingsBanner");
+  if (banner?._tipInterval) clearInterval(banner._tipInterval);
+}
+
 async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
@@ -1551,31 +1606,39 @@ async function searchRecipes() {
   const btn=document.getElementById("findRecipesBtn");
   if(btn){btn.disabled=true;btn.textContent="Building meals...";}
   state.recipeOffset=0;
-  showCookingLoading();
+  // Show skeletons on Screen 6 instead of full-screen overlay
+  goTo(6);
+  document.getElementById("recipesTitle").textContent="Building your meals...";
+  document.getElementById("resultsCount").textContent="";
+  showRecipeSkeletons(5);
+  showSkeletonBanner();
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),90000);
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
-    if(!res.ok){ if(data.limitReached){ hideLoading(); showRateLimitModal(); return; } if(data.error==="ai_overloaded"){ hideLoading(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
+    if(!res.ok){ if(data.limitReached){ clearSkeletonBanner(); showRateLimitModal(); return; } if(data.error==="ai_overloaded"){ clearSkeletonBanner(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
     state._isWeeklyPlan=false; state._isFreezerPlan=false;
-    state.recipeOffset=8;
+    state.recipeOffset=5;
     localStorage.setItem("dishcount_flow_complete","true");
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
+    clearSkeletonBanner();
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
     saveUserSelections();
     sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } else { const gc=parseInt(localStorage.getItem("dishcount_gen_count")||"0")+1; localStorage.setItem("dishcount_gen_count",String(gc)); if(gc===3&&!localStorage.getItem("dishcount_subscribed")){ showFeatureDiscovery("emailprompt",'<strong style="color:#2d6a4f;">Want these deals in your inbox?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">Get a free weekly email with the best deals and meal ideas near you. <a href="#" onclick="document.getElementById(\'zipInput\').scrollIntoView({behavior:\'smooth\'});return false;" style="color:#2d6a4f;font-weight:600;">Subscribe below</a></p>'); } } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){
+    clearSkeletonBanner();
     if(err.name==="AbortError")showToast("Recipe generation timed out. Please try again.");
     else if(!navigator.onLine)showToast("You appear to be offline. Check your connection and try again.");
     else showToast(err.message);
-  }finally{clearTimeout(timeout);hideLoading();if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Build My Meals";}}
+    goTo(5); // Go back to preferences so they can retry
+  }finally{clearTimeout(timeout);if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Build My Meals";}}
 }
 
 async function loadMoreRecipes() {
@@ -1594,12 +1657,12 @@ async function loadMoreRecipes() {
       const existingTitles=new Set(state.recipes.map(r=>r.title));
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
       state.recipes.push(...newRecipes);
-      state.recipeOffset+=8;
+      state.recipeOffset+=5;
       renderRecipeGrid();
       showToast(`${data.recipes.length} more recipes added!`,"success");
     } else { showToast("No more recipes found. Try a different style."); }
   }catch(err){showToast(err.message);}finally{
-    hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 8 More Recipes";
+    hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 5 More Recipes";
   }
 }
 function sortRecipes(by){ensureAppScreens();document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}

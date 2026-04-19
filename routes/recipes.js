@@ -284,6 +284,7 @@ async function handleRecipeGeneration(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured. Add it to your .env file." });
 
+  const _t0 = Date.now();
   try {
     const cacheKey = JSON.stringify({ items: ingredients.slice(0, 25).map(i => i.name).sort(), style, diets, wantItems: wantItems || "", haveItems: haveItems || "", mealRequest: mealRequest || "", prefs: preferences ? JSON.stringify(preferences) : "", offset: offset || 0 });
     const cached = aiRecipeCache.get(cacheKey);
@@ -355,6 +356,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     }
 
     // Fetch user history for personalization
+    const _tHistory = Date.now();
     let historyNote = "";
     if (req._user?.id) {
       try {
@@ -465,7 +467,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       "Appetizer": "MEAL TYPE: APPETIZER. Suggest starters: bruschetta, dips, sliders, spring rolls, stuffed mushrooms, cheese boards.",
     };
     const mealTypeGuide = MEAL_TYPE_GUIDES[effectiveMealType] || MEAL_TYPE_GUIDES["Dinner"];
-    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/8)+1}. Generate 8 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
+    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/5)+1}. Generate 5 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
 
     const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas BUILT FROM what's on sale this week. Your #1 goal is to MAXIMIZE the use of sale items in every recipe.
 
@@ -481,7 +483,7 @@ CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use 
 RECIPE GENERATION RULES:
 1. COST OPTIMIZATION: Using the sale prices provided, calculate the approximate cost per serving for each recipe. Sort recipes from cheapest to most expensive. Include "costPerServing" (a number in dollars, e.g. 2.50) in each recipe object.
 2. INGREDIENT SHARING: Design recipes that share ingredients with each other. If chicken thighs are on sale, use them in 2-3 different recipes with different preparations (stir fry, baked, soup). This minimizes what the user needs to buy.
-3. VARIETY: Do not repeat the same protein in more than 3 of 8 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
+3. VARIETY: Do not repeat the same protein in more than 2 of 5 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
 4. PRACTICAL COOKING: Assume a home kitchen with basic equipment (oven, stovetop, one sheet pan, one pot, one skillet). No specialty equipment unless the user mentions it.
 5. REALISTIC PORTIONS: Default to ${prefs.household_size || "4"} servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
@@ -498,7 +500,7 @@ weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday t
 - Use the same protein in no more than 2 meals
 - Progress from easiest on Monday (everyone is tired) to more involved later in the week
 - Total combined cost should stay under $50 for a family of ${prefs.household_size || "4"}
-- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 8 recipes."} Each recipe should:
+- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 5 recipes."} Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
@@ -561,7 +563,8 @@ IMPORTANT ingredient type rules:
 - "reasoning" = 1-2 sentences explaining WHY you chose this recipe — mention specific sale prices, savings percentages, and how the sale items work together. Be specific with numbers.
 - "calories", "protein", "carbs", "fat", "fiber" = estimated nutrition per serving (numbers only, no units). These are rough estimates.`;
 
-    console.log(`Calling Claude AI for ${style} recipes with ${ingredients.length} sale items...`);
+    const _tPromptBuilt = Date.now();
+    console.log(`[recipes/ai] prompt_build_ms=${_tPromptBuilt - _t0} history_ms=${_tPromptBuilt - _tHistory} ingredients=${ingredients.length}`);
 
     const claudeBody = JSON.stringify({
       model: "claude-haiku-4-5-20251001",
@@ -570,6 +573,7 @@ IMPORTANT ingredient type rules:
     });
     const claudeHeaders = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
 
+    const _tClaude = Date.now();
     let response = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: claudeHeaders, body: claudeBody });
 
     // Retry once with 5s delay on overload (529)
@@ -589,10 +593,13 @@ IMPORTANT ingredient type rules:
     }
 
     const data = await response.json();
+    const _tClaudeDone = Date.now();
     const text = data.content?.[0]?.text || "";
     const stopReason = data.stop_reason || "";
+    const inputTokens = data.usage?.input_tokens || 0;
+    const outputTokens = data.usage?.output_tokens || 0;
     if (stopReason === "max_tokens") console.log("⚠️ AI response was truncated (hit max_tokens limit)");
-    console.log(`AI response: ${text.length} chars, stop_reason: ${stopReason}`);
+    console.log(`[recipes/ai] claude_ms=${_tClaudeDone - _tClaude} input_tokens=${inputTokens} output_tokens=${outputTokens} response_chars=${text.length} stop=${stopReason}`);
 
     let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     let parsed;
@@ -806,10 +813,9 @@ IMPORTANT ingredient type rules:
       if (Date.now() - val.timestamp > 1800000) aiRecipeCache.delete(key);
     }
 
-    const inputTokens = data.usage?.input_tokens || 0;
-    const outputTokens = data.usage?.output_tokens || 0;
     const cost = (inputTokens * 1 + outputTokens * 5) / 1000000;
-    console.log(`AI recipes generated: ${recipes.length} recipes, ${inputTokens}+${outputTokens} tokens, ~$${cost.toFixed(4)}`);
+    const _tPostProcess = Date.now();
+    console.log(`[recipes/ai] parse_match_ms=${_tPostProcess - _tClaudeDone} recipes=${recipes.length} cost=$${cost.toFixed(4)}`);
     logApiUsage("anthropic", "recipes-ai", inputTokens, outputTokens, cost);
 
     // Deal hunter score
@@ -837,6 +843,8 @@ IMPORTANT ingredient type rules:
       costPerServing: totalServings > 0 ? Math.round((totalSalePrice / totalServings) * 100) / 100 : 0,
       servings: totalServings,
     };
+
+    console.log(`[recipes/ai] TOTAL_ms=${Date.now() - _t0} breakdown: prompt=${_tPromptBuilt - _t0}ms claude=${_tClaudeDone - _tClaude}ms parse=${_tPostProcess - _tClaudeDone}ms post=${Date.now() - _tPostProcess}ms`);
 
     // Track gamification stats + update savings tracker
     const user = req._user;

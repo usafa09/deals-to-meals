@@ -276,8 +276,7 @@ async function handleRecipeGeneration(req, res) {
   let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
-  if (ingredients.length > 500) return res.status(400).json({ error: "Too many ingredients. Please select fewer items." });
-  if (ingredients.length > 100) return res.status(400).json({ error: "Too many ingredients. Please limit to 100 or fewer." });
+  if (ingredients.length > 500) return res.status(400).json({ error: "Too many ingredients — please select fewer deals or stores." });
   // Smart selection: if too many ingredients, pick the best ones for recipes
   if (ingredients.length > 100) {
     ingredients = selectSmartIngredients(ingredients, 100);

@@ -1283,7 +1283,7 @@ async function loadDealsAndShow() {
   showDealSkeletons();
   try {
     // Use the regional deals endpoint — fetches Kroger + ALDI + ad-extracted deals
-    const params = new URLSearchParams({ zip: state.zip });
+    const params = new URLSearchParams({ zip: state.zip, limit: "300" });
     if (state.selectedKrogerId) params.set("locationId", state.selectedKrogerId);
     const res = await fetch(`/api/deals/regional?${params}`);
     const data = await res.json();

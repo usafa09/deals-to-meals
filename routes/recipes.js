@@ -467,7 +467,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       "Appetizer": "MEAL TYPE: APPETIZER. Suggest starters: bruschetta, dips, sliders, spring rolls, stuffed mushrooms, cheese boards.",
     };
     const mealTypeGuide = MEAL_TYPE_GUIDES[effectiveMealType] || MEAL_TYPE_GUIDES["Dinner"];
-    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/5)+1}. Generate 5 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
+    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/5)+1}. Generate 6 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
 
     const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas BUILT FROM what's on sale this week. Your #1 goal is to MAXIMIZE the use of sale items in every recipe.
 
@@ -483,7 +483,7 @@ CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use 
 RECIPE GENERATION RULES:
 1. COST OPTIMIZATION: Using the sale prices provided, calculate the approximate cost per serving for each recipe. Sort recipes from cheapest to most expensive. Include "costPerServing" (a number in dollars, e.g. 2.50) in each recipe object.
 2. INGREDIENT SHARING: Design recipes that share ingredients with each other. If chicken thighs are on sale, use them in 2-3 different recipes with different preparations (stir fry, baked, soup). This minimizes what the user needs to buy.
-3. VARIETY: Do not repeat the same protein in more than 2 of 5 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
+3. VARIETY: Do not repeat the same protein in more than 2 of 6 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
 4. PRACTICAL COOKING: Assume a home kitchen with basic equipment (oven, stovetop, one sheet pan, one pot, one skillet). No specialty equipment unless the user mentions it.
 5. REALISTIC PORTIONS: Default to ${prefs.household_size || "4"} servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
@@ -500,7 +500,7 @@ weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday t
 - Use the same protein in no more than 2 meals
 - Progress from easiest on Monday (everyone is tired) to more involved later in the week
 - Total combined cost should stay under $50 for a family of ${prefs.household_size || "4"}
-- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 5 recipes."} Each recipe should:
+- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 6 recipes."} Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
@@ -638,7 +638,9 @@ IMPORTANT ingredient type rules:
       }
     }
 
-    let recipes = (parsed.recipes || []).map((r, idx) => {
+    // Ask for 6, serve 5 — guards against Claude undercounting
+    const rawRecipes = (parsed.recipes || []).slice(0, 5);
+    let recipes = rawRecipes.map((r, idx) => {
       const usedSaleItems = [];
       let totalSavings = 0;
       let saleCost = 0;

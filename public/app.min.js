@@ -1285,6 +1285,7 @@ async function loadDealsAndShow() {
     // Use the regional deals endpoint — fetches Kroger + ALDI + ad-extracted deals
     const params = new URLSearchParams({ zip: state.zip, limit: "300" });
     if (state.selectedKrogerId) params.set("locationId", state.selectedKrogerId);
+    if (state.selectedBrands?.length) params.set("brands", state.selectedBrands.join(","));
     const res = await fetch(`/api/deals/regional?${params}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to fetch deals");

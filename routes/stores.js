@@ -366,6 +366,22 @@ router.get("/api/deals/regional", async (req, res) => {
       return d;
     });
 
+    // Server-side brand filtering (if brands param provided)
+    const brandsParam = req.query.brands;
+    if (brandsParam) {
+      const requestedBrands = brandsParam.split(",").map(b => b.trim().toLowerCase());
+      const hasKrogerBrand = requestedBrands.some(b => isKrogerFamilyBrand(b));
+      const beforeBrandFilter = allDeals.length;
+      allDeals = allDeals.filter(d => {
+        const store = (d.storeName || d.source || "").toLowerCase();
+        // Kroger family expansion: if any Kroger banner requested, include all kroger-source deals
+        if (hasKrogerBrand && d.source === "kroger") return true;
+        // Direct match: storeName or source contains a requested brand (or vice versa)
+        return requestedBrands.some(b => store.includes(b) || b.includes(store));
+      });
+      console.log(`  Brand filter: ${beforeBrandFilter} → ${allDeals.length} (brands: ${brandsParam})`);
+    }
+
     console.log(`═══ Total: ${allDeals.length} deals from ${results.sources.length} sources ═══\n`);
     logSearch(zip, results.sources.length, allDeals.length);
 
@@ -391,7 +407,8 @@ router.get("/api/deals/regional", async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || total, total);
     const offset = Math.min(parseInt(req.query.offset) || 0, total);
     const paged = limit < total ? allDeals.slice(offset, offset + limit) : allDeals;
-    if (total > 1000) console.warn(`⚠️ Large deals response: ${total} deals (${Math.round(JSON.stringify(allDeals).length / 1024)}KB)`);
+    if (total > 1000) console.warn(`⚠️ Large deals pool: ${total} deals (${Math.round(JSON.stringify(allDeals).length / 1024)}KB)`);
+    console.log(`  Serving: ${paged.length} of ${total} deals (${Math.round(JSON.stringify(paged).length / 1024)}KB) [limit=${limit} offset=${offset}]`);
 
     res.json({
       zip3,

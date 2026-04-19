@@ -7,7 +7,7 @@
     function loadGA(){if(document.querySelector('script[src*="googletagmanager"]'))return;var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';document.head.appendChild(s);s.onload=function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-41675D42V1',{anonymize_ip:true});};}
     if(localStorage.getItem('dishcount_cookies_accepted'))loadGA();
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Enter your zip code, find weekly grocery deals from Kroger, ALDI, Walmart, Meijer, Publix and 80+ stores, and get personalized recipes built around what's on sale. Free forever." />
   <title>Dishcount — Turn Grocery Store Weekly Deals Into Recipes | Free Meal Planner</title>
   <link rel="canonical" href="https://dishcount.co/">
@@ -17,8 +17,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <meta property="og:title" content="Dishcount — Meal Planning That Starts With Savings" />
   <meta property="og:description" content="Meal planning that starts with savings. Dishcount pulls weekly deals from 80+ grocery chains near you and builds personalized meals around what's on sale — not the other way around. Free." />
   <meta property="og:image" content="https://dishcount.co/images/og-hero.jpg" />
@@ -86,7 +85,7 @@
       </div>
     </div>
     <a href="/" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
-      <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#d97706;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
+      <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#B56406;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
     </a>
     <div class="landing-nav-links">
       <a href="#how-it-works">How It Works</a>
@@ -112,7 +111,7 @@
     </div>
   </div>
   <a href="javascript:void(0)" onclick="resetApp();goTo(1)" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
-    <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#d97706;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
+    <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#B56406;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
   </a>
   <div class="nav-right">
     <span id="shoppingBadge" onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span>
@@ -142,10 +141,11 @@
 </div>
 
 <!-- ══ SCREEN 1: LANDING PAGE ══ -->
+<main id="main-content">
 <div class="screen active" id="screen1">
 
   <!-- Hero -->
-  <section class="landing-hero" id="main-content">
+  <section class="landing-hero">
     <div class="landing-hero-content">
       <div class="landing-badge">&#128293; Why pay full price when this week's deals can plan your meals?</div>
       <h1 class="landing-headline">Meal Planning That Starts With <span class="highlight">Savings</span></h1>
@@ -285,6 +285,7 @@
   </footer>
 
 </div>
+</main>
 
 <div id="progressSteps" style="display:none;justify-content:center;align-items:center;gap:4px;padding:12px 16px;background:#f9f9f0;border-bottom:1px solid #e8e0d0;flex-wrap:nowrap;overflow-x:auto;">
   <div class="step-dot" data-step="1"><span class="step-num">1</span><span class="step-label">Stores</span></div>
@@ -296,12 +297,12 @@
   <div class="step-dot" data-step="4"><span class="step-num">4</span><span class="step-label">Meals</span></div>
 </div>
 <div id="stepInstruction" style="display:none;text-align:center;padding:6px 16px;color:#888;font-size:13px;background:#f9f9f0;"></div>
-<main id="appScreens" style="display:none"></main>
+<div id="appScreens" style="display:none"></div>
 
 <div class="slideout-overlay" id="slideoutOverlay" onclick="closeSlideout()"></div>
 <div class="slideout-panel" id="slideoutPanel" role="complementary" aria-label="Shopping list"></div>
 
-<script src="/app.min.js"></script>
+<script defer src="/app.min.js"></script>
 <script>
 // ── Unregister service worker and clear caches ─────────────────────────────
 if ("serviceWorker" in navigator) {

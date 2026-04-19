@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { supabase } from "../lib/utils.js";
+import { supabase, validateZip } from "../lib/utils.js";
 
 const router = Router();
 
@@ -42,6 +42,7 @@ router.get("/api/aldi/deals", async (req, res) => {
 
 router.get("/api/aldi/stores", (req, res) => {
   const zip = req.query.zip || "";
+  if (!validateZip(zip)) return res.status(400).json({ error: "Please enter a valid US ZIP code" });
   res.json({
     stores: [{
       id: "aldi-1",

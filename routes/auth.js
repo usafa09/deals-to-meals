@@ -103,6 +103,8 @@ router.patch("/api/profile", async (req, res) => {
 
 // ══ CONTACT FORM ═════════════════════════════════════════════════════════════
 
+const CONTACT_EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/;
+
 router.post("/api/contact", async (req, res) => {
   const { name, email, topic, message, website } = req.body;
   // Honeypot — bots fill this hidden field, humans don't
@@ -112,6 +114,9 @@ router.post("/api/contact", async (req, res) => {
   }
   if (!name || !email || !topic || !message) {
     return res.status(400).json({ error: "All fields are required" });
+  }
+  if (typeof email !== "string" || email.length > 254 || !CONTACT_EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: "Please enter a valid email address" });
   }
   const ALLOWED_TOPICS = ["general", "bug", "feature", "partnership", "press", "other"];
   const safeTopic = ALLOWED_TOPICS.includes(topic) ? topic : "other";
@@ -166,13 +171,17 @@ router.get("/api/lists/share/:id", async (req, res) => {
 
 // ══ EMAIL SUBSCRIBE ═════════════════════════════════════════════════════════
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/;
 const ZIP_RE = /^\d{5}$/;
 
 router.post("/api/subscribe", async (req, res) => {
   const { email, zip } = req.body;
-  if (!email || !EMAIL_RE.test(email)) return res.status(400).json({ error: "Valid email is required" });
-  if (!zip || !ZIP_RE.test(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
+  if (!email || typeof email !== "string" || email.length > 254 || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: "Please enter a valid email address" });
+  }
+  if (!zip || typeof zip !== "string" || !ZIP_RE.test(zip)) {
+    return res.status(400).json({ error: "Valid 5-digit zip is required" });
+  }
   try {
     const { data: existing } = await supabase.from("email_subscribers").select("id").eq("email", email.toLowerCase()).single();
     if (existing) return res.json({ success: true, message: "Already subscribed" });

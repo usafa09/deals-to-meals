@@ -23,7 +23,11 @@ console.log("\nvalidateZip:");
 test("accepts valid 5-digit zip", () => {
   assert.strictEqual(validateZip("45432"), true);
   assert.strictEqual(validateZip("10001"), true);
-  assert.strictEqual(validateZip("00000"), true);
+});
+
+test("rejects invalid USPS prefix (000)", () => {
+  assert.strictEqual(validateZip("00000"), false);
+  assert.strictEqual(validateZip("00012"), false);
 });
 
 test("rejects non-string input", () => {

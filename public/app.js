@@ -27,23 +27,65 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ── Focus trap utility ──────────────────────────────────────────────────────
+function trapFocus(modalEl, firstFocusEl) {
+  const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  const focusables = modalEl.querySelectorAll(selectors);
+  const first = firstFocusEl || focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (first) setTimeout(() => first.focus(), 50);
+  const previouslyFocused = document.activeElement;
+  function handleKey(e) {
+    if (e.key === "Escape") { modalEl._close?.(); return; }
+    if (e.key !== "Tab") return;
+    if (focusables.length === 0) { e.preventDefault(); return; }
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  modalEl.addEventListener("keydown", handleKey);
+  return () => {
+    modalEl.removeEventListener("keydown", handleKey);
+    previouslyFocused?.focus?.();
+  };
+}
+
 // ── First-Visit Welcome Modal ───────────────────────────────────────────────
+function openWelcomeModal() {
+  const wm = document.createElement("div");
+  wm.id = "welcomeModal";
+  wm.setAttribute("role", "dialog");
+  wm.setAttribute("aria-modal", "true");
+  wm.setAttribute("aria-labelledby", "welcomeTitle");
+  wm.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:6000;";
+  wm.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:500px;width:90%;text-align:center;position:relative;">' +
+    '<button type="button" id="welcomeCloseBtn" aria-label="Close" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;line-height:1;color:#888;cursor:pointer;padding:6px 10px;min-width:44px;min-height:44px;">&times;</button>' +
+    '<div style="font-size:48px;margin-bottom:12px;">&#128722;</div>' +
+    '<h2 id="welcomeTitle" style="color:#2d6a4f;margin-bottom:8px;">Welcome to Dishcount!</h2>' +
+    '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:20px;">Meal planning that starts with savings. Here\'s how it works:</p>' +
+    '<div style="text-align:left;max-width:350px;margin:0 auto 24px;">' +
+    [["1","Enter your zip code to find local stores"],["2","Browse this week's deals from your stores"],["3","Get personalized meals built around the savings"],["4","Build your shopping list or add to Kroger cart"]]
+      .map(([n,t])=>'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><span style="background:#2d6a4f;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">'+n+'</span><span style="color:#555;font-size:14px;">'+t+'</span></div>').join("") +
+    '</div>' +
+    '<button type="button" id="welcomeGoBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Go! &#8594;</button></div>';
+  document.body.appendChild(wm);
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  const cleanupFocus = trapFocus(wm);
+  wm._close = () => {
+    cleanupFocus();
+    document.body.style.overflow = prevOverflow;
+    wm.remove();
+    localStorage.setItem("dishcount_visited", "true");
+  };
+  document.getElementById("welcomeCloseBtn").addEventListener("click", wm._close);
+  document.getElementById("welcomeGoBtn").addEventListener("click", wm._close);
+}
 if (!localStorage.getItem("dishcount_visited")) {
-  window.addEventListener("DOMContentLoaded", () => {
-    const wm = document.createElement("div");
-    wm.id = "welcomeModal";
-    wm.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:6000;";
-    wm.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:500px;width:90%;text-align:center;">' +
-      '<div style="font-size:48px;margin-bottom:12px;">&#128722;</div>' +
-      '<h2 style="color:#2d6a4f;margin-bottom:8px;">Welcome to Dishcount!</h2>' +
-      '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:20px;">Meal planning that starts with savings. Here\'s how it works:</p>' +
-      '<div style="text-align:left;max-width:350px;margin:0 auto 24px;">' +
-      [["1","Enter your zip code to find local stores"],["2","Browse this week's deals from your stores"],["3","Get personalized meals built around the savings"],["4","Build your shopping list or add to Kroger cart"]]
-        .map(([n,t])=>'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><span style="background:#2d6a4f;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">'+n+'</span><span style="color:#555;font-size:14px;">'+t+'</span></div>').join("") +
-      '</div>' +
-      '<button onclick="document.getElementById(\'welcomeModal\').remove();localStorage.setItem(\'dishcount_visited\',\'true\');" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Go! &#8594;</button></div>';
-    document.body.appendChild(wm);
-  });
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", openWelcomeModal);
+  } else {
+    openWelcomeModal();
+  }
 }
 
 // ── Contextual Tooltip System ───────────────────────────────────────────────
@@ -637,11 +679,20 @@ function showPreviewRecipe(idx) {
 }
 
 // ── Email Capture ───────────────────────────────────────────────────────────
+const SUBSCRIBE_EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/;
 async function handleSubscribe(e) {
   e.preventDefault();
-  const email = document.getElementById("subscribeEmail").value.trim();
-  const zip = document.getElementById("subscribeZip").value.trim();
-  if (!email || !zip || !/^\d{5}$/.test(zip)) { showToast("Please enter a valid email and 5-digit zip code"); return false; }
+  const emailEl = document.getElementById("subscribeEmail");
+  const zipEl = document.getElementById("subscribeZip");
+  const email = emailEl.value.trim();
+  const zip = zipEl.value.trim();
+  if (!email) { showToast("Please enter your email"); emailEl.focus(); return false; }
+  if (!SUBSCRIBE_EMAIL_RE.test(email) || email.length > 254) {
+    showToast("Please enter a valid email address"); emailEl.focus(); return false;
+  }
+  if (!/^\d{5}$/.test(zip)) {
+    showToast("Please enter a 5-digit zip code"); zipEl.focus(); return false;
+  }
   const btn = document.getElementById("subscribeBtn");
   btn.disabled = true; btn.textContent = "Subscribing...";
   try {
@@ -1032,15 +1083,26 @@ function isKrogerFamily(name){return KROGER_FAMILY_NORM.has(normBrand(name));}
 
 async function findStores() {
   const zip=document.getElementById("zipInput").value.trim();
-  if(!/^\d{5}$/.test(zip)){ showToast("Please enter a 5-digit zip code"); document.getElementById("zipInput").focus(); return; }
+  if(!/^\d{5}$/.test(zip) || zip.startsWith("000")){ showToast("Please enter a valid US ZIP code"); document.getElementById("zipInput").focus(); return; }
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {
+    const fetchJson = async (url) => {
+      const r = await fetch(url);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Request failed");
+      return data;
+    };
     const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
-      fetch(`/api/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
-      fetch(`/api/aldi/stores?zip=${zip}`).then(r=>r.json()).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
-      fetch(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`).then(r=>r.json()),
+      fetchJson(`/api/stores?zip=${zip}`).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
+      fetchJson(`/api/aldi/stores?zip=${zip}`).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
+      fetchJson(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`),
     ]);
+    // If every store lookup rejected with the same validation error, surface it
+    const rejectedMessages = [krogerRes, aldiRes, nearbyRes].filter(r => r.status === "rejected").map(r => r.reason?.message).filter(Boolean);
+    if (rejectedMessages.length === 3 && rejectedMessages.every(m => /zip/i.test(m))) {
+      throw new Error(rejectedMessages[0]);
+    }
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
     if(aldiRes.status==="fulfilled")allStores.push(...aldiRes.value);
@@ -1489,7 +1551,7 @@ async function renderSaleItems() {
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
-      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#d97706;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
+      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#B56406;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.image&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
@@ -1699,13 +1761,13 @@ function renderNutritionBanner() {
   const avg = (field) => Math.round(recipes.reduce((s, r) => s + (parseFloat(r[field]) || 0), 0) / count);
   const cal = avg("calories"), pro = avg("protein"), carb = avg("carbs"), fat = avg("fat"), fib = avg("fiber");
   let warnings = "";
-  if (pro < 20) warnings += '<p style="color:#d97706;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
-  if (fib < 5) warnings += '<p style="color:#d97706;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
+  if (pro < 20) warnings += '<p style="color:#B56406;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
+  if (fib < 5) warnings += '<p style="color:#B56406;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
   el.innerHTML = '<div style="background:#f9f9f0;border-radius:16px;padding:20px;margin-bottom:20px;">' +
     '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span class="beta-badge">BETA</span> <span style="color:#999;font-size:11px;font-weight:normal;">Estimates — not verified nutritional data</span></h3>' +
     '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;">' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#888;">Calories</div></div>' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#d97706;">' + pro + 'g</div><div style="font-size:11px;color:#888;">Protein</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#B56406;">' + pro + 'g</div><div style="font-size:11px;color:#888;">Protein</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + carb + 'g</div><div style="font-size:11px;color:#888;">Carbs</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#888;">' + fat + 'g</div><div style="font-size:11px;color:#888;">Fat</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + fib + 'g</div><div style="font-size:11px;color:#888;">Fiber</div></div>' +
@@ -1801,7 +1863,7 @@ function showReceiptResults(data) {
     '<div style="display:flex;justify-content:space-around;margin-bottom:20px;">' +
     '<div><div style="font-size:24px;font-weight:800;color:#2d6a4f;">$' + data.totalSpent + '</div><div style="font-size:12px;color:#888;">You spent</div></div>' +
     '<div><div style="font-size:24px;font-weight:800;text-decoration:line-through;color:#999;">$' + data.regularPrice + '</div><div style="font-size:12px;color:#888;">Regular price</div></div>' +
-    '<div><div style="font-size:24px;font-weight:800;color:#d97706;">$' + data.saved + '</div><div style="font-size:12px;color:#888;">You saved!</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;color:#B56406;">$' + data.saved + '</div><div style="font-size:12px;color:#888;">You saved!</div></div>' +
     '</div>' +
     '<p style="color:#888;font-size:13px;">This has been added to your savings tracker.</p></div>';
   document.body.appendChild(overlay);
@@ -1823,7 +1885,7 @@ function renderRecipeGrid(){
     const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
     return `<div class="recipe-card-tile" onclick="openModal(${i})">
       ${r.image?`<img class="recipe-card-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder lazy-img" data-title="${escapeHtml(r.title)}" data-idx="${i}" style="font-size:48px;padding:30px 0">${emoji}</div>`}
-      <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#d97706;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#888;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
+      <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#B56406;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#888;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${(()=>{const all=r.allIngredients||r.ingredients||[];const counts={sale:0,onHand:0,pantry:0,additional:0};all.forEach(i=>{const t=(i.type||"").toUpperCase();if(t==="SALE"&&i.onSale)counts.sale++;else if(t==="ON_HAND")counts.onHand++;else if(t==="PANTRY")counts.pantry++;else if(t==="ADDITIONAL")counts.additional++;});const parts=[];if(counts.onHand)parts.push(counts.onHand+" have");if(counts.sale)parts.push(counts.sale+" on sale");if(counts.pantry)parts.push(counts.pantry+" pantry");if(counts.additional)parts.push(counts.additional+" to buy");return parts.length?`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${parts.join(" · ")}</span>`:`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} on sale</span>`;})()}
@@ -1900,17 +1962,36 @@ function adjustServings(delta) {
   }
 }
 
-function openModal(i){state.currentRecipe={...state.recipes[i],index:i};modalServings=state.currentRecipe.servings||4;modalOrigServings=modalServings;renderModal(state.currentRecipe);document.getElementById("modalOverlay").classList.add("show");document.body.style.overflow="hidden";setTimeout(()=>{showTooltip("cookalong",'button[onclick*="startCookAlong"]',"Tap this for step-by-step cooking mode with built-in timers!","bottom:100%;left:0;margin-bottom:8px;");},500);}
-function closeModal(){document.getElementById("modalOverlay").classList.remove("show");document.body.style.overflow="";}
+let _modalFocusCleanup = null;
+function openModal(i){
+  state.currentRecipe={...state.recipes[i],index:i};
+  modalServings=state.currentRecipe.servings||4;
+  modalOrigServings=modalServings;
+  renderModal(state.currentRecipe);
+  const overlay=document.getElementById("modalOverlay");
+  overlay.setAttribute("role","dialog");
+  overlay.setAttribute("aria-modal","true");
+  overlay.setAttribute("aria-labelledby","modalTitle");
+  overlay.classList.add("show");
+  document.body.style.overflow="hidden";
+  overlay._close = closeModal;
+  if (_modalFocusCleanup) { try { _modalFocusCleanup(); } catch(e){} }
+  _modalFocusCleanup = trapFocus(overlay);
+  setTimeout(()=>{showTooltip("cookalong",'button[onclick*="startCookAlong"]',"Tap this for step-by-step cooking mode with built-in timers!","bottom:100%;left:0;margin-bottom:8px;");},500);
+}
+function closeModal(){
+  document.getElementById("modalOverlay").classList.remove("show");
+  document.body.style.overflow="";
+  if (_modalFocusCleanup) { try { _modalFocusCleanup(); } catch(e){} _modalFocusCleanup = null; }
+}
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("modalOverlay").classList.contains("show"))closeModal();});
 
 function renderModal(r){
   const isSaved=state.savedRecipeIds.has(r.title);const cartLabel=getCartLabel();
   document.getElementById("modalContent").innerHTML=`
     ${r.image?`<img class="modal-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" />${r.photoCredit?`<div style="text-align:center;font-size:10px;color:#999;padding:4px 0">Photo by ${escapeHtml(r.photoCredit)} on <a href="${escapeHtml(r.photoUrl||'https://pexels.com')}" target="_blank" style="color:#999">Pexels</a></div>`:""}`:`<div class="modal-img-placeholder">🍽️</div>`}
     <div class="modal-body">
-      <div class="modal-header"><div class="modal-title">${escapeHtml(r.title)}</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-header"><div class="modal-title" id="modalTitle">${escapeHtml(r.title)}</div><button class="modal-close" aria-label="Close" onclick="closeModal()">✕</button></div>
       ${r.reasoning?`<div style="background:#f0fdf4;border-left:4px solid #52b788;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:13px;"><strong style="color:#2d6a4f;">Why this recipe:</strong> <span style="color:#555;">${escapeHtml(r.reasoning)}</span></div>`:""}
       ${r.freezeInstructions?`<div style="background:#e8f4fd;border:1px solid #1a5276;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;"><span style="color:#1a5276;font-weight:600;">&#10052;&#65039; Freezer Friendly</span>${r.shelfLife?` &middot; <span style="color:#888;">${escapeHtml(r.shelfLife)}</span>`:""}${r.batchSize?` &middot; <span style="color:#888;">${escapeHtml(r.batchSize)}</span>`:""}<div style="color:#555;margin-top:4px;font-size:12px;"><strong>Freeze:</strong> ${escapeHtml(r.freezeInstructions)}</div>${r.reheatInstructions?`<div style="color:#555;margin-top:2px;font-size:12px;"><strong>Reheat:</strong> ${escapeHtml(r.reheatInstructions)}</div>`:""}</div>`:""}
       <div class="modal-stats">
@@ -1967,7 +2048,7 @@ function renderModal(r){
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><div><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${bestPriceBadge}</div></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
-      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#d97706;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step <span style="background:rgba(255,255,255,0.3);font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;">BETA</span></button>`:""}
+      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#B56406;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step <span style="background:rgba(255,255,255,0.3);font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;">BETA</span></button>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div id="ratingFormArea"></div>
       <div class="modal-actions">
@@ -2281,7 +2362,7 @@ function startCookAlong() {
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">' +
       '<div><div style="font-size:56px;margin-bottom:20px;">' + getStepEmoji(steps[currentStep]) + '</div>' +
       '<p style="font-size:22px;line-height:1.6;color:#333;max-width:500px;margin:0 auto;">' + escapeHtml(steps[currentStep]) + '</p>' +
-      (timer ? '<button onclick="startCookTimer(' + timer + ')" style="margin-top:20px;padding:12px 24px;background:#52b788;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;">⏱️ Start ' + timer + ' min timer</button><div id="cookTimerDisplay" style="font-size:36px;color:#d97706;margin-top:12px;font-weight:800;"></div>' : '') +
+      (timer ? '<button onclick="startCookTimer(' + timer + ')" style="margin-top:20px;padding:12px 24px;background:#52b788;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;">⏱️ Start ' + timer + ' min timer</button><div id="cookTimerDisplay" style="font-size:36px;color:#B56406;margin-top:12px;font-weight:800;"></div>' : '') +
       '</div></div>' +
       '<div style="display:flex;gap:12px;">' +
       '<button onclick="cookAlongPrev()" style="flex:1;padding:14px;background:' + (currentStep === 0 ? "#eee" : "#e8e0d0") + ';border:none;border-radius:12px;font-size:16px;cursor:pointer;"' + (currentStep === 0 ? " disabled" : "") + '>&#8592; Previous</button>' +
@@ -2934,15 +3015,28 @@ function shareRecipe(title) {
   }
 }
 
-// ── Confetti ────────────────────────────────────────────────────────────────
-function fireConfetti(big) {
-  if (typeof confetti !== "function") return;
+// ── Confetti (lazy-loaded on first use) ─────────────────────────────────────
+async function fireConfetti(big) {
+  if (typeof window.confetti !== "function") {
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    } catch (e) {
+      console.error("Could not load confetti:", e);
+      return;
+    }
+  }
   if (big) {
-    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-    setTimeout(() => confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0 } }), 250);
-    setTimeout(() => confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1 } }), 400);
+    window.confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+    setTimeout(() => window.confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0 } }), 250);
+    setTimeout(() => window.confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1 } }), 400);
   } else {
-    confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+    window.confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
   }
 }
 

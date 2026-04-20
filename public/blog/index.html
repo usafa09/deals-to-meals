@@ -86,9 +86,15 @@
       padding: 140px 24px 50px;
       text-align: center;
       border-bottom: 1px solid #26402c;
-      /* Override global 'header{display:none}' rule that unintentionally
-         applies to every <header> element site-wide */
+      /* Override the global 'header{...}' rule that unintentionally
+         applies nav-bar styles to every <header> element site-wide
+         (display:none, position:relative, z-index:100, grid, etc.) */
       display: block !important;
+      position: static !important;
+      top: auto !important;
+      z-index: auto !important;
+      min-height: auto !important;
+      grid-template-columns: none !important;
     }
 
     .page-header .kicker {

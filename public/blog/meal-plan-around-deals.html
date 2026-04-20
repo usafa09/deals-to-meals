@@ -86,6 +86,9 @@
       padding: 140px 24px 50px;
       text-align: center;
       border-bottom: 1px solid #26402c;
+      /* Override global 'header{display:none}' rule that unintentionally
+         applies to every <header> element site-wide */
+      display: block !important;
     }
 
     .page-header .kicker {
@@ -409,8 +412,8 @@
   <div id="hamMenu" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
     <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu').style.display='none'">How It Works</a>
     <a href="/features.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Features</a>
-    <a href="/blog/" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Blog</a>
     <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
+    <a href="/blog/" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Blog</a>
     <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
     <a href="/tips.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Tips</a>
     <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
@@ -534,16 +537,16 @@
   
   </main>
 
-  <footer class="about-footer">
-    <div class="footer-brand">Dishcount &mdash; Meals from Deals &middot; Built in Dayton, Ohio</div>
-    <div class="footer-links">
-      <a href="/blog/">Blog</a>
-      <a href="/about.html">About</a>
-      <a href="/contact.html">Contact</a>
-      <a href="/terms.html">Terms</a>
-      <a href="/privacy.html">Privacy</a>
-    </div>
-    <div class="footer-copy">&copy; 2026 Dishcount. All rights reserved.</div>
+  <footer class="landing-footer">
+    <p>Dishcount &mdash; Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/blog/">Blog</a> &middot; <a href="/about.html">About</a> &middot; <a href="/features.html">Features</a> &middot; <a href="/contact.html">Contact</a> &middot; <a href="/tips.html">Tips</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/privacy.html">Privacy</a></p>
+    <p class="social-links" style="margin-top:12px;display:flex;gap:16px;justify-content:center;align-items:center">
+      <a href="https://www.facebook.com/dishcountapp/" aria-label="Dishcount on Facebook" target="_blank" rel="noopener" style="display:inline-flex;color:inherit;opacity:0.75;transition:opacity 0.15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.75">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+      </a>
+    </p>
+    <p>&copy; 2026 Dishcount. All rights reserved.</p>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

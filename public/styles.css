@@ -3,7 +3,7 @@
 :root {
   --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc; --green-bright: #52b788;
   --orange: #A85D05; --orange-light: #fef3c7;
-  --cream: #fffdf7; --sand: #e8e0d0; --text: #2d3a2e; --muted: #5A6859;
+  --cream: #fffdf7; --sand-light: #F0E9D9; --sand: #e8e0d0; --text: #2d3a2e; --muted: #5A6859;
   --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
   --dark: #1a2e1f;
 }
@@ -94,7 +94,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .recipe-preview-note { font-size: 14px; color: var(--muted); font-style: italic; }
 
 /* ══ Email Capture ══ */
-.email-capture-section { padding: 64px 24px; background: #f5f0e8; }
+.email-capture-section { padding: 64px 24px; background: var(--sand-light); }
 .email-capture-inner { max-width: 500px; margin: 0 auto; text-align: center; }
 .email-capture-heading { font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 800; color: var(--green-dark); margin-bottom: 10px; }
 .email-capture-sub { font-size: 16px; color: var(--text); margin-bottom: 24px; line-height: 1.6; }
@@ -120,7 +120,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .trust-stat .lbl { font-size: 12px; color: #8a9b8d; font-weight: 600; margin-top: 2px; }
 
 /* ══ How It Works ══ */
-.how-section { padding: 72px 24px; background: var(--cream); }
+.how-section { padding: 72px 24px; background: var(--sand-light); }
 .how-section-inner { max-width: 960px; margin: 0 auto; }
 .how-title { font-family: 'Outfit', sans-serif; font-size: 36px; font-weight: 800; color: var(--green-dark); text-align: center; margin-bottom: 48px; }
 .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }

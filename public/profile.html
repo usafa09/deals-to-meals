@@ -170,10 +170,11 @@
 
 <div class="toast" id="toast"></div>
 <main id="main-content" style="padding-top:80px">
+  <h1 class="sr-only">Your Dishcount account</h1>
   <!-- Static auth form visible to crawlers and before JS loads -->
   <div id="staticAuthForm">
     <div style="max-width:400px;margin:60px auto;padding:24px;text-align:center">
-      <h1 style="font-family:'Outfit',sans-serif;font-size:24px;color:#2d6a4f;margin-bottom:8px">Welcome to Dishcount</h1>
+      <h2 style="font-family:'Outfit',sans-serif;font-size:24px;color:#2d6a4f;margin-bottom:8px">Welcome to Dishcount</h2>
       <p style="color:#888;margin-bottom:24px">Sign in or create an account to save recipes, build shopping lists, and track your savings.</p>
       <div style="background:white;border:2px solid #e8e0d0;border-radius:16px;padding:24px">
         <div style="margin-bottom:16px"><label for="staticEmail" class="sr-only">Email address</label><input type="email" id="staticEmail" autocomplete="email" placeholder="Email address" style="width:100%;padding:12px;border:2px solid #e8e0d0;border-radius:10px;font-size:16px;font-family:'DM Sans',sans-serif;box-sizing:border-box"></div>
@@ -300,7 +301,7 @@ function renderAuth() {
   document.getElementById("main").innerHTML = `
     <div class="auth-card">
       <div class="auth-logo">🥦</div>
-      <h1 class="auth-title">Welcome to Dishcount</h1>
+      <h2 class="auth-title">Welcome to Dishcount</h2>
       <p class="auth-sub">Sign in to unlock personalized recipes, digital coupons & more</p>
       <div class="auth-tabs">
         <div class="auth-tab ${activeTab==="signin"?"active":""}"  onclick="switchTab('signin')">Sign In</div>

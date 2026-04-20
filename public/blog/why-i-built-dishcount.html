@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-41675D42V1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-41675D42V1', { anonymize_ip: true });
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why I Built Dishcount — A Dayton Dad's Origin Story | Dishcount</title>
+  <link rel="canonical" href="https://dishcount.co/blog/why-i-built-dishcount.html">
+  <meta name="description" content="I'm not a developer. I'm a dad in Dayton, Ohio who got tired of overspending at the grocery store. Here's the story of how a $7.99 jar turned into a free app.">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Why I Built Dishcount — A Dayton Dad's Origin Story | Dishcount">
+  <meta property="og:description" content="I'm not a developer. I'm a dad in Dayton, Ohio who got tired of overspending at the grocery store. Here's the story of how a $7.99 jar turned into a free app.">
+  <meta property="og:url" content="https://dishcount.co/blog/why-i-built-dishcount.html">
+  <meta property="og:image" content="https://dishcount.co/images/og-hero.jpg">
+  <meta property="og:site_name" content="Dishcount">
+  <meta property="article:published_time" content="2026-04-19">
+  <meta property="article:author" content="Bill McCormick">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Why I Built Dishcount — A Dayton Dad's Origin Story | Dishcount">
+  <meta name="twitter:description" content="I'm not a developer. I'm a dad in Dayton, Ohio who got tired of overspending at the grocery store. Here's the story of how a $7.99 jar turned into a free app.">
+  <meta name="twitter:image" content="https://dishcount.co/images/og-hero.jpg">
+
+  <!-- Article schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Why I Built Dishcount - A Dayton Dad's Origin Story | Dishcount",
+    "description": "I'm not a developer. I'm a dad in Dayton, Ohio who got tired of overspending at the grocery store. Here's the story of how a $7.99 jar turned into a free app.",
+    "author": {
+      "@type": "Person",
+      "name": "Bill McCormick"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Dishcount",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://dishcount.co/icon-512x512.png"
+      }
+    },
+    "datePublished": "2026-04-19",
+    "dateModified": "2026-04-19",
+    "mainEntityOfPage": "https://dishcount.co/blog/why-i-built-dishcount.html",
+    "image": "https://dishcount.co/images/og-hero.jpg"
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.min.css">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #0d1f12;
+      color: #e8f0ea;
+      line-height: 1.6;
+    }
+
+    .nav-signin:hover {
+      background: var(--green-mid);
+      color: #fff;
+    }
+
+    .page-header {
+      background: #1a2e1f;
+      padding: 140px 24px 50px;
+      text-align: center;
+      border-bottom: 1px solid #26402c;
+    }
+
+    .page-header .kicker {
+      display: inline-block;
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      color: #52b788;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .page-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      color: #e8f0ea;
+      line-height: 1.15;
+      max-width: 780px;
+      margin: 0 auto 14px;
+    }
+
+    .page-header .subtitle {
+      font-size: 18px;
+      color: #b0bfb3;
+      max-width: 620px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .page-header .byline {
+      margin-top: 18px;
+      font-size: 14px;
+      color: #8fb89a;
+    }
+
+    /* Article body */
+    .article-body {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+      font-size: 17px;
+      line-height: 1.75;
+      color: #d8e3da;
+    }
+
+    .article-body .lede {
+      font-size: 20px;
+      color: #e8f0ea;
+      line-height: 1.6;
+      margin-bottom: 28px;
+      font-weight: 500;
+    }
+
+    .article-body h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #e8f0ea;
+      margin: 44px 0 16px;
+      line-height: 1.25;
+    }
+
+    .article-body h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #e8f0ea;
+      margin: 32px 0 10px;
+    }
+
+    .article-body p {
+      margin-bottom: 20px;
+    }
+
+    .article-body ul, .article-body ol {
+      padding-left: 24px;
+      margin-bottom: 20px;
+    }
+
+    .article-body li {
+      margin-bottom: 8px;
+    }
+
+    .article-body strong {
+      color: #e8f0ea;
+      font-weight: 700;
+    }
+
+    .article-body a {
+      color: #52b788;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .article-body a:hover {
+      color: #74c69d;
+    }
+
+    .article-body blockquote {
+      border-left: 3px solid #52b788;
+      padding: 4px 0 4px 20px;
+      margin: 28px 0;
+      font-style: italic;
+      color: #b0bfb3;
+    }
+
+    .article-body .callout {
+      background: #1a2e1f;
+      border: 1px solid #26402c;
+      border-radius: 12px;
+      padding: 22px 26px;
+      margin: 28px 0;
+    }
+
+    .article-body .callout p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Inline CTA card */
+    .article-cta {
+      background: linear-gradient(135deg, #1a2e1f 0%, #26402c 100%);
+      border: 1px solid #2d6a4f;
+      border-radius: 16px;
+      padding: 32px;
+      margin: 40px 0;
+      text-align: center;
+    }
+
+    .article-cta h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      color: #e8f0ea;
+      margin-bottom: 10px;
+    }
+
+    .article-cta p {
+      color: #b0bfb3;
+      font-size: 15px;
+      margin-bottom: 18px;
+    }
+
+    .article-cta a {
+      display: inline-block;
+      background: #52b788;
+      color: #0d1f12;
+      font-weight: 700;
+      padding: 12px 28px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 15px;
+    }
+
+    .article-cta a:hover {
+      background: #74c69d;
+      color: #0d1f12;
+    }
+
+    /* Related posts */
+    .related {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    .related h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      color: #e8f0ea;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .related-card {
+      background: #1a2e1f;
+      border: 1px solid #26402c;
+      border-radius: 12px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .related-card:hover {
+      border-color: #52b788;
+      transform: translateY(-2px);
+    }
+
+    .related-card .kicker {
+      font-size: 11px;
+      color: #52b788;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .related-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
+      color: #e8f0ea;
+      line-height: 1.3;
+    }
+
+    @media (max-width: 768px) {
+      .page-header { padding: 120px 16px 40px; }
+      .page-header h1 { font-size: 30px; }
+      .page-header .subtitle { font-size: 16px; }
+      .article-body { padding: 40px 20px 60px; font-size: 16px; }
+      .article-body .lede { font-size: 18px; }
+      .article-body h2 { font-size: 24px; }
+    }
+
+    /* Blog hub specific */
+    .post-grid {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .post-card {
+      background: #1a2e1f;
+      border: 1px solid #26402c;
+      border-radius: 16px;
+      padding: 28px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .post-card:hover {
+      border-color: #52b788;
+      transform: translateY(-3px);
+    }
+
+    .post-card .kicker {
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px;
+      color: #52b788;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .post-card h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      color: #e8f0ea;
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+
+    .post-card p {
+      color: #b0bfb3;
+      font-size: 15px;
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .post-card .read-more {
+      color: #52b788;
+      font-weight: 700;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .post-card-soon {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .post-card-soon:hover {
+      border-color: #26402c;
+      transform: none;
+    }
+
+    .post-card-soon .soon-badge {
+      color: #8fb89a;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .intro-copy {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 50px 24px 0;
+      font-size: 17px;
+      line-height: 1.75;
+      color: #d8e3da;
+    }
+
+    .intro-copy p {
+      margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+<a href="#main-content" class="skip-nav">Skip to main content</a>
+<noscript><div style="text-align:center;padding:60px 20px;font-family:'Trebuchet MS',sans-serif;"><h1 style="color:#2d6a4f;">Dishcount</h1><p style="font-size:18px;color:#666;">Dishcount requires JavaScript to run. Please enable JavaScript in your browser and reload the page.</p></div></noscript>
+
+  <nav class="landing-nav">
+    <div class="landing-nav-inner">
+    <div class="nav-left" style="position:relative;z-index:9000;">
+  <button id="hamBtn" type="button" onclick="var m=document.getElementById('hamMenu');m.style.display=m.style.display==='block'?'none':'block'" style="background:none;border:none;color:#c8d6cb;font-size:28px;cursor:pointer;padding:8px 12px;-webkit-tap-highlight-color:rgba(255,255,255,0.2);touch-action:manipulation;" aria-label="Menu">&#9776;</button>
+  <div id="hamMenu" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+    <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu').style.display='none'">How It Works</a>
+    <a href="/features.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Features</a>
+    <a href="/blog/" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Blog</a>
+    <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
+    <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
+    <a href="/tips.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Tips</a>
+    <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
+    <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
+  </div>
+</div>
+    <a href="/" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
+      <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#A85D05;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
+    </a>
+      <div class="landing-nav-links">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/blog/">Blog</a>
+        <a href="/about.html">About</a>
+        <a href="/contact.html">Contact</a>
+      </div>
+      <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
+    <div class="nav-right"><span onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin">Sign In</a></div>
+    </div>
+</nav>
+
+  <header class="page-header">
+    <div class="kicker">Founder Story</div>
+    <h1>Why I Built Dishcount</h1>
+    <p class="subtitle">I'm not a developer. I'm a dad who got tired of paying full price for groceries I could've bought on sale.</p>
+    <p class="byline">By Bill McCormick &middot; April 19, 2026 &middot; 4 min read</p>
+  </header>
+
+  <main id="main-content">
+    <article class="article-body">
+
+      <p class="lede">I'm going to tell you the moment that started all this. It's embarrassing, but it's also the reason Dishcount exists.</p>
+
+      <p>I was standing in a Kroger aisle about a year and a half ago, holding a $7.99 jar of something I can't even remember now. Capers? Tahini? Some condiment the recipe needed. One tablespoon of it. And I was going to buy the whole jar.</p>
+
+      <p>I looked at my cart. It was the usual haul, chicken, produce, pasta, yogurt for the kids. Almost none of it was on sale. I'd planned the week's meals on Sunday night, made a list, walked in, and just grabbed things off the shelves like I always did.</p>
+
+      <p>It hit me standing there: I'd spent twenty minutes picking recipes and exactly zero minutes checking what was on sale. And I'd been doing it that way for years.</p>
+
+      <h2>The thing I couldn't find</h2>
+
+      <p>That night I sat down to look for a tool that did what I wanted. I figured if I was this dumb about grocery shopping, somebody smarter had already solved it. There must be an app where you plug in your zip code, see what's actually on sale nearby, and get recipes built around the deals.</p>
+
+      <p>Nope.</p>
+
+      <p>Every meal planning app I tried worked the same way: pick your recipes first, then it makes you a shopping list. Some of them let you import coupons. A couple had vague "budget" filters. But none of them started with the sales.</p>
+
+      <p>And that was the whole problem. The price of your groceries isn't set by the recipe &mdash; it's set by what the store decided to put on sale that week. If you're not checking the sale first, you're literally leaving money on the shelf.</p>
+
+      <h2>I am not a developer</h2>
+
+      <p>Here's the part where I should say something like "so I hired a team" or "so I raised some money." I didn't. I don't have either of those things and exactly zero experience writing code or developing a website. I work a normal job. I'm in the Navy Reserve. I have a family. And I have about an hour every night, after everyone else goes to bed, to work on whatever project I thought would take 2 days but is now in week 3!</p>
+
+      <p>What I did have was an AI coding assistant.</p>
+
+      <p>I started asking Claude questions like "how would I pull grocery store weekly ads" and "what's an API" and "how do I make a website." For the first couple of weeks I didn't know what I was doing at all. I broke things constantly. I'd describe what I wanted, get code back, copy-paste it, watch it fail, and then ask why it failed. Over and over. Night after night.</p>
+
+      <p>Slowly, it started working. First a simple page that pulled Kroger deals by zip code. Then ALDI. Then a way to generate recipes from the sale items using AI. Then the rest.</p>
+
+      <p>I want to be clear: I didn't build this the "right" way. A real developer would look at the code and have opinions. But it works, and it works for real families. And that's what matters.</p>
+
+      <h2>What it does now</h2>
+
+      <p>You type in your zip code. Dishcount pulls the live weekly deals from Kroger, ALDI, Walmart, and about 80 other grocery chains near you. You pick the deals that look good to you. Add any ingredients you already have at home. Mention any dietary stuff like "no pork" or "dairy-free." Hit a button.</p>
+
+      <p>It generates meals around those deals. Full recipes. A shopping list. If you're a Kroger shopper, it can even send the list straight to your cart for pickup.</p>
+
+      <p>That's it. There's no app to download. No sign-up required to try it. No "premium plan." It's free because I wanted to build the thing I'd needed, and then it felt weird to charge people for it.</p>
+
+      <div class="article-cta">
+        <h3>See what's on sale near you right now</h3>
+        <p>Enter your zip and let the app do the rest. It takes less than a minute.</p>
+        <a href="/">Try Dishcount →</a>
+      </div>
+
+      <h2>What I've learned</h2>
+
+      <p>Two things, mostly.</p>
+
+      <p><strong>First, the barrier to building something has never been lower.</strong> If there's a problem in your life that you wish somebody would solve, and nobody has, the tools exist right now to let you try. I'm not saying it's easy. It was hard. But it was possible, and a year ago I wouldn't have believed that.</p>
+
+      <p><strong>Second, the best time to build something is when nobody's watching.</strong> No investors. No deadlines. No pressure to monetize. Just a problem you cared about and the stubbornness to keep poking at it until it worked. That's not a bad way to spend your evenings.</p>
+
+      <p>If Dishcount helps your family even a little, that's what it was for. And if you've got feedback &mdash; good, bad, or "hey this is broken" &mdash; I'd love to hear it. There's a contact form on the site and it goes straight to me.</p>
+
+    </article>
+
+  <section class="related">
+    <h2>Keep reading</h2>
+    <div class="related-grid">
+        <a class="related-card" href="/blog/meal-plan-around-deals.html">
+          <div class="kicker">Meal Planning</div>
+          <h3>How to Meal Plan Around Grocery Deals</h3>
+        </a></div>
+  </section>
+  
+  </main>
+
+  <footer class="about-footer">
+    <div class="footer-brand">Dishcount &mdash; Meals from Deals &middot; Built in Dayton, Ohio</div>
+    <div class="footer-links">
+      <a href="/blog/">Blog</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+    </div>
+    <div class="footer-copy">&copy; 2026 Dishcount. All rights reserved.</div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://bvwwtrwxnuncalgtuqvx.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw';
+
+    async function checkAuth() {
+      try {
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data: { session } } = await sb.auth.getSession();
+        const signInEl = document.querySelector('.nav-signin');
+        if (session && signInEl) {
+          const { data: p } = await sb.from('profiles').select('full_name').eq('id', session.user.id).single();
+          const name = p?.full_name || session.user.email?.split('@')[0] || 'Account';
+          signInEl.textContent = name.split(' ')[0];
+          signInEl.classList.add('logged-in');
+        }
+      } catch (e) {}
+    }
+    checkAuth();
+  </script>
+
+<script>
+document.addEventListener("click",function(e){var m=document.getElementById("hamMenu");var btn=document.getElementById("hamBtn");if(m&&btn&&m.style.display==="block"&&!btn.contains(e.target)&&!m.contains(e.target))m.style.display="none";});
+</script>
+</body>
+</html>

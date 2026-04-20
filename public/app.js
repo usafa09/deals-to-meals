@@ -27,6 +27,33 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+// ── Analytics tracking helpers ──────────────────────────────────────────────
+function trackRecipeGenerated() {
+  if (typeof gtag === 'function') {
+    gtag('event', 'recipe_generated', {
+      'event_category': 'engagement',
+      'event_label': 'ai_recipe',
+      'value': 1
+    });
+  }
+  if (typeof fbq === 'function') {
+    fbq('trackCustom', 'RecipeGenerated');
+  }
+}
+
+function trackZipCodeEntered() {
+  if (typeof gtag === 'function') {
+    gtag('event', 'zip_code_entered', {
+      'event_category': 'engagement',
+      'event_label': 'deals_loaded',
+      'value': 1
+    });
+  }
+  if (typeof fbq === 'function') {
+    fbq('trackCustom', 'ZipCodeEntered');
+  }
+}
+
 // ── Focus trap utility ──────────────────────────────────────────────────────
 function trapFocus(modalEl, firstFocusEl) {
   const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -1360,6 +1387,7 @@ async function loadDealsAndShow() {
     const res = await fetch(`/api/deals/regional?${params}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to fetch deals");
+    trackZipCodeEntered();
 
     let allDeals = data.deals || [];
 
@@ -1690,6 +1718,7 @@ async function searchRecipes() {
     const data=await res.json();
     if(!res.ok){ if(data.limitReached){ clearSkeletonBanner(); showRateLimitModal(); return; } if(data.error==="ai_overloaded"){ clearSkeletonBanner(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
+    trackRecipeGenerated();
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
@@ -1725,6 +1754,7 @@ async function loadMoreRecipes() {
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||"Could not generate recipes");
     if(data.recipes?.length){
+      trackRecipeGenerated();
       const existingTitles=new Set(state.recipes.map(r=>r.title));
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
       state.recipes.push(...newRecipes);
@@ -1820,6 +1850,7 @@ async function generateFreezerMeals() {
     const data = await res.json();
     if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
+    trackRecipeGenerated();
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2157,6 +2188,7 @@ async function generateWeeklyPlan() {
     const data = await res.json();
     if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate plan"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
+    trackRecipeGenerated();
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;

@@ -523,3 +523,150 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
   button, .survey-btn, .filter-chip, .sale-filter-btn { min-height:44px; }
   input, select, textarea { font-size:16px !important; }
 }
+
+/* ===========================
+   PRINT STYLES
+   Optimizes recipe modal for paper — hides chrome,
+   expands modal to full page, preserves ingredients/instructions
+   =========================== */
+@media print {
+  /* Hide all non-essential UI */
+  .landing-nav,
+  .landing-footer,
+  .contact-footer,
+  .cookie-banner,
+  .skip-nav,
+  .saved-recipes-btn,
+  .modal-close,
+  .modal-actions,
+  .loading-overlay,
+  .nudge-overlay,
+  .slideout-overlay,
+  .survey-overlay,
+  noscript,
+  button:not(.print-keep) {
+    display: none !important;
+  }
+
+  /* Force light theme for paper */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  /* Expand modal overlay to flow inline on the page */
+  .modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .modal-overlay > * {
+    box-shadow: none !important;
+    border: none !important;
+    background: #fff !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Make title prominent */
+  .modal-title {
+    font-size: 22pt !important;
+    font-weight: 700;
+    color: #000 !important;
+    margin-bottom: 8pt !important;
+    page-break-after: avoid;
+  }
+
+  /* Image: small, top-right, optional */
+  .modal-img,
+  .modal-img-placeholder {
+    max-width: 2.5in !important;
+    max-height: 1.8in !important;
+    float: right;
+    margin: 0 0 8pt 12pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* Stats pills render flat */
+  .modal-stats {
+    margin: 6pt 0 12pt !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  .stat-pill,
+  .stat-pill.stat-servings {
+    display: inline-block;
+    background: none !important;
+    color: #000 !important;
+    border: 1px solid #666 !important;
+    padding: 2pt 6pt !important;
+    margin: 0 4pt 2pt 0 !important;
+    font-size: 9pt !important;
+  }
+
+  /* Section titles (Ingredients / Instructions) */
+  .modal-section-title {
+    font-size: 13pt !important;
+    font-weight: 700;
+    color: #000 !important;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2pt;
+    margin: 12pt 0 6pt !important;
+    page-break-after: avoid;
+  }
+
+  /* Lists render cleanly; avoid orphaned items */
+  .modal-section ul,
+  .modal-section ol {
+    padding-left: 20pt !important;
+    margin: 0 0 10pt !important;
+  }
+  .modal-section li {
+    page-break-inside: avoid;
+    margin-bottom: 3pt;
+    color: #000 !important;
+  }
+
+  /* Avoid splitting ingredients block across pages */
+  .modal-section {
+    page-break-inside: avoid;
+  }
+
+  /* URL attribution footer */
+  .modal-body::after {
+    content: "Recipe from dishcount.co";
+    display: block;
+    margin-top: 18pt;
+    padding-top: 8pt;
+    border-top: 1px solid #ccc;
+    font-size: 9pt;
+    color: #666;
+    text-align: center;
+  }
+
+  /* Inline links: show href so paper readers can find the source */
+  a[href^="http"]:after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #555;
+  }
+  a[href^="/"]:after,
+  a[href^="#"]:after {
+    content: "";
+  }
+
+  /* Universal page margins */
+  @page {
+    margin: 0.6in;
+  }
+}

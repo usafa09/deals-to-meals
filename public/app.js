@@ -30,26 +30,41 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // ── Focus trap utility ──────────────────────────────────────────────────────
 function trapFocus(modalEl, firstFocusEl) {
   const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-  const focusables = modalEl.querySelectorAll(selectors);
-  const first = firstFocusEl || focusables[0];
-  const last = focusables[focusables.length - 1];
-  if (first) setTimeout(() => first.focus(), 50);
+  const getFocusables = () => [...modalEl.querySelectorAll(selectors)]
+    .filter(el => !el.disabled && el.offsetParent !== null);
   const previouslyFocused = document.activeElement;
+  const initialFocus = firstFocusEl || getFocusables()[0];
+  if (initialFocus) setTimeout(() => initialFocus.focus(), 50);
   function handleKey(e) {
     if (e.key === "Escape") { modalEl._close?.(); return; }
     if (e.key !== "Tab") return;
-    if (focusables.length === 0) { e.preventDefault(); return; }
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    const items = getFocusables();
+    if (items.length === 0) { e.preventDefault(); return; }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    // If focus escaped the modal somehow, yank it back
+    if (!modalEl.contains(active)) { e.preventDefault(); first.focus(); return; }
+    if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
   }
-  modalEl.addEventListener("keydown", handleKey);
+  // Listen on document so keydowns fire regardless of current focus target
+  document.addEventListener("keydown", handleKey, true);
   return () => {
-    modalEl.removeEventListener("keydown", handleKey);
+    document.removeEventListener("keydown", handleKey, true);
     previouslyFocused?.focus?.();
   };
 }
 
 // ── First-Visit Welcome Modal ───────────────────────────────────────────────
+function closeWelcomeModal() {
+  const wm = document.getElementById("welcomeModal");
+  if (!wm) return;
+  try { wm._focusCleanup?.(); } catch (e) {}
+  document.body.style.overflow = "";
+  wm.remove();
+  localStorage.setItem("dishcount_visited", "true");
+}
 function openWelcomeModal() {
   const wm = document.createElement("div");
   wm.id = "welcomeModal";
@@ -68,17 +83,11 @@ function openWelcomeModal() {
     '</div>' +
     '<button type="button" id="welcomeGoBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Go! &#8594;</button></div>';
   document.body.appendChild(wm);
-  const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  const cleanupFocus = trapFocus(wm);
-  wm._close = () => {
-    cleanupFocus();
-    document.body.style.overflow = prevOverflow;
-    wm.remove();
-    localStorage.setItem("dishcount_visited", "true");
-  };
-  document.getElementById("welcomeCloseBtn").addEventListener("click", wm._close);
-  document.getElementById("welcomeGoBtn").addEventListener("click", wm._close);
+  wm._close = closeWelcomeModal;
+  wm._focusCleanup = trapFocus(wm);
+  document.getElementById("welcomeCloseBtn").addEventListener("click", closeWelcomeModal);
+  document.getElementById("welcomeGoBtn").addEventListener("click", closeWelcomeModal);
 }
 if (!localStorage.getItem("dishcount_visited")) {
   if (document.readyState === "loading") {
@@ -1962,7 +1971,6 @@ function adjustServings(delta) {
   }
 }
 
-let _modalFocusCleanup = null;
 function openModal(i){
   state.currentRecipe={...state.recipes[i],index:i};
   modalServings=state.currentRecipe.servings||4;
@@ -1975,14 +1983,18 @@ function openModal(i){
   overlay.classList.add("show");
   document.body.style.overflow="hidden";
   overlay._close = closeModal;
-  if (_modalFocusCleanup) { try { _modalFocusCleanup(); } catch(e){} }
-  _modalFocusCleanup = trapFocus(overlay);
+  // Clean up any stale trap from a previous open (defensive)
+  try { overlay._focusCleanup?.(); } catch (e) {}
+  overlay._focusCleanup = trapFocus(overlay);
   setTimeout(()=>{showTooltip("cookalong",'button[onclick*="startCookAlong"]',"Tap this for step-by-step cooking mode with built-in timers!","bottom:100%;left:0;margin-bottom:8px;");},500);
 }
 function closeModal(){
-  document.getElementById("modalOverlay").classList.remove("show");
-  document.body.style.overflow="";
-  if (_modalFocusCleanup) { try { _modalFocusCleanup(); } catch(e){} _modalFocusCleanup = null; }
+  const overlay = document.getElementById("modalOverlay");
+  if (!overlay) return;
+  try { overlay._focusCleanup?.(); } catch (e) {}
+  overlay._focusCleanup = null;
+  overlay.classList.remove("show");
+  document.body.style.overflow = "";
 }
 function closeModalOnOverlay(e){if(e.target===document.getElementById("modalOverlay"))closeModal();}
 

@@ -171,7 +171,15 @@ header .logo-link { position: absolute; left: 50%; transform: translateX(-50%); 
 .saved-recipes-btn { display: none; }
 
 /* ── App Layout ── */
-main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
+/* Bare <main> gets padding only — individual pages opt into a max-width column via a class.
+   Prevents the landing hero from being strangled at 720px and lets in-app screens use
+   .app-container for their 1200px cap. */
+main { padding: 20px 12px 80px; }
+@media (min-width: 768px) {
+  main { padding: 32px 20px 100px; }
+}
+main.content-page { max-width: 720px; margin: 0 auto; }
+.app-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; }
 .screen { display: none; }
 .screen.active { display: block; animation: fadeUp 0.4s ease; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
@@ -241,7 +249,8 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
 .sort-btn { padding: 6px 12px; border: 2px solid var(--sand); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: white; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
 .sort-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }
 
-.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+@media (max-width: 640px) { .recipe-grid { grid-template-columns: 1fr; gap: 12px; } }
 .recipe-card-tile { background: white; border: 2px solid var(--sand); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
 .recipe-card-tile:hover { border-color: var(--green-mid); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
 .recipe-card-img { width: 100%; height: 140px; object-fit: cover; background: #F5F0E8; display: block; }
@@ -431,7 +440,6 @@ main { max-width: 720px; margin: 0 auto; padding: 32px 20px 100px; }
   .sale-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
   .sale-filters { gap: 6px; }
   .sale-filter-btn { padding: 5px 10px; font-size: 11px; }
-  main { padding: 20px 12px 80px; }
   .meal-grid { grid-template-columns: repeat(2, 1fr); }
   header svg { width: 120px; height: 30px; }
   .kroger-hero-inner { grid-template-columns: 1fr; gap: 32px; text-align: center; }

@@ -1886,7 +1886,7 @@ function recipeHash(r) {
 
 function renderRecipeGrid(){
   ensureAppScreens();
-  const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Recipes"};
+  const styleInfo=RECIPE_STYLES.find(s=>s.id===state.selectedStyle)||{icon:"🍽️",label:"Your"};
   const diets=state.selectedDiets.length?` · ${state.selectedDiets.join(", ")}`:"";
   document.getElementById("recipesTitle").textContent=`${styleInfo.icon} ${styleInfo.label} Recipes`;
   document.getElementById("resultsCount").textContent=`${state.recipes.length} recipes built from this week's deals${diets}`;

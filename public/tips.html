@@ -41,7 +41,7 @@
   <div id="site-header"></div>
   <script>fetch("/header.html").then(r=>r.text()).then(h=>{document.getElementById("site-header").innerHTML=h;var s=document.getElementById("site-header").querySelectorAll("script");s.forEach(function(sc){var ns=document.createElement("script");ns.textContent=sc.textContent;document.body.appendChild(ns);});});</script>
 
-  <main id="main-content">
+  <main id="main-content" class="content-page">
   <div class="tips-header">
     <h1>Tips &amp; Features</h1>
     <p>Everything Dishcount can do to help you save money on groceries and plan better meals.</p>

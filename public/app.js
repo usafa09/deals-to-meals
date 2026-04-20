@@ -73,7 +73,7 @@ function openWelcomeModal() {
   wm.setAttribute("aria-labelledby", "welcomeTitle");
   wm.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:6000;";
   wm.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:500px;width:90%;text-align:center;position:relative;">' +
-    '<button type="button" id="welcomeCloseBtn" aria-label="Close" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;line-height:1;color:#888;cursor:pointer;padding:6px 10px;min-width:44px;min-height:44px;">&times;</button>' +
+    '<button type="button" id="welcomeCloseBtn" aria-label="Close" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;line-height:1;color:#595959;cursor:pointer;padding:6px 10px;min-width:44px;min-height:44px;">&times;</button>' +
     '<div style="font-size:48px;margin-bottom:12px;">&#128722;</div>' +
     '<h2 id="welcomeTitle" style="color:#2d6a4f;margin-bottom:8px;">Welcome to Dishcount!</h2>' +
     '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:20px;">Meal planning that starts with savings. Here\'s how it works:</p>' +
@@ -130,7 +130,7 @@ function showFeatureDiscovery(id, html) {
   if (!el) return;
   const div = document.createElement("div");
   div.style.cssText = "background:#f0fdf4;border:1px solid #52b788;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;";
-  div.innerHTML = '<span style="font-size:24px;">&#10024;</span><div>' + html + '</div><button onclick="this.closest(\'div\').remove();localStorage.setItem(\'discovery_' + id + '\',\'true\')" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;flex-shrink:0;">\u00d7</button>';
+  div.innerHTML = '<span style="font-size:24px;">&#10024;</span><div>' + html + '</div><button onclick="this.closest(\'div\').remove();localStorage.setItem(\'discovery_' + id + '\',\'true\')" style="background:none;border:none;font-size:18px;cursor:pointer;color:#595959;flex-shrink:0;">\u00d7</button>';
   el.parentNode.insertBefore(div, el);
   localStorage.setItem("discovery_" + id, "true");
 }
@@ -213,7 +213,7 @@ function showOnboardingSurvey() {
     '<div style="margin-bottom:16px;">' + logoSvg + '</div>' +
     '<h2 style="color:#2d6a4f;margin-bottom:12px;font-size:24px;">Welcome to Dishcount!</h2>' +
     '<p style="color:#555;font-size:16px;line-height:1.6;max-width:400px;margin:0 auto 24px;">We\'d love to learn a little about you so we can tailor your recipe recommendations. Your answers help our AI suggest meals that match your family\'s size, tastes, dietary needs, and schedule.</p>' +
-    '<p style="color:#888;font-size:13px;max-width:400px;margin:0 auto 24px;">This takes about 30 seconds. You can update your answers anytime from your profile. Your information is only used to personalize your recipes — we never share it.</p>' +
+    '<p style="color:#595959;font-size:13px;max-width:400px;margin:0 auto 24px;">This takes about 30 seconds. You can update your answers anytime from your profile. Your information is only used to personalize your recipes — we never share it.</p>' +
     '<button onclick="surveyNext()" style="width:100%;max-width:300px;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Get Started</button>' +
     '<br><a onclick="skipOnboardingSurvey()" style="display:inline-block;margin-top:12px;color:#999;font-size:13px;cursor:pointer;text-decoration:underline;">Skip for now</a>' +
     '</div></div>',
@@ -1483,7 +1483,7 @@ function openStoreAd(storeName) {
     '<h3 style="color:#2d6a4f;margin-bottom:8px;">' + escapeHtml(storeName) + ' Weekly Ad</h3>' +
     '<p style="color:#666;font-size:14px;margin-bottom:20px;">View this week\'s deals directly on the official ' + escapeHtml(storeName) + ' website.</p>' +
     '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="document.getElementById(\'adModalOverlay\').remove()" style="display:block;padding:14px;background:#2d6a4f;color:white;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px;">View Weekly Ad &#8594;</a>' +
-    '<button onclick="document.getElementById(\'adModalOverlay\').remove()" style="background:none;border:none;color:#888;font-size:14px;cursor:pointer;">Close</button></div>';
+    '<button onclick="document.getElementById(\'adModalOverlay\').remove()" style="background:none;border:none;color:#595959;font-size:14px;cursor:pointer;">Close</button></div>';
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
@@ -1560,7 +1560,7 @@ async function renderSaleItems() {
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
-      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#B56406;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
+      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.image&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
@@ -1770,16 +1770,16 @@ function renderNutritionBanner() {
   const avg = (field) => Math.round(recipes.reduce((s, r) => s + (parseFloat(r[field]) || 0), 0) / count);
   const cal = avg("calories"), pro = avg("protein"), carb = avg("carbs"), fat = avg("fat"), fib = avg("fiber");
   let warnings = "";
-  if (pro < 20) warnings += '<p style="color:#B56406;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
-  if (fib < 5) warnings += '<p style="color:#B56406;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
+  if (pro < 20) warnings += '<p style="color:#A85D05;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
+  if (fib < 5) warnings += '<p style="color:#A85D05;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
   el.innerHTML = '<div style="background:#f9f9f0;border-radius:16px;padding:20px;margin-bottom:20px;">' +
     '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span class="beta-badge">BETA</span> <span style="color:#999;font-size:11px;font-weight:normal;">Estimates — not verified nutritional data</span></h3>' +
     '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;">' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#888;">Calories</div></div>' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#B56406;">' + pro + 'g</div><div style="font-size:11px;color:#888;">Protein</div></div>' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + carb + 'g</div><div style="font-size:11px;color:#888;">Carbs</div></div>' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#888;">' + fat + 'g</div><div style="font-size:11px;color:#888;">Fat</div></div>' +
-    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + fib + 'g</div><div style="font-size:11px;color:#888;">Fiber</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#595959;">Calories</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#A85D05;">' + pro + 'g</div><div style="font-size:11px;color:#595959;">Protein</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + carb + 'g</div><div style="font-size:11px;color:#595959;">Carbs</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#595959;">' + fat + 'g</div><div style="font-size:11px;color:#595959;">Fat</div></div>' +
+    '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#52b788;">' + fib + 'g</div><div style="font-size:11px;color:#595959;">Fiber</div></div>' +
     '</div>' + warnings + '<div style="text-align:right;margin-top:8px;"><a href="/contact.html?topic=bug" style="color:#999;font-size:11px;">Nutrition data wrong? Report issue</a></div></div>';
 }
 
@@ -1870,11 +1870,11 @@ function showReceiptResults(data) {
     '<div style="font-size:48px;margin-bottom:12px;">&#127881;</div>' +
     '<h3 style="color:#2d6a4f;margin-bottom:16px;">Your Receipt Results</h3>' +
     '<div style="display:flex;justify-content:space-around;margin-bottom:20px;">' +
-    '<div><div style="font-size:24px;font-weight:800;color:#2d6a4f;">$' + data.totalSpent + '</div><div style="font-size:12px;color:#888;">You spent</div></div>' +
-    '<div><div style="font-size:24px;font-weight:800;text-decoration:line-through;color:#999;">$' + data.regularPrice + '</div><div style="font-size:12px;color:#888;">Regular price</div></div>' +
-    '<div><div style="font-size:24px;font-weight:800;color:#B56406;">$' + data.saved + '</div><div style="font-size:12px;color:#888;">You saved!</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;color:#2d6a4f;">$' + data.totalSpent + '</div><div style="font-size:12px;color:#595959;">You spent</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;text-decoration:line-through;color:#999;">$' + data.regularPrice + '</div><div style="font-size:12px;color:#595959;">Regular price</div></div>' +
+    '<div><div style="font-size:24px;font-weight:800;color:#A85D05;">$' + data.saved + '</div><div style="font-size:12px;color:#595959;">You saved!</div></div>' +
     '</div>' +
-    '<p style="color:#888;font-size:13px;">This has been added to your savings tracker.</p></div>';
+    '<p style="color:#595959;font-size:13px;">This has been added to your savings tracker.</p></div>';
   document.body.appendChild(overlay);
 }
 
@@ -1894,7 +1894,7 @@ function renderRecipeGrid(){
     const emoji=r.title.match(/chicken/i)?"🍗":r.title.match(/beef|steak|burger/i)?"🥩":r.title.match(/pasta|spaghetti|noodle/i)?"🍝":r.title.match(/soup|stew|chili/i)?"🍲":r.title.match(/taco|burrito|quesadilla/i)?"🌮":r.title.match(/salad/i)?"🥗":r.title.match(/rice|bowl/i)?"🍚":r.title.match(/pizza/i)?"🍕":r.title.match(/sandwich|sub|melt/i)?"🥪":r.title.match(/fish|salmon|shrimp|tilapia/i)?"🐟":r.title.match(/pork|ham/i)?"🥓":r.title.match(/breakfast|egg|pancake/i)?"🥞":"🍽️";
     return `<div class="recipe-card-tile" onclick="openModal(${i})">
       ${r.image?`<img class="recipe-card-img" src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>${emoji}</div>'" />`:`<div class="recipe-card-img-placeholder lazy-img" data-title="${escapeHtml(r.title)}" data-idx="${i}" style="font-size:48px;padding:30px 0">${emoji}</div>`}
-      <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#B56406;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#888;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
+      <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#A85D05;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#595959;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
         ${(()=>{const all=r.allIngredients||r.ingredients||[];const counts={sale:0,onHand:0,pantry:0,additional:0};all.forEach(i=>{const t=(i.type||"").toUpperCase();if(t==="SALE"&&i.onSale)counts.sale++;else if(t==="ON_HAND")counts.onHand++;else if(t==="PANTRY")counts.pantry++;else if(t==="ADDITIONAL")counts.additional++;});const parts=[];if(counts.onHand)parts.push(counts.onHand+" have");if(counts.sale)parts.push(counts.sale+" on sale");if(counts.pantry)parts.push(counts.pantry+" pantry");if(counts.additional)parts.push(counts.additional+" to buy");return parts.length?`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${parts.join(" · ")}</span>`:`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} on sale</span>`;})()}
@@ -2005,7 +2005,7 @@ function renderModal(r){
     <div class="modal-body">
       <div class="modal-header"><div class="modal-title" id="modalTitle">${escapeHtml(r.title)}</div><button class="modal-close" aria-label="Close" onclick="closeModal()">✕</button></div>
       ${r.reasoning?`<div style="background:#f0fdf4;border-left:4px solid #52b788;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:13px;"><strong style="color:#2d6a4f;">Why this recipe:</strong> <span style="color:#555;">${escapeHtml(r.reasoning)}</span></div>`:""}
-      ${r.freezeInstructions?`<div style="background:#e8f4fd;border:1px solid #1a5276;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;"><span style="color:#1a5276;font-weight:600;">&#10052;&#65039; Freezer Friendly</span>${r.shelfLife?` &middot; <span style="color:#888;">${escapeHtml(r.shelfLife)}</span>`:""}${r.batchSize?` &middot; <span style="color:#888;">${escapeHtml(r.batchSize)}</span>`:""}<div style="color:#555;margin-top:4px;font-size:12px;"><strong>Freeze:</strong> ${escapeHtml(r.freezeInstructions)}</div>${r.reheatInstructions?`<div style="color:#555;margin-top:2px;font-size:12px;"><strong>Reheat:</strong> ${escapeHtml(r.reheatInstructions)}</div>`:""}</div>`:""}
+      ${r.freezeInstructions?`<div style="background:#e8f4fd;border:1px solid #1a5276;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;"><span style="color:#1a5276;font-weight:600;">&#10052;&#65039; Freezer Friendly</span>${r.shelfLife?` &middot; <span style="color:#595959;">${escapeHtml(r.shelfLife)}</span>`:""}${r.batchSize?` &middot; <span style="color:#595959;">${escapeHtml(r.batchSize)}</span>`:""}<div style="color:#555;margin-top:4px;font-size:12px;"><strong>Freeze:</strong> ${escapeHtml(r.freezeInstructions)}</div>${r.reheatInstructions?`<div style="color:#555;margin-top:2px;font-size:12px;"><strong>Reheat:</strong> ${escapeHtml(r.reheatInstructions)}</div>`:""}</div>`:""}
       <div class="modal-stats">
         ${r.time!=="N/A"?`<span class="stat-pill stat-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         <span class="stat-pill stat-servings">👥 ${escapeHtml(r.servings)} servings</span>
@@ -2054,13 +2054,13 @@ function renderModal(r){
           const otherDeals = state.deals.filter(d => d.storeName !== ing.matchedDeal.storeName && ingWords.some(w => (d.name||"").toLowerCase().includes(w)));
           if (otherDeals.length > 0) {
             const prices = otherDeals.slice(0, 2).map(d => escapeHtml(d.storeName || "") + " $" + String(d.salePrice).replace(/[^0-9.]/g, "")).join(" | ");
-            bestPriceBadge = '<div style="font-size:10px;color:#888;margin-top:2px;">Also: ' + prices + '</div>';
+            bestPriceBadge = '<div style="font-size:10px;color:#595959;margin-top:2px;">Also: ' + prices + '</div>';
           }
         }
         return `<div class="ing-row" style="background:${bg}"><span>${icon} ${origAmt > 0 ? `<span data-orig-amount="${origAmt}">${formatAmount(origAmt)}</span> ` : ""}${escapeHtml(rest)}${swapBtn}</span><div><span style="font-size:10px;font-weight:700;color:${color}">${label}${priceTag}</span>${bestPriceBadge}</div></div><div id="swap-panel-${idx}" style="display:none"></div>`;
       }).join("")}</div></div>
       ${r.instructions?.length?`<div class="modal-section"><div class="modal-section-title">📋 Instructions</div><div class="steps-list">${r.instructions.map((step,i)=>`<div class="step-row"><div class="step-num">${i+1}</div><div class="step-text">${escapeHtml(step)}</div></div>`).join("")}</div></div>`:""}
-      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#B56406;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step <span style="background:rgba(255,255,255,0.3);font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;">BETA</span></button>`:""}
+      ${r.instructions?.length?`<button onclick="startCookAlong()" style="width:100%;padding:14px;background:#A85D05;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">🍳 Start Cooking — Step by Step <span style="background:rgba(255,255,255,0.3);font-size:10px;padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:4px;">BETA</span></button>`:""}
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div id="ratingFormArea"></div>
       <div class="modal-actions">
@@ -2237,7 +2237,7 @@ function printRecipe() {
   const costLine = r.estimatedCost > 0 ? " &middot; ~$" + r.estimatedCost.toFixed(2) + " total" : "";
   const pw = window.open("", "_blank");
   pw.document.write('<!DOCTYPE html><html><head><title>' + escapeHtml(r.title) + ' — Dishcount</title>' +
-    '<style>body{font-family:Georgia,serif;max-width:600px;margin:40px auto;padding:20px;color:#333}h1{font-size:24px;margin-bottom:4px}.meta{color:#888;font-size:14px;margin-bottom:20px}h2{font-size:18px;border-bottom:1px solid #ddd;padding-bottom:4px}li{margin-bottom:6px}.footer{margin-top:40px;text-align:center;color:#aaa;font-size:12px}@media print{.no-print{display:none}}</style></head><body>' +
+    '<style>body{font-family:Georgia,serif;max-width:600px;margin:40px auto;padding:20px;color:#333}h1{font-size:24px;margin-bottom:4px}.meta{color:#595959;font-size:14px;margin-bottom:20px}h2{font-size:18px;border-bottom:1px solid #ddd;padding-bottom:4px}li{margin-bottom:6px}.footer{margin-top:40px;text-align:center;color:#aaa;font-size:12px}@media print{.no-print{display:none}}</style></head><body>' +
     '<h1>' + escapeHtml(r.title) + '</h1>' +
     '<div class="meta">' + escapeHtml(r.time || "") + ' &middot; ' + (r.servings || 4) + ' servings' + costLine + '</div>' +
     (r.storage ? '<p style="font-style:italic;color:#666;font-size:13px;">' + escapeHtml(r.storage) + '</p>' : '') +
@@ -2370,11 +2370,11 @@ function startCookAlong() {
     overlay.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
       '<button onclick="document.getElementById(\'cookAlongOverlay\').remove();if(_cookAlongTimer)clearInterval(_cookAlongTimer)" style="background:none;border:none;font-size:16px;cursor:pointer;color:#666;">✕ Exit</button>' +
-      '<span style="color:#888;font-size:14px;">Step ' + (currentStep + 1) + ' of ' + steps.length + '</span></div>' +
+      '<span style="color:#595959;font-size:14px;">Step ' + (currentStep + 1) + ' of ' + steps.length + '</span></div>' +
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">' +
       '<div><div style="font-size:56px;margin-bottom:20px;">' + getStepEmoji(steps[currentStep]) + '</div>' +
       '<p style="font-size:22px;line-height:1.6;color:#333;max-width:500px;margin:0 auto;">' + escapeHtml(steps[currentStep]) + '</p>' +
-      (timer ? '<button onclick="startCookTimer(' + timer + ')" style="margin-top:20px;padding:12px 24px;background:#52b788;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;">⏱️ Start ' + timer + ' min timer</button><div id="cookTimerDisplay" style="font-size:36px;color:#B56406;margin-top:12px;font-weight:800;"></div>' : '') +
+      (timer ? '<button onclick="startCookTimer(' + timer + ')" style="margin-top:20px;padding:12px 24px;background:#52b788;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer;">⏱️ Start ' + timer + ' min timer</button><div id="cookTimerDisplay" style="font-size:36px;color:#A85D05;margin-top:12px;font-weight:800;"></div>' : '') +
       '</div></div>' +
       '<div style="display:flex;gap:12px;">' +
       '<button onclick="cookAlongPrev()" style="flex:1;padding:14px;background:' + (currentStep === 0 ? "#eee" : "#e8e0d0") + ';border:none;border-radius:12px;font-size:16px;cursor:pointer;"' + (currentStep === 0 ? " disabled" : "") + '>&#8592; Previous</button>' +
@@ -2426,7 +2426,7 @@ async function swapIngredient(idx, ingredientName) {
   // Toggle off if already open
   if (panel.style.display !== "none") { panel.style.display = "none"; return; }
   panel.style.display = "block";
-  panel.innerHTML = '<div style="padding:8px;text-align:center;color:#888;font-size:13px;">Finding substitutes...</div>';
+  panel.innerHTML = '<div style="padding:8px;text-align:center;color:#595959;font-size:13px;">Finding substitutes...</div>';
 
   const r = state.currentRecipe;
   const deals = state.deals.slice(0, 50).map(d => ({ name: d.name, salePrice: d.salePrice, storeName: d.storeName || d.source }));
@@ -2443,7 +2443,7 @@ async function swapIngredient(idx, ingredientName) {
         `<div onclick="applySubstitution(${idx},${i})" style="padding:8px;cursor:pointer;border-bottom:1px solid #f0ede6;border-radius:6px;" onmouseover="this.style.background='#f0ede6'" onmouseout="this.style.background='transparent'">` +
         `<strong style="color:#2d6a4f">${escapeHtml(s.substitute)}</strong>${s.onSale ? ' <span style="font-size:11px;background:#e8f5e9;color:#2d6a4f;padding:2px 6px;border-radius:4px;">ON SALE</span>' : ""}` +
         `<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(s.reason)}</div>` +
-        `<div style="font-size:11px;color:#888;margin-top:2px">${escapeHtml(s.adjustedInstructions)}</div>` +
+        `<div style="font-size:11px;color:#595959;margin-top:2px">${escapeHtml(s.adjustedInstructions)}</div>` +
         `</div>`
       ).join("") + '</div>';
     // Store substitutes on panel for applySubstitution
@@ -2478,7 +2478,7 @@ function showLeftoverInput() {
   container.style.display = "block";
   container.innerHTML = '<div style="background:#fffdf7;border:2px solid #d0c5a0;border-radius:14px;padding:20px;margin-top:8px;">' +
     '<h3 style="color:#2d6a4f;font-size:17px;margin-bottom:4px;">What leftovers do you have?</h3>' +
-    '<p style="color:#888;font-size:13px;margin-bottom:12px;">We\'ll suggest recipes that use them up so nothing goes to waste.</p>' +
+    '<p style="color:#595959;font-size:13px;margin-bottom:12px;">We\'ll suggest recipes that use them up so nothing goes to waste.</p>' +
     '<textarea id="leftoverInput" placeholder="e.g. half a rotisserie chicken, cooked rice, leftover taco meat, extra bell peppers" style="width:100%;height:70px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>' +
     '<button onclick="generateLeftoverRecipes()" id="leftoverBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">Generate Leftover Recipes</button>' +
     '</div>';

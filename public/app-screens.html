@@ -43,7 +43,7 @@
 
   <div style="margin:16px 0;">
     <label style="font-weight:600;color:#2d6a4f;font-size:15px;">&#9851;&#65039; Any leftovers to use up? <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></label>
-    <p style="color:#888;font-size:13px;margin:4px 0 8px;">Leftovers will be prioritized first so nothing goes to waste</p>
+    <p style="color:#595959;font-size:13px;margin:4px 0 8px;">Leftovers will be prioritized first so nothing goes to waste</p>
     <textarea id="leftoversInput" placeholder="e.g. leftover roasted chicken, half a bag of rice, extra bell peppers, cooked ground beef" style="width:100%;height:60px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>
   </div>
 
@@ -81,16 +81,16 @@
 
   <div style="margin:16px 0;">
     <label style="font-weight:600;color:#2d6a4f;font-size:15px;">Weekly budget target <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></label>
-    <p style="color:#888;font-size:13px;margin:4px 0 8px;">We'll keep your meal plan under this amount</p>
+    <p style="color:#595959;font-size:13px;margin:4px 0 8px;">We'll keep your meal plan under this amount</p>
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:20px;color:#2d6a4f;font-weight:700;">$</span>
       <input type="number" id="budgetTarget" placeholder="50" min="10" max="500" style="width:100px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:18px;text-align:center;">
-      <span style="color:#888;font-size:13px;">for the week</span>
+      <span style="color:#595959;font-size:13px;">for the week</span>
     </div>
   </div>
 
   <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Build My Meals &#8594;</button>
-  <button onclick="generateWeeklyPlan()" style="width:100%;padding:14px;background:#B56406;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#128197; Plan My Week (5 Dinners)</button>
+  <button onclick="generateWeeklyPlan()" style="width:100%;padding:14px;background:#A85D05;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#128197; Plan My Week (5 Dinners)</button>
   <button onclick="generateFreezerMeals()" style="width:100%;padding:14px;background:#1a5276;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#10052;&#65039; Freezer Meals — Cook Now, Eat Later</button>
 </div>
 
@@ -118,6 +118,6 @@
     <button class="btn btn-outline" onclick="goTo(5)">&#8592; Change Style</button>
     <button class="btn btn-outline" onclick="goTo(1); resetApp()">&#128260; Start Over</button>
   </div>
-  <button onclick="showShareRecipeForm()" style="background:none;border:2px dashed #d0c5a0;border-radius:12px;padding:16px;width:100%;color:#888;cursor:pointer;margin-top:16px;font-size:14px;">&#127859; Have a budget recipe? Share it with the community</button>
+  <button onclick="showShareRecipeForm()" style="background:none;border:2px dashed #d0c5a0;border-radius:12px;padding:16px;width:100%;color:#595959;cursor:pointer;margin-top:16px;font-size:14px;">&#127859; Have a budget recipe? Share it with the community</button>
   <div id="communityFormSection" style="display:none;"></div>
 </div>

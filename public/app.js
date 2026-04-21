@@ -169,6 +169,15 @@ if (!_anonId) { _anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random
 function getAnonRecipeCount() { return parseInt(localStorage.getItem("dishcount_anon_recipe_count") || "0"); }
 function incAnonRecipeCount() { const c = getAnonRecipeCount() + 1; localStorage.setItem("dishcount_anon_recipe_count", String(c)); return c; }
 
+// Used by the four signup-nudge entry points. Stashes the current anonymous
+// session (zip, deals, recipes, etc.) before navigating, so the recipes can be
+// persisted to the new user's saved-recipes list once they sign in. Without
+// this stash, full-page navigation to /profile.html wipes the in-memory state.
+function goToSignup() {
+  savePendingState("save_anon_recipes");
+  window.location.href = "/profile.html";
+}
+
 function showSignInModal(reason) {
   const existing = document.getElementById("signInModal"); if (existing) existing.remove();
   const overlay = document.createElement("div");
@@ -514,9 +523,9 @@ function showSignupNudge(count) {
   const old = document.getElementById("signupNudge"); if (old) old.remove();
   let html = "";
   if (count === 1) {
-    html = '<div id="signupNudge" style="text-align:center;padding:16px;margin-top:16px;background:var(--cream);border:1px solid var(--sand);border-radius:12px;font-size:14px;color:var(--muted);">\u{1F4A1} <a href="/profile.html" style="color:var(--green-dark);font-weight:600;">Create a free account</a> to save recipes and build shopping lists <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#999;cursor:pointer;float:right;font-size:16px;">\u2715</button></div>';
+    html = '<div id="signupNudge" style="text-align:center;padding:16px;margin-top:16px;background:var(--cream);border:1px solid var(--sand);border-radius:12px;font-size:14px;color:var(--muted);">\u{1F4A1} <button type="button" onclick="goToSignup()" style="background:none;border:none;padding:0;color:var(--green-dark);font-weight:600;font:inherit;cursor:pointer;text-decoration:underline;">Create a free account</button> to save your recipes and build shopping lists <button type="button" aria-label="Dismiss" onclick="this.parentElement.remove()" style="background:none;border:none;color:#999;cursor:pointer;float:right;font-size:16px;">\u2715</button></div>';
   } else if (count >= 3 && count < 5) {
-    html = '<div id="signupNudge" style="text-align:center;padding:20px;margin-top:16px;background:#fffdf7;border:2px solid var(--sand);border-radius:14px;">\u{1F31F} <strong>You\'ve generated ' + count + ' recipe batches!</strong><br><span style="color:var(--muted);font-size:14px;">Sign up to save favorites, track savings, and earn badges.</span><br><a href="/profile.html" style="display:inline-block;margin-top:10px;padding:10px 24px;background:var(--green-dark);color:white;border-radius:10px;font-weight:700;text-decoration:none;font-size:14px;">Create Account</a></div>';
+    html = '<div id="signupNudge" style="text-align:center;padding:20px;margin-top:16px;background:#fffdf7;border:2px solid var(--sand);border-radius:14px;">\u{1F31F} <strong>You\'ve generated ' + count + ' recipe batches!</strong><br><span style="color:var(--muted);font-size:14px;">Sign up to save these recipes, track savings, and earn badges.</span><br><button type="button" onclick="goToSignup()" style="display:inline-block;margin-top:10px;padding:10px 24px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Create Account</button></div>';
   } else if (count >= 5 && count < 8) {
     showSignupModal(false);
   } else if (count >= 8) {
@@ -538,8 +547,8 @@ function showSignupModal(isFinal) {
     (isFinal ? '<div style="font-size:32px;margin-bottom:8px;">\u{1F389}</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated ' + count + ' batches of recipes!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">You\'re clearly a deal hunter. Join now and claim your Founding Member badge!</p>'
              : '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'re getting great use out of Dishcount!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to:</p>') +
     '<div style="text-align:left;margin:0 auto 20px;max-width:280px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build and share shopping lists<br>\u2713 Add ingredients to your Kroger cart<br>\u2713 Track your savings and earn badges<br>\u2713 Get weekly deal emails</div>' +
-    '<a href="/profile.html" style="display:block;padding:14px;background:var(--green-dark);color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:16px;margin-bottom:10px;">Create Account</a>' +
-    '<button onclick="sessionStorage.setItem(\'dishcount_nudge_dismissed\',\'1\');this.closest(\'#signupNudge\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
+    '<button type="button" onclick="goToSignup()" style="display:block;width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-weight:700;font-size:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;">Create Account</button>' +
+    '<button type="button" onclick="sessionStorage.setItem(\'dishcount_nudge_dismissed\',\'1\');this.closest(\'#signupNudge\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
   document.body.appendChild(overlay);
 }
 
@@ -552,8 +561,8 @@ function showRateLimitModal() {
     '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated a lot of recipes!</h3>' +
     '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Here are your previous results while you wait. Create a free account for higher limits!</p>' +
     '<div style="text-align:left;margin:0 auto 20px;max-width:260px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build shopping lists<br>\u2713 Add to Kroger cart<br>\u2713 Track your savings</div>' +
-    '<a href="/profile.html" style="display:block;padding:14px;background:var(--green-dark);color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:16px;margin-bottom:10px;">Create Account</a>' +
-    '<button onclick="document.getElementById(\'rateLimitModal\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Browse Previous Recipes</button></div>';
+    '<button type="button" onclick="goToSignup()" style="display:block;width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-weight:700;font-size:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;">Create Account</button>' +
+    '<button type="button" onclick="document.getElementById(\'rateLimitModal\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Browse Previous Recipes</button></div>';
   document.body.appendChild(overlay);
 }
 
@@ -629,6 +638,8 @@ sb.auth.onAuthStateChange((event, session) => {
           setTimeout(() => { openModal(idx); setTimeout(saveRecipe, 500); }, 300);
         } else if (pending.pendingAction === "add_to_cart") {
           setTimeout(() => showToast("Signed in! You can now add items to your Kroger cart.", "success"), 300);
+        } else if (pending.pendingAction === "save_anon_recipes") {
+          setTimeout(() => saveAnonRecipesToAccount(state.recipes.slice(), session.access_token), 300);
         }
       }
     }
@@ -2145,9 +2156,19 @@ function renderModal(r){
       </div></div>`;
 }
 
+// Pending-state stash. Versioned key so we can bump on schema change. Lives in
+// localStorage (not sessionStorage) so it survives tab close — required for the
+// email-confirmation signup flow where the user clicks the confirm link in a
+// new tab/session minutes-to-hours later.
+// NOTE: This key and TTL are duplicated in public/profile.html. Keep them in sync.
+// TODO: Extract to shared module.
+const PENDING_STATE_KEY = "dishcount_pending_state_v1";
+const PENDING_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 function savePendingState(action) {
   try {
-    sessionStorage.setItem("dishcount_pending_state", JSON.stringify({
+    localStorage.setItem(PENDING_STATE_KEY, JSON.stringify({
+      _ts: Date.now(),
       zip: state.zip, distance: state.distance, selectedBrands: state.selectedBrands,
       selectedKrogerId: state.selectedKrogerId, deals: state.deals, dealStates: state.dealStates,
       selectedMealType: state.selectedMealType, selectedStyle: state.selectedStyle,
@@ -2160,11 +2181,87 @@ function savePendingState(action) {
 
 function restorePendingState() {
   try {
-    const raw = sessionStorage.getItem("dishcount_pending_state");
+    const raw = localStorage.getItem(PENDING_STATE_KEY);
     if (!raw) return null;
-    sessionStorage.removeItem("dishcount_pending_state");
-    return JSON.parse(raw);
-  } catch(e) { sessionStorage.removeItem("dishcount_pending_state"); return null; }
+    localStorage.removeItem(PENDING_STATE_KEY);
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?._ts === "number" && Date.now() - parsed._ts > PENDING_STATE_TTL_MS) {
+      console.log("pending state expired (>7d); discarded");
+      return null;
+    }
+    return parsed;
+  } catch(e) { localStorage.removeItem(PENDING_STATE_KEY); return null; }
+}
+
+// ── Anonymous → registered: persist anon recipes to saved_recipes ─────────────
+// Called from onAuthStateChange when a "save_anon_recipes" pending action is
+// restored after sign-in. Best-effort per-recipe; failures don't abort the
+// batch and surface to the user via a retry banner. After success or partial
+// success, redirect to /profile.html so the user lands on their populated
+// saved-recipes list. The redirect is cancelled if the user clicks Retry,
+// so the retry's outcome (not the original outcome) controls the redirect.
+let _anonSaveRedirectTimer = null;
+function scheduleProfileRedirect() {
+  clearTimeout(_anonSaveRedirectTimer);
+  _anonSaveRedirectTimer = setTimeout(() => { window.location.href = "/profile.html"; }, 1800);
+}
+
+async function saveAnonRecipesToAccount(recipes, accessToken) {
+  if (!Array.isArray(recipes) || recipes.length === 0) return;
+  const total = recipes.length;
+  const failed = [];
+  for (const r of recipes) {
+    try {
+      const body = {
+        title:       r.title,
+        emoji:       "🍽️",
+        time:        r.time,
+        servings:    String(r.servings || 4),
+        difficulty:  "",
+        ingredients: r.allIngredients?.map(i => i.name) || [],
+        steps:       r.instructions || [],
+        store_name:  state.selectedBrands.slice(0,2).join(" & "),
+        image:       r.image || "",
+      };
+      const res = await fetch("/api/recipes/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) failed.push(r);
+      else if (r?.title) state.savedRecipeIds?.add(r.title);
+    } catch (e) {
+      console.error("saveAnonRecipesToAccount POST failed:", e);
+      failed.push(r);
+    }
+  }
+  const succeeded = total - failed.length;
+  if (failed.length === 0) {
+    showToast(`Saved ${total} recipe${total === 1 ? "" : "s"} to your account`, "success");
+    scheduleProfileRedirect();
+  } else if (succeeded > 0) {
+    showAnonSaveRetryBanner(`Saved ${succeeded} of ${total} recipes — tap to retry the rest.`, failed, accessToken);
+    scheduleProfileRedirect();
+  } else {
+    // All-failed: keep user on / so the retry banner stays actionable.
+    showAnonSaveRetryBanner(`Couldn't save your recipes — tap to retry.`, failed, accessToken);
+  }
+}
+
+function showAnonSaveRetryBanner(msg, failedRecipes, accessToken) {
+  const old = document.getElementById("anonSaveRetry"); if (old) old.remove();
+  const div = document.createElement("div");
+  div.id = "anonSaveRetry";
+  div.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:90%;background:#fff8e1;border:2px solid #f59e0b;border-radius:12px;padding:14px 18px;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:9999;display:flex;align-items:center;gap:12px;font-family:'DM Sans',sans-serif;font-size:14px;color:#7c2d12;";
+  div.innerHTML = `<span style="flex:1">${msg}</span><button id="anonSaveRetryBtn" type="button" style="padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;">Retry</button><button type="button" aria-label="Dismiss" onclick="this.parentElement.remove()" style="background:none;border:none;color:#7c2d12;font-size:18px;cursor:pointer;padding:0 4px;">×</button>`;
+  document.body.appendChild(div);
+  document.getElementById("anonSaveRetryBtn").addEventListener("click", async () => {
+    // Cancel any pending auto-redirect from the parent call so the retry's
+    // own outcome decides whether to redirect.
+    clearTimeout(_anonSaveRedirectTimer);
+    div.remove();
+    await saveAnonRecipesToAccount(failedRecipes, accessToken);
+  });
 }
 
 async function saveRecipe(){

@@ -212,6 +212,24 @@
 </main>
 
 <script>
+// If we arrived here via a signup-nudge stash, bounce to / where app.js
+// processes the save_anon_recipes pending action. Don't delete the stash —
+// the handler on / consumes it.
+// NOTE: The "dishcount_pending_state_v1" key and 7-day TTL below are
+// duplicated from PENDING_STATE_KEY and PENDING_STATE_TTL_MS in public/app.js.
+// Keep them in sync.
+// TODO: Extract to shared module.
+(function(){
+  try {
+    var raw = localStorage.getItem("dishcount_pending_state_v1");
+    if (!raw) return;
+    var p = JSON.parse(raw);
+    if (!p || p.pendingAction !== "save_anon_recipes") return;
+    if (typeof p._ts === "number" && Date.now() - p._ts > 7*24*60*60*1000) return;
+    window.location.replace("/");
+  } catch(e) { /* fall through and render normally on any error */ }
+})();
+
 // Hide static form immediately — real auth UI will render shortly
 (function(){ var sf = document.getElementById('staticAuthForm'); if (sf) sf.style.display = 'none'; var m = document.getElementById('main-content'); if (m && !m.querySelector('.spinner-wrap')) m.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>'; })();
 

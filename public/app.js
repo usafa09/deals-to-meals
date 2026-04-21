@@ -169,6 +169,20 @@ if (!_anonId) { _anonId = (crypto.randomUUID ? crypto.randomUUID() : Math.random
 function getAnonRecipeCount() { return parseInt(localStorage.getItem("dishcount_anon_recipe_count") || "0"); }
 function incAnonRecipeCount() { const c = getAnonRecipeCount() + 1; localStorage.setItem("dishcount_anon_recipe_count", String(c)); return c; }
 
+// Anonymous-session recipe counter + signup-nudge dispatcher.
+// Call this from EVERY recipe-generation success path so heavy users of
+// "Generate 5 More" / Freezer / Weekly Plan still hit the nudge thresholds.
+// Currently wired from 4 paths (search trackAnonRecipeGeneration). Internally
+// no-ops for logged-in users so it's safe to call unconditionally.
+async function trackAnonRecipeGeneration() {
+  try {
+    const { data: s } = await sb.auth.getSession();
+    if (s?.session) return;
+    const c = incAnonRecipeCount();
+    showSignupNudge(c);
+  } catch (e) { /* silent — don't break recipe gen on session-check failure */ }
+}
+
 // Used by the four signup-nudge entry points. Stashes the current anonymous
 // session (zip, deals, recipes, etc.) before navigating, so the recipes can be
 // persisted to the new user's saved-recipes list once they sign in. Without
@@ -522,7 +536,7 @@ function showSignupNudge(count) {
   // Remove any existing nudge
   const old = document.getElementById("signupNudge"); if (old) old.remove();
   let html = "";
-  if (count === 1) {
+  if (count >= 1 && count < 3) {
     html = '<div id="signupNudge" style="text-align:center;padding:16px;margin-top:16px;background:var(--cream);border:1px solid var(--sand);border-radius:12px;font-size:14px;color:var(--muted);">\u{1F4A1} <button type="button" onclick="goToSignup()" style="background:none;border:none;padding:0;color:var(--green-dark);font-weight:600;font:inherit;cursor:pointer;text-decoration:underline;">Create a free account</button> to save your recipes and build shopping lists <button type="button" aria-label="Dismiss" onclick="this.parentElement.remove()" style="background:none;border:none;color:#999;cursor:pointer;float:right;font-size:16px;">\u2715</button></div>';
   } else if (count >= 3 && count < 5) {
     html = '<div id="signupNudge" style="text-align:center;padding:20px;margin-top:16px;background:#fffdf7;border:2px solid var(--sand);border-radius:14px;">\u{1F31F} <strong>You\'ve generated ' + count + ' recipe batches!</strong><br><span style="color:var(--muted);font-size:14px;">Sign up to save these recipes, track savings, and earn badges.</span><br><button type="button" onclick="goToSignup()" style="display:inline-block;margin-top:10px;padding:10px 24px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Create Account</button></div>';
@@ -537,8 +551,20 @@ function showSignupNudge(count) {
   }
 }
 
+// 7-day cooldown after the user clicks "Maybe Later" on the 5/8-recipe modal.
+// Same magnitude/pattern as PENDING_STATE_TTL_MS in the pending-state stash.
+// TODO: make configurable if we add per-user nudge-frequency settings.
+const NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+function dismissSignupModal() {
+  localStorage.setItem("dishcount_nudge_dismissed_at", String(Date.now()));
+  const el = document.getElementById("signupNudge");
+  if (el) el.remove();
+}
+
 function showSignupModal(isFinal) {
-  if (sessionStorage.getItem("dishcount_nudge_dismissed")) return;
+  const dismissedAt = parseInt(localStorage.getItem("dishcount_nudge_dismissed_at") || "0", 10);
+  if (dismissedAt && Date.now() - dismissedAt < NUDGE_COOLDOWN_MS) return;
   const overlay = document.createElement("div");
   overlay.id = "signupNudge";
   overlay.className = "nudge-overlay";
@@ -548,7 +574,7 @@ function showSignupModal(isFinal) {
              : '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'re getting great use out of Dishcount!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to:</p>') +
     '<div style="text-align:left;margin:0 auto 20px;max-width:280px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build and share shopping lists<br>\u2713 Add ingredients to your Kroger cart<br>\u2713 Track your savings and earn badges<br>\u2713 Get weekly deal emails</div>' +
     '<button type="button" onclick="goToSignup()" style="display:block;width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-weight:700;font-size:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;">Create Account</button>' +
-    '<button type="button" onclick="sessionStorage.setItem(\'dishcount_nudge_dismissed\',\'1\');this.closest(\'#signupNudge\').remove()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
+    '<button type="button" onclick="dismissSignupModal()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
   document.body.appendChild(overlay);
 }
 
@@ -1783,7 +1809,8 @@ async function searchRecipes() {
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
     saveUserSelections();
-    sb.auth.getSession().then(({data:s})=>{ if(!s?.session){ const c=incAnonRecipeCount(); showSignupNudge(c); } else { const gc=parseInt(localStorage.getItem("dishcount_gen_count")||"0")+1; localStorage.setItem("dishcount_gen_count",String(gc)); if(gc===3&&!localStorage.getItem("dishcount_subscribed")){ showFeatureDiscovery("emailprompt",'<strong style="color:#2d6a4f;">Want these deals in your inbox?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">Get a free weekly email with the best deals and meal ideas near you. <a href="#" onclick="document.getElementById(\'zipInput\').scrollIntoView({behavior:\'smooth\'});return false;" style="color:#2d6a4f;font-weight:600;">Subscribe below</a></p>'); } } });
+    trackAnonRecipeGeneration(); // anon path: counter + nudge (no-op if signed in)
+    sb.auth.getSession().then(({data:s})=>{ if(s?.session){ const gc=parseInt(localStorage.getItem("dishcount_gen_count")||"0")+1; localStorage.setItem("dishcount_gen_count",String(gc)); if(gc===3&&!localStorage.getItem("dishcount_subscribed")){ showFeatureDiscovery("emailprompt",'<strong style="color:#2d6a4f;">Want these deals in your inbox?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">Get a free weekly email with the best deals and meal ideas near you. <a href="#" onclick="document.getElementById(\'zipInput\').scrollIntoView({behavior:\'smooth\'});return false;" style="color:#2d6a4f;font-weight:600;">Subscribe below</a></p>'); } } });
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){
     clearSkeletonBanner();
@@ -1808,6 +1835,7 @@ async function loadMoreRecipes() {
     if(!res.ok)throw new Error(data.error||"Could not generate recipes");
     if(data.recipes?.length){
       trackRecipeGenerated();
+      trackAnonRecipeGeneration();
       const existingTitles=new Set(state.recipes.map(r=>r.title));
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
       state.recipes.push(...newRecipes);
@@ -1904,6 +1932,7 @@ async function generateFreezerMeals() {
     if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
+    trackAnonRecipeGeneration();
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2328,6 +2357,7 @@ async function generateWeeklyPlan() {
     if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate plan"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
+    trackAnonRecipeGeneration();
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;

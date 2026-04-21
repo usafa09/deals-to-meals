@@ -9,6 +9,7 @@ import {
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
 import { fetchWalmartDeals } from "./walmart.js";
+import { notifyStoreRequest } from "../lib/email.js";
 
 const router = Router();
 
@@ -710,13 +711,24 @@ router.post("/api/store-requests", async (req, res) => {
     return res.status(400).json({ error: "Valid 5-digit zip code is required" });
   }
   try {
-    const { error } = await supabase.from("store_requests").insert({
+    const { data: row, error } = await supabase.from("store_requests").insert({
       store_name: storeName.trim(),
       zip: zip.trim(),
-    });
+    }).select().single();
     if (error) throw error;
     console.log(`Store request: "${storeName.trim()}" from zip ${zip}`);
     res.json({ success: true });
+    // Fire-and-forget admin notification — must not block the response or crash the handler
+    setImmediate(() => {
+      notifyStoreRequest({
+        id: row?.id,
+        store_name: row?.store_name ?? storeName.trim(),
+        zip: row?.zip ?? zip.trim(),
+        created_at: row?.created_at,
+      }).catch(err => {
+        console.error(`[${new Date().toISOString()}] notifyStoreRequest threw:`, err?.message || err);
+      });
+    });
   } catch (e) {
     console.error("Store request error:", e.message);
     res.status(500).json({ error: "Failed to save request" });

@@ -8,3 +8,4 @@ public/images/*.webp
 *.key
 *.p12
 *.pfx
+scripts/migrations/

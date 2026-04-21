@@ -424,6 +424,12 @@ function renderProfile() {
   const favTypes = p.favorite_recipe_types || [];
   const availableStoreIds = STORES.filter(s => s.available).map(s => s.id);
   const legacyPreferredStore = (p.preferred_store && !availableStoreIds.includes(p.preferred_store)) ? p.preferred_store : null;
+  // Bug #2: price-alert toggle. Use the explicit price_alerts_enabled boolean when
+  // present; for users predating that field, infer enabled from whether they have
+  // any alerts saved (so existing alert subscribers don't get silently disabled).
+  const priceAlertsEnabled = (typeof p.email_prefs?.price_alerts_enabled === "boolean")
+    ? p.email_prefs.price_alerts_enabled
+    : Array.isArray(p.email_prefs?.price_alerts) && p.email_prefs.price_alerts.length > 0;
   const tab = activeProfileTab;
 
   const tabs = `<div style="display:flex;gap:8px;margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
@@ -503,8 +509,8 @@ function renderProfile() {
     <div class="section">
       <div class="section-header"><div class="section-title">📧 Deal Alerts</div></div>
       <label style="display:block;margin-bottom:12px;font-size:14px;cursor:pointer;"><input type="checkbox" id="weeklyEmail" ${(p.email_prefs?.weekly_digest!==false)?"checked":""} style="margin-right:8px;"> Weekly email: Top deals + recipe ideas for your area</label>
-      <label style="display:block;margin-bottom:8px;font-size:14px;cursor:pointer;"><input type="checkbox" id="priceAlertToggle" onchange="document.getElementById('priceAlertItems').style.display=this.checked?'block':'none'" ${(p.email_prefs?.price_alerts?.length)?"checked":""} style="margin-right:8px;"> Alert me when specific items drop below a target price</label>
-      <div id="priceAlertItems" style="display:${(p.email_prefs?.price_alerts?.length)?"block":"none"};margin-top:8px;">
+      <label style="display:block;margin-bottom:8px;font-size:14px;cursor:pointer;"><input type="checkbox" id="priceAlertToggle" onchange="document.getElementById('priceAlertItems').style.display=this.checked?'block':'none'" ${priceAlertsEnabled?"checked":""} style="margin-right:8px;"> Alert me when specific items drop below a target price</label>
+      <div id="priceAlertItems" style="display:${priceAlertsEnabled?"block":"none"};margin-top:8px;">
         <div id="existingAlerts">${(p.email_prefs?.price_alerts||[]).map((a,i)=>'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>'+escapeHtml(a.item)+' under $'+a.price+'</span><button onclick="this.parentElement.remove();markDirty();" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>').join("")}</div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <input type="text" placeholder="Item name" id="alertItem" style="flex:1;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />
@@ -667,8 +673,9 @@ async function saveAllSettings() {
       dietary_preferences:   dietary,
       favorite_recipe_types: favTypes,
       email_prefs: {
-        weekly_digest: document.getElementById("weeklyEmail")?.checked ?? true,
-        price_alerts:  alerts,
+        weekly_digest:        document.getElementById("weeklyEmail")?.checked ?? true,
+        price_alerts_enabled: document.getElementById("priceAlertToggle")?.checked ?? userProfile?.email_prefs?.price_alerts_enabled ?? true,
+        price_alerts:         alerts,
       },
     };
     const res = await fetch("/api/profile", {

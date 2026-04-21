@@ -212,15 +212,32 @@
 </main>
 
 <script>
-// If we arrived here via a signup-nudge stash, bounce to / where app.js
+// If we arrived here via a signup-nudge stash AND the user is already
+// signed in, bounce to / where app.js's onAuthStateChange SIGNED_IN branch
 // processes the save_anon_recipes pending action. Don't delete the stash —
 // the handler on / consumes it.
+//
+// CRITICAL: only redirect when signed in. Without the session check, an
+// anonymous user clicking a nudge would write the stash, navigate here,
+// get bounced to /, and any return trip to /profile.html (e.g. clicking
+// "Sign In" again) would bounce them back — infinite redirect loop.
+//
+// Session check is synchronous: we probe for Supabase's session key in
+// localStorage directly rather than awaiting sb.auth.getSession(). This
+// avoids a Promise round-trip that would either delay page render or
+// cause a visible flicker. The storageKey must match the one configured
+// on the Supabase client below ("dtm-auth-token"). Edge case: an expired
+// token still leaves the key present — that's acceptable, because if
+// the session is truly dead, the SIGNED_IN branch on / won't fire and
+// the user just sees the homepage, not a loop.
+//
 // NOTE: The "dishcount_pending_state_v1" key and 7-day TTL below are
 // duplicated from PENDING_STATE_KEY and PENDING_STATE_TTL_MS in public/app.js.
 // Keep them in sync.
 // TODO: Extract to shared module.
 (function(){
   try {
+    if (!localStorage.getItem("dtm-auth-token")) return; // not signed in — let page render
     var raw = localStorage.getItem("dishcount_pending_state_v1");
     if (!raw) return;
     var p = JSON.parse(raw);

@@ -84,6 +84,12 @@
     .section-save  { padding: 7px 16px; background: var(--green-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
     .section-save:hover { filter: brightness(1.1); }
 
+    .profile-save-bar { position: sticky; bottom: 0; background: white; border: 2px solid var(--green-dark); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); margin-top: 24px; z-index: 10; }
+    .profile-save-bar #saveAllBtn { padding: 12px 28px; font-size: 15px; }
+    .profile-save-bar #saveAllBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .dirty-indicator { font-size: 13px; color: var(--orange); font-weight: 600; visibility: hidden; }
+    .dirty-indicator.visible { visibility: visible; }
+
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     .form-group { margin-bottom: 14px; }
     .form-group label { display: block; font-size: 12px; font-weight: 700; color: #5A4A30; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
@@ -207,7 +213,7 @@
 
 <script>
 // Hide static form immediately — real auth UI will render shortly
-(function(){ var sf = document.getElementById('staticAuthForm'); if (sf) sf.style.display = 'none'; var m = document.getElementById('main'); if (m && !m.querySelector('.spinner-wrap')) m.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>'; })();
+(function(){ var sf = document.getElementById('staticAuthForm'); if (sf) sf.style.display = 'none'; var m = document.getElementById('main-content'); if (m && !m.querySelector('.spinner-wrap')) m.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>'; })();
 
 // ── Config — replace these with your actual Supabase values ──────────────────
 const SUPABASE_URL      = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
@@ -317,7 +323,7 @@ async function loadProfileData() {
 
 // ── Auth UI ───────────────────────────────────────────────────────────────────
 function renderAuth() {
-  document.getElementById("main").innerHTML = `
+  document.getElementById("main-content").innerHTML = `
     <div class="auth-card">
       <div class="auth-logo">🥦</div>
       <h2 class="auth-title">Welcome to Dishcount</h2>
@@ -452,7 +458,7 @@ function renderProfile() {
       </div>`).join("")}
     </div>
     <div class="section">
-      <div class="section-header"><div class="section-title">👤 Personal Info</div><button class="section-save" onclick="savePersonalInfo()">Save</button></div>
+      <div class="section-header"><div class="section-title">👤 Personal Info</div></div>
       <div class="form-row">
         <div class="form-group"><label>Full Name</label><input type="text" id="fullName" value="${p.full_name||""}" placeholder="Your name" /></div>
         <div class="form-group"><label>Household Size</label><select id="householdSize">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${(p.household_size||2)==n?"selected":""}>${n} ${n===1?"person":"people"}</option>`).join("")}</select></div>
@@ -460,11 +466,11 @@ function renderProfile() {
       <div class="form-group"><label>Preferred Grocery Store</label><select id="preferredStore"><option value="">No preference</option>${STORES.filter(s=>s.available).map(s=>`<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`).join("")}</select></div>
     </div>
     <div class="section">
-      <div class="section-header"><div class="section-title">🥗 Dietary Preferences</div><button class="section-save" onclick="saveDietary()">Save</button></div>
+      <div class="section-header"><div class="section-title">🥗 Dietary Preferences</div></div>
       <div class="chips-group" id="dietaryChips">${DIETARY_OPTIONS.map(d=>`<div class="chip ${dietaryPrefs.includes(d)?"selected":""}" onclick="toggleChip(this)">${d}</div>`).join("")}</div>
     </div>
     <div class="section">
-      <div class="section-header"><div class="section-title">🍽️ Favorite Recipe Types</div><button class="section-save" onclick="saveFavoriteTypes()">Save</button></div>
+      <div class="section-header"><div class="section-title">🍽️ Favorite Recipe Types</div></div>
       <div class="chips-group" id="recipeTypeChips">${RECIPE_TYPES.map(t=>`<div class="chip ${favTypes.includes(t)?"selected":""}" onclick="toggleChip(this)">${t}</div>`).join("")}</div>
     </div>
     <div class="section">
@@ -493,17 +499,21 @@ function renderProfile() {
       </div>
     </div>
     <div class="section">
-      <div class="section-header"><div class="section-title">📧 Deal Alerts</div><button class="section-save" onclick="saveEmailPrefs()">Save</button></div>
+      <div class="section-header"><div class="section-title">📧 Deal Alerts</div></div>
       <label style="display:block;margin-bottom:12px;font-size:14px;cursor:pointer;"><input type="checkbox" id="weeklyEmail" ${(p.email_prefs?.weekly_digest!==false)?"checked":""} style="margin-right:8px;"> Weekly email: Top deals + recipe ideas for your area</label>
       <label style="display:block;margin-bottom:8px;font-size:14px;cursor:pointer;"><input type="checkbox" id="priceAlertToggle" onchange="document.getElementById('priceAlertItems').style.display=this.checked?'block':'none'" ${(p.email_prefs?.price_alerts?.length)?"checked":""} style="margin-right:8px;"> Alert me when specific items drop below a target price</label>
       <div id="priceAlertItems" style="display:${(p.email_prefs?.price_alerts?.length)?"block":"none"};margin-top:8px;">
-        <div id="existingAlerts">${(p.email_prefs?.price_alerts||[]).map((a,i)=>'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>'+escapeHtml(a.item)+' under $'+a.price+'</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>').join("")}</div>
+        <div id="existingAlerts">${(p.email_prefs?.price_alerts||[]).map((a,i)=>'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>'+escapeHtml(a.item)+' under $'+a.price+'</span><button onclick="this.parentElement.remove();markDirty();" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>').join("")}</div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <input type="text" placeholder="Item name" id="alertItem" style="flex:1;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />
           <input type="number" placeholder="Price" id="alertPrice" step="0.01" style="width:80px;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />
           <button onclick="addPriceAlert()" style="padding:8px 12px;background:var(--green-dark);color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;">Add</button>
         </div>
       </div>
+    </div>
+    <div class="profile-save-bar" id="profileSaveBar">
+      <span id="dirtyIndicator" class="dirty-indicator">&bull; Unsaved changes</span>
+      <button id="saveAllBtn" class="section-save" onclick="saveAllSettings()">Save Changes</button>
     </div>`;
   } else if (tab === "saved") {
     content = savedRecipes.length === 0
@@ -572,11 +582,13 @@ function renderProfile() {
     </div>`;
   }
 
-  document.getElementById("main").innerHTML = header + tabs + content;
+  document.getElementById("main-content").innerHTML = header + tabs + content;
+  attachDirtyListeners();
+  clearDirty();
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-function toggleChip(el) { el.classList.toggle("selected"); }
+function toggleChip(el) { el.classList.toggle("selected"); markDirty(); }
 
 function editPreferencesFromProfile() {
   // Open the main app page with a flag to show the survey
@@ -590,69 +602,87 @@ function addPriceAlert() {
   if (!item || !price) { showToast("Enter item name and target price"); return; }
   const container = document.getElementById("existingAlerts");
   if (container) {
-    container.insertAdjacentHTML("beforeend", '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>' + escapeHtml(item) + ' under $' + price.toFixed(2) + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>');
+    container.insertAdjacentHTML("beforeend", '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;"><span>' + escapeHtml(item) + ' under $' + price.toFixed(2) + '</span><button onclick="this.parentElement.remove();markDirty();" style="background:none;border:none;color:#c00;cursor:pointer;font-size:12px;">remove</button></div>');
   }
   document.getElementById("alertItem").value = "";
   document.getElementById("alertPrice").value = "";
-}
-
-async function saveEmailPrefs() {
-  const token = await getToken();
-  const alerts = [...document.querySelectorAll("#existingAlerts > div")].map(div => {
-    const text = div.querySelector("span")?.textContent || "";
-    const match = text.match(/(.+)\s+under\s+\$(\d+\.?\d*)/);
-    return match ? { item: match[1].trim(), price: parseFloat(match[2]) } : null;
-  }).filter(Boolean);
-  const res = await fetch("/api/profile", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-    body: JSON.stringify({ email_prefs: { weekly_digest: document.getElementById("weeklyEmail")?.checked ?? true, price_alerts: alerts } })
-  });
-  if (res.ok) showToast("Email preferences saved!", "success");
-  else showToast("Could not save", "error");
+  markDirty();
 }
 
 async function getToken() {
   return (await sb.auth.getSession()).data.session?.access_token;
 }
 
-async function savePersonalInfo() {
+// ── Unified profile save (replaces per-section Save buttons) ──────────────────
+let dirty = false;
+let _dirtyListenersAttached = false;
+
+function markDirty() {
+  if (dirty) return;
+  dirty = true;
+  document.getElementById("dirtyIndicator")?.classList.add("visible");
+}
+
+function clearDirty() {
+  dirty = false;
+  document.getElementById("dirtyIndicator")?.classList.remove("visible");
+}
+
+function attachDirtyListeners() {
+  if (_dirtyListenersAttached) return;
+  const root = document.getElementById("main-content");
+  if (!root) return;
+  _dirtyListenersAttached = true;
+  const handler = (e) => {
+    if (activeProfileTab !== "profile") return;
+    if (e.target.matches("input, select, textarea")) markDirty();
+  };
+  root.addEventListener("input", handler);
+  root.addEventListener("change", handler);
+}
+
+window.addEventListener("beforeunload", (e) => {
+  if (dirty) { e.preventDefault(); e.returnValue = ""; }
+});
+
+async function saveAllSettings() {
   const token = await getToken();
-  const res = await fetch("/api/profile", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      full_name:       document.getElementById("fullName").value,
-      household_size:  parseInt(document.getElementById("householdSize").value),
-      preferred_store: document.getElementById("preferredStore").value,
-    }),
-  });
-  if (res.ok) { userProfile = await res.json(); showToast("✅ Personal info saved!"); }
-  else showToast("Could not save", "error");
-}
-
-async function saveDietary() {
-  const token    = await getToken();
-  const selected = [...document.querySelectorAll("#dietaryChips .chip.selected")].map(c => c.textContent);
-  const res = await fetch("/api/profile", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ dietary_preferences: selected }),
-  });
-  if (res.ok) { userProfile = await res.json(); showToast("✅ Dietary preferences saved!"); }
-  else showToast("Could not save", "error");
-}
-
-async function saveFavoriteTypes() {
-  const token    = await getToken();
-  const selected = [...document.querySelectorAll("#recipeTypeChips .chip.selected")].map(c => c.textContent);
-  const res = await fetch("/api/profile", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ favorite_recipe_types: selected }),
-  });
-  if (res.ok) { userProfile = await res.json(); showToast("✅ Recipe preferences saved!"); }
-  else showToast("Could not save", "error");
+  if (!token) { showToast("Sign-in expired — please sign in again", "error"); return; }
+  const btn = document.getElementById("saveAllBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    const dietary = [...document.querySelectorAll("#dietaryChips .chip.selected")].map(c => c.textContent);
+    const favTypes = [...document.querySelectorAll("#recipeTypeChips .chip.selected")].map(c => c.textContent);
+    const alerts = [...document.querySelectorAll("#existingAlerts > div")].map(div => {
+      const text = div.querySelector("span")?.textContent || "";
+      const match = text.match(/(.+)\s+under\s+\$(\d+\.?\d*)/);
+      return match ? { item: match[1].trim(), price: parseFloat(match[2]) } : null;
+    }).filter(Boolean);
+    const payload = {
+      full_name:             document.getElementById("fullName")?.value ?? "",
+      household_size:        parseInt(document.getElementById("householdSize")?.value, 10),
+      preferred_store:       document.getElementById("preferredStore")?.value ?? "",
+      dietary_preferences:   dietary,
+      favorite_recipe_types: favTypes,
+      email_prefs: {
+        weekly_digest: document.getElementById("weeklyEmail")?.checked ?? true,
+        price_alerts:  alerts,
+      },
+    };
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("save failed");
+    userProfile = await res.json();
+    clearDirty();
+    showToast("All changes saved", "success");
+  } catch (err) {
+    showToast("Could not save — please try again", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Save Changes"; }
+  }
 }
 
 function viewRecipe(id) {

@@ -413,14 +413,56 @@ async function saveSurveyAndClose() {
     flavor_preferences: state.survey.flavors,
     dislikes: state.survey.dislikes
   };
+  // NOTE: state.userPreferences intentionally uses the "bundled" shape (household_size
+  // and dietary as keys inside preferences) for convenience when passing to recipe
+  // generation endpoints. The server PATCH payload uses the canonical split shape.
+  // Don't unify these without auditing /api/recipes/ai and /api/leftover-recipes.
   state.userPreferences = surveyData;
   try {
     const { data: sessionData } = await sb.auth.getSession();
     if (sessionData?.session) {
+      // Build canonical-split server payload: hoist household_size to top-level int,
+      // dietary to top-level dietary_preferences with chip labels (matching the unify
+      // migration's mapping). Keep the rest in the preferences JSONB blob.
+      const HOUSEHOLD_TO_INT = { "1": 1, "2": 2, "3-4": 4, "5+": 5 };
+      const DIETARY_SLUG_TO_LABEL = {
+        "vegetarian":  "Vegetarian",
+        "vegan":       "Vegan",
+        "gluten-free": "Gluten-Free",
+        "dairy-free":  "Dairy-Free",
+        "low-carb":    "Low-Carb",
+        "nut-allergy": "Nut Allergy",
+      };
+      const dietaryLabels = (surveyData.dietary || [])
+        .map(slug => {
+          const k = String(slug).toLowerCase();
+          if (k === "none") return null;                // drop "no restriction" sentinel
+          return DIETARY_SLUG_TO_LABEL[k] || slug;      // pass freeform through as-is
+        })
+        .filter(v => v !== null && v !== "");
+
+      const payload = {
+        preferences: {
+          has_kids:           surveyData.has_kids,
+          skill_level:        surveyData.skill_level,
+          cook_time:          surveyData.cook_time,
+          family_members:     surveyData.family_members,
+          flavor_preferences: surveyData.flavor_preferences,
+          dislikes:           surveyData.dislikes,
+        },
+      };
+      // Omit household_size if user skipped Step 1 or value is unrecognized — the
+      // server's "undefined means skip" pattern preserves any value already on the column.
+      const hsInt = HOUSEHOLD_TO_INT[surveyData.household_size];
+      if (typeof hsInt === "number") payload.household_size = hsInt;
+      // Omit dietary_preferences entirely when survey produced zero mapped values so
+      // we don't wipe chip-based selections the user made via the profile UI.
+      if (dietaryLabels.length > 0) payload.dietary_preferences = dietaryLabels;
+
       await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionData.session.access_token },
-        body: JSON.stringify({ preferences: surveyData })
+        body: JSON.stringify(payload)
       });
     }
   } catch(e) { console.error("Survey save error:", e); }

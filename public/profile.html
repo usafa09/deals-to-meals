@@ -422,6 +422,8 @@ function renderProfile() {
   const initials = ((p.full_name || currentUser.email || "?")[0]).toUpperCase();
   const dietaryPrefs = p.dietary_preferences || [];
   const favTypes = p.favorite_recipe_types || [];
+  const availableStoreIds = STORES.filter(s => s.available).map(s => s.id);
+  const legacyPreferredStore = (p.preferred_store && !availableStoreIds.includes(p.preferred_store)) ? p.preferred_store : null;
   const tab = activeProfileTab;
 
   const tabs = `<div style="display:flex;gap:8px;margin-bottom:24px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
@@ -463,7 +465,7 @@ function renderProfile() {
         <div class="form-group"><label>Full Name</label><input type="text" id="fullName" value="${p.full_name||""}" placeholder="Your name" /></div>
         <div class="form-group"><label>Household Size</label><select id="householdSize">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${(p.household_size||2)==n?"selected":""}>${n} ${n===1?"person":"people"}</option>`).join("")}</select></div>
       </div>
-      <div class="form-group"><label>Preferred Grocery Store</label><select id="preferredStore"><option value="">No preference</option>${STORES.filter(s=>s.available).map(s=>`<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`).join("")}</select></div>
+      <div class="form-group"><label>Preferred Grocery Store</label><select id="preferredStore"><option value="">No preference</option>${STORES.filter(s=>s.available).map(s=>`<option value="${s.id}" ${p.preferred_store===s.id?"selected":""}>${s.name}</option>`).join("")}${legacyPreferredStore ? `<option value="${escapeHtml(legacyPreferredStore)}" disabled selected>${escapeHtml(legacyPreferredStore)} (coming soon)</option>` : ""}</select>${legacyPreferredStore ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${escapeHtml(legacyPreferredStore)} isn't selectable yet — your preference is preserved and will activate once we add support.</div>` : ""}</div>
     </div>
     <div class="section">
       <div class="section-header"><div class="section-title">🥗 Dietary Preferences</div></div>

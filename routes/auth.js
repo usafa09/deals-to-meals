@@ -94,7 +94,14 @@ router.patch("/api/profile", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Not authenticated" });
   const allowed = ["full_name", "household_size", "dietary_preferences", "favorite_recipe_types", "preferred_store", "avatar_url", "preferences", "email_prefs", "selected_stores", "budget_target"];
   const updates = {};
-  for (const key of allowed) { if (req.body[key] !== undefined) updates[key] = req.body[key]; }
+  for (const key of allowed) {
+    if (req.body[key] === undefined) continue;
+    // Bug #1 guard: empty preferred_store means "the UI dropdown didn't have my legacy
+    // value as an option". Don't let that wipe a stored value (e.g., "walmart")
+    // just because STORES doesn't list it as available yet.
+    if (key === "preferred_store" && req.body[key] === "") continue;
+    updates[key] = req.body[key];
+  }
   updates.updated_at = new Date().toISOString();
   const { data, error } = await supabase.from("profiles").update(updates).eq("id", user.id).select().single();
   if (error) { console.error(error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }

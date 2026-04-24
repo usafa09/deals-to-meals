@@ -658,8 +658,19 @@ sb.auth.onAuthStateChange((event, session) => {
       if (pending.recipes?.length) {
         const idx = pending.currentRecipeIndex >= 0 ? pending.currentRecipeIndex : 0;
         state.currentRecipe = state.recipes[idx] || state.recipes[0];
-        goTo(6);
-        renderRecipeGrid();
+        // Skip UI rehydration for save_anon_recipes: the user lands on /
+        // for at most 1.8s before saveAnonRecipesToAccount's toast and
+        // scheduleProfileRedirect send them to /profile.html, where their
+        // saved recipes are shown. Rehydrating screen 6 here races
+        // ensureAppScreens (which async-fetches app-screens.html on a cold
+        // tab) — renderRecipeGrid then hits a null #recipesTitle and
+        // throws, aborting the save. The other two branches (save_recipe,
+        // add_to_cart) only run when the user clicked a button on screen 6
+        // and is expected to stay there, so the DOM is already populated.
+        if (pending.pendingAction !== "save_anon_recipes") {
+          goTo(6);
+          renderRecipeGrid();
+        }
         if (pending.pendingAction === "save_recipe" && state.currentRecipe) {
           setTimeout(() => { openModal(idx); setTimeout(saveRecipe, 500); }, 300);
         } else if (pending.pendingAction === "add_to_cart") {

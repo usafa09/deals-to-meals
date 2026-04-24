@@ -212,41 +212,6 @@
 </main>
 
 <script>
-// If we arrived here via a signup-nudge stash AND the user is already
-// signed in, bounce to / where app.js's onAuthStateChange SIGNED_IN branch
-// processes the save_anon_recipes pending action. Don't delete the stash —
-// the handler on / consumes it.
-//
-// CRITICAL: only redirect when signed in. Without the session check, an
-// anonymous user clicking a nudge would write the stash, navigate here,
-// get bounced to /, and any return trip to /profile.html (e.g. clicking
-// "Sign In" again) would bounce them back — infinite redirect loop.
-//
-// Session check is synchronous: we probe for Supabase's session key in
-// localStorage directly rather than awaiting sb.auth.getSession(). This
-// avoids a Promise round-trip that would either delay page render or
-// cause a visible flicker. The storageKey must match the one configured
-// on the Supabase client below ("dtm-auth-token"). Edge case: an expired
-// token still leaves the key present — that's acceptable, because if
-// the session is truly dead, the SIGNED_IN branch on / won't fire and
-// the user just sees the homepage, not a loop.
-//
-// NOTE: The "dishcount_pending_state_v1" key and 7-day TTL below are
-// duplicated from PENDING_STATE_KEY and PENDING_STATE_TTL_MS in public/app.js.
-// Keep them in sync.
-// TODO: Extract to shared module.
-(function(){
-  try {
-    if (!localStorage.getItem("dtm-auth-token")) return; // not signed in — let page render
-    var raw = localStorage.getItem("dishcount_pending_state_v1");
-    if (!raw) return;
-    var p = JSON.parse(raw);
-    if (!p || p.pendingAction !== "save_anon_recipes") return;
-    if (typeof p._ts === "number" && Date.now() - p._ts > 7*24*60*60*1000) return;
-    window.location.replace("/");
-  } catch(e) { /* fall through and render normally on any error */ }
-})();
-
 // Hide static form immediately — real auth UI will render shortly
 (function(){ var sf = document.getElementById('staticAuthForm'); if (sf) sf.style.display = 'none'; var m = document.getElementById('main-content'); if (m && !m.querySelector('.spinner-wrap')) m.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>'; })();
 
@@ -265,6 +230,52 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storageKey: "dtm-auth-token",
   }
 });
+
+// ── Signup-nudge pending-stash → redirect to / on sign-in ────────────────────
+// When an anonymous user clicks a signup nudge, public/app.js stashes their
+// generated recipes under "dishcount_pending_state_v1" and navigates here.
+// Our job is to bounce them back to / as soon as they're signed in so
+// app.js's SIGNED_IN branch can call saveAnonRecipesToAccount(). We don't
+// delete the stash — / consumes it.
+//
+// A prior version (commit 1ffa21e) ran a synchronous localStorage check on
+// page load, but that raced Supabase's async OAuth-callback processing: when
+// a user returns from "Continue with Google", the auth token isn't written
+// to localStorage until ~200ms after page load, so the sync check saw no
+// token and exited — leaving the user stranded on /profile.html with their
+// stash rotting in localStorage. onAuthStateChange fixes this: Supabase
+// fires SIGNED_IN once the URL fragment is processed, whatever the flow.
+//
+// We also call getSession() to cover the already-signed-in case (returning
+// user who was authenticated earlier, dismissed a nudge, and triggered
+// another later) — SIGNED_IN may not fire for a session that was merely
+// restored from storage. If neither path produces a session, we leave the
+// user on /profile.html. No loop risk: we never redirect an anonymous user.
+//
+// NOTE: "dishcount_pending_state_v1" and the 7-day TTL mirror
+// PENDING_STATE_KEY / PENDING_STATE_TTL_MS in public/app.js. Keep in sync.
+// TODO: extract to shared module.
+(async function(){
+  try {
+    var raw = localStorage.getItem("dishcount_pending_state_v1");
+    if (!raw) return;
+    var p; try { p = JSON.parse(raw); } catch(e) { return; }
+    if (!p || p.pendingAction !== "save_anon_recipes") return;
+    if (typeof p._ts === "number" && Date.now() - p._ts > 7*24*60*60*1000) return;
+
+    var redirected = false;
+    function goHome(){ if (redirected) return; redirected = true; window.location.replace("/"); }
+
+    sb.auth.onAuthStateChange(function(event, session){
+      if (event === "SIGNED_IN" && session) goHome();
+    });
+
+    // Cover the returning-signed-in-user case (SIGNED_IN may not re-fire
+    // for a session restored from storage before we subscribed).
+    var res = await sb.auth.getSession();
+    if (res?.data?.session) goHome();
+  } catch(e) { /* fall through and render normally on any error */ }
+})();
 
 const DIETARY_OPTIONS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie"];
 const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];

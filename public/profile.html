@@ -296,6 +296,106 @@ function showToast(msg, type="success") {
   setTimeout(() => t.classList.remove("show"), 4000);
 }
 
+// ── Anon → registered save-result announcement ────────────────────────────────
+// app.js's saveAnonRecipesToAccount writes a result payload to localStorage
+// before redirecting here, and we pick it up on page load. Key and TTL are
+// duplicated from SAVE_RESULT_KEY / SAVE_RESULT_TTL_MS in public/app.js.
+// Keep them in sync. TODO: extract to shared module.
+const SAVE_RESULT_KEY = "dishcount_save_result_v1";
+const SAVE_RESULT_TTL_MS = 30 * 1000;
+
+function readPendingSaveResult() {
+  let raw;
+  try { raw = localStorage.getItem(SAVE_RESULT_KEY); } catch(e) { return null; }
+  if (!raw) return null;
+  try { localStorage.removeItem(SAVE_RESULT_KEY); } catch(e) {}
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) { return null; }
+  if (!parsed || typeof parsed._ts !== "number") return null;
+  if (Date.now() - parsed._ts > SAVE_RESULT_TTL_MS) return null;
+  return parsed;
+}
+
+// Longer-duration, click-dismissible variant of showToast for the
+// post-redirect celebration. Uses the existing .toast element + success
+// styling so we don't have to duplicate CSS.
+function showSaveCelebrationToast(msg) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+  t.textContent = "✓ " + msg;
+  t.className = "toast success show";
+  const clear = () => { t.classList.remove("show"); t.onclick = null; };
+  const timer = setTimeout(clear, 6000);
+  t.onclick = () => { clearTimeout(timer); clear(); };
+}
+
+function showAnonSaveRetryBanner(msg, failedRecipes) {
+  const old = document.getElementById("anonSaveRetry"); if (old) old.remove();
+  const div = document.createElement("div");
+  div.id = "anonSaveRetry";
+  div.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:90%;background:#fff8e1;border:2px solid #f59e0b;border-radius:12px;padding:14px 18px;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:9999;display:flex;align-items:center;gap:12px;font-family:'DM Sans',sans-serif;font-size:14px;color:#7c2d12;";
+  const msgSpan = document.createElement("span"); msgSpan.style.flex = "1"; msgSpan.textContent = msg;
+  const retryBtn = document.createElement("button"); retryBtn.type = "button"; retryBtn.textContent = "Retry";
+  retryBtn.style.cssText = "padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;";
+  const dismissBtn = document.createElement("button"); dismissBtn.type = "button"; dismissBtn.setAttribute("aria-label", "Dismiss"); dismissBtn.textContent = "×";
+  dismissBtn.style.cssText = "background:none;border:none;color:#7c2d12;font-size:18px;cursor:pointer;padding:0 4px;";
+  div.append(msgSpan, retryBtn, dismissBtn);
+  document.body.appendChild(div);
+  dismissBtn.addEventListener("click", () => div.remove());
+  retryBtn.addEventListener("click", async () => { div.remove(); await retryAnonSaveFailures(failedRecipes); });
+}
+
+async function retryAnonSaveFailures(failedRecipes) {
+  if (!Array.isArray(failedRecipes) || failedRecipes.length === 0) return;
+  let token;
+  try { token = (await sb.auth.getSession()).data?.session?.access_token; } catch(e) { token = null; }
+  if (!token) { showToast("Sign-in expired — please reload", "error"); return; }
+  const stillFailed = [];
+  for (const r of failedRecipes) {
+    try {
+      const body = {
+        title:       r.title,
+        emoji:       "🍽️",
+        time:        r.time,
+        servings:    String(r.servings || 4),
+        difficulty:  "",
+        ingredients: r.allIngredients?.map(i => i.name) || [],
+        steps:       r.instructions || [],
+        store_name:  r._store_name || "",
+        image:       r.image || "",
+      };
+      const res = await fetch("/api/recipes/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) stillFailed.push(r);
+    } catch (e) { stillFailed.push(r); }
+  }
+  if (stillFailed.length === 0) {
+    showSaveCelebrationToast(`All ${failedRecipes.length} recipe${failedRecipes.length === 1 ? "" : "s"} saved on retry.`);
+    await loadProfileData();
+    renderProfile();
+  } else {
+    showAnonSaveRetryBanner(`Still couldn't save ${stillFailed.length} of ${failedRecipes.length} — tap to retry.`, stillFailed);
+  }
+}
+
+function announceSaveResult(result) {
+  if (!result) return;
+  const { savedCount = 0, failedCount = 0, totalCount = 0, failedRecipes } = result;
+  if (savedCount > 0 && failedCount === 0) {
+    showSaveCelebrationToast(`Saved ${savedCount} recipe${savedCount === 1 ? "" : "s"} to your account! Find them under Recipes.`);
+  } else if (savedCount > 0 && failedCount > 0) {
+    showSaveCelebrationToast(`Saved ${savedCount} of ${totalCount} recipes.`);
+    if (Array.isArray(failedRecipes) && failedRecipes.length) {
+      showAnonSaveRetryBanner(`Couldn't save ${failedCount} — tap to retry.`, failedRecipes);
+    }
+  } else if (failedCount > 0) {
+    showAnonSaveRetryBanner(`Couldn't save your recipes — tap to retry.`, failedRecipes || []);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 var _profileLoading = false;
 
@@ -304,12 +404,20 @@ async function initApp() {
   if (params.get("kroger") === "success") showToast("Kroger account connected!", "success");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
 
-  // Set active tab from hash
+  // Pick up a pending anon→registered save-result handoff from app.js. If
+  // fresh, force-land on the Recipes tab so the user sees what they just
+  // saved without hunting for it. Fire the toast/banner after renderProfile
+  // runs so the DOM is ready.
+  const pendingSaveResult = readPendingSaveResult();
   const hash = window.location.hash;
-  if (hash === "#saved") activeProfileTab = "saved";
+  if (pendingSaveResult && pendingSaveResult.savedCount > 0) activeProfileTab = "saved";
+  else if (hash === "#saved") activeProfileTab = "saved";
   else if (hash === "#lists") activeProfileTab = "lists";
   else if (hash === "#badges") activeProfileTab = "badges";
   else activeProfileTab = "profile";
+
+  let announced = false;
+  const announceOnce = () => { if (announced) return; announced = true; announceSaveResult(pendingSaveResult); };
 
   // Auth state change — only handle sign-out and fresh sign-in after redirect
   sb.auth.onAuthStateChange(async (event, session) => {
@@ -322,6 +430,7 @@ async function initApp() {
       currentUser = session.user;
       await loadProfileData();
       renderProfile();
+      announceOnce();
     }
   });
 
@@ -332,6 +441,7 @@ async function initApp() {
       currentUser = data.session.user;
       await loadProfileData();
       renderProfile();
+      announceOnce();
     } else {
       renderAuth();
     }

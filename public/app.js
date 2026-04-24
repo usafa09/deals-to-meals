@@ -659,11 +659,11 @@ sb.auth.onAuthStateChange((event, session) => {
         const idx = pending.currentRecipeIndex >= 0 ? pending.currentRecipeIndex : 0;
         state.currentRecipe = state.recipes[idx] || state.recipes[0];
         // Skip UI rehydration for save_anon_recipes: the user lands on /
-        // for at most 1.8s before saveAnonRecipesToAccount's toast and
-        // scheduleProfileRedirect send them to /profile.html, where their
-        // saved recipes are shown. Rehydrating screen 6 here races
-        // ensureAppScreens (which async-fetches app-screens.html on a cold
-        // tab) — renderRecipeGrid then hits a null #recipesTitle and
+        // only long enough for saveAnonRecipesToAccount to POST the recipes,
+        // then redirects straight to /profile.html where the celebration
+        // toast and any retry banner surface. Rehydrating screen 6 here
+        // races ensureAppScreens (which async-fetches app-screens.html on a
+        // cold tab) — renderRecipeGrid then hits a null #recipesTitle and
         // throws, aborting the save. The other two branches (save_recipe,
         // add_to_cart) only run when the user clicked a button on screen 6
         // and is expected to stay there, so the DOM is already populated.
@@ -2205,6 +2205,15 @@ function renderModal(r){
 const PENDING_STATE_KEY = "dishcount_pending_state_v1";
 const PENDING_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Handoff payload written by saveAnonRecipesToAccount on / and consumed by
+// profile.html after the post-save redirect. Short TTL because the payload
+// is only meant to drive the immediate landing-page toast — a stale entry
+// (stray localStorage from a prior session, across-tab leak) should be
+// ignored rather than confusingly announcing an old save.
+// NOTE: Key and TTL are duplicated in public/profile.html. Keep in sync.
+const SAVE_RESULT_KEY = "dishcount_save_result_v1";
+const SAVE_RESULT_TTL_MS = 30 * 1000; // 30s
+
 function savePendingState(action) {
   try {
     localStorage.setItem(PENDING_STATE_KEY, JSON.stringify({
@@ -2235,17 +2244,16 @@ function restorePendingState() {
 
 // ── Anonymous → registered: persist anon recipes to saved_recipes ─────────────
 // Called from onAuthStateChange when a "save_anon_recipes" pending action is
-// restored after sign-in. Best-effort per-recipe; failures don't abort the
-// batch and surface to the user via a retry banner. After success or partial
-// success, redirect to /profile.html so the user lands on their populated
-// saved-recipes list. The redirect is cancelled if the user clicks Retry,
-// so the retry's outcome (not the original outcome) controls the redirect.
-let _anonSaveRedirectTimer = null;
-function scheduleProfileRedirect() {
-  clearTimeout(_anonSaveRedirectTimer);
-  _anonSaveRedirectTimer = setTimeout(() => { window.location.href = "/profile.html"; }, 1800);
-}
-
+// restored after sign-in. Best-effort per-recipe; failures are carried to
+// /profile.html as part of the save-result payload, where profile.html's
+// retry banner handles them.
+//
+// The save happens silently on / (no toast, no UI) — the user lands on /
+// only long enough for the POST loop to complete, then immediately
+// redirects to /profile.html where the celebration toast + any retry
+// banner surface. A prior version toasted on / but the homepage's zip-entry
+// onboarding competed for attention and the toast went unread; the
+// actionable landing page is /profile.html where the saved recipes live.
 async function saveAnonRecipesToAccount(recipes, accessToken) {
   if (!Array.isArray(recipes) || recipes.length === 0) return;
   const total = recipes.length;
@@ -2268,40 +2276,26 @@ async function saveAnonRecipesToAccount(recipes, accessToken) {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
         body: JSON.stringify(body),
       });
-      if (!res.ok) failed.push(r);
+      // Stash the computed store_name on the failed recipe so profile.html's
+      // retry reproduces the original save body — it doesn't have access to
+      // state.selectedBrands.
+      if (!res.ok) failed.push({ ...r, _store_name: body.store_name });
       else if (r?.title) state.savedRecipeIds?.add(r.title);
     } catch (e) {
       console.error("saveAnonRecipesToAccount POST failed:", e);
-      failed.push(r);
+      failed.push({ ...r, _store_name: state.selectedBrands.slice(0,2).join(" & ") });
     }
   }
-  const succeeded = total - failed.length;
-  if (failed.length === 0) {
-    showToast(`Saved ${total} recipe${total === 1 ? "" : "s"} to your account`, "success");
-    scheduleProfileRedirect();
-  } else if (succeeded > 0) {
-    showAnonSaveRetryBanner(`Saved ${succeeded} of ${total} recipes — tap to retry the rest.`, failed, accessToken);
-    scheduleProfileRedirect();
-  } else {
-    // All-failed: keep user on / so the retry banner stays actionable.
-    showAnonSaveRetryBanner(`Couldn't save your recipes — tap to retry.`, failed, accessToken);
-  }
-}
-
-function showAnonSaveRetryBanner(msg, failedRecipes, accessToken) {
-  const old = document.getElementById("anonSaveRetry"); if (old) old.remove();
-  const div = document.createElement("div");
-  div.id = "anonSaveRetry";
-  div.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:90%;background:#fff8e1;border:2px solid #f59e0b;border-radius:12px;padding:14px 18px;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:9999;display:flex;align-items:center;gap:12px;font-family:'DM Sans',sans-serif;font-size:14px;color:#7c2d12;";
-  div.innerHTML = `<span style="flex:1">${msg}</span><button id="anonSaveRetryBtn" type="button" style="padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;">Retry</button><button type="button" aria-label="Dismiss" onclick="this.parentElement.remove()" style="background:none;border:none;color:#7c2d12;font-size:18px;cursor:pointer;padding:0 4px;">×</button>`;
-  document.body.appendChild(div);
-  document.getElementById("anonSaveRetryBtn").addEventListener("click", async () => {
-    // Cancel any pending auto-redirect from the parent call so the retry's
-    // own outcome decides whether to redirect.
-    clearTimeout(_anonSaveRedirectTimer);
-    div.remove();
-    await saveAnonRecipesToAccount(failedRecipes, accessToken);
-  });
+  try {
+    localStorage.setItem(SAVE_RESULT_KEY, JSON.stringify({
+      savedCount: total - failed.length,
+      failedCount: failed.length,
+      totalCount: total,
+      failedRecipes: failed.length > 0 ? failed : undefined,
+      _ts: Date.now(),
+    }));
+  } catch (e) { console.error("failed to persist save result:", e); }
+  window.location.href = "/profile.html";
 }
 
 async function saveRecipe(){

@@ -1,0 +1,38 @@
+{
+  "deal-01-bananas-aldi.png": {
+    "source": "Pexels",
+    "photographer": "Scott Webb",
+    "url": "https://www.pexels.com/photo/green-banana-beside-yellow-banana-108059/",
+    "query": "bananas fresh"
+  },
+  "deal-02-ground-beef-kroger.png": {
+    "source": "Pexels",
+    "photographer": "Alexas Fotos",
+    "url": "https://www.pexels.com/photo/strands-of-ground-meat-7284305/",
+    "query": "ground beef raw"
+  },
+  "deal-03-chicken-walmart.png": {
+    "source": "Pexels",
+    "photographer": "Leeloo The First",
+    "url": "https://www.pexels.com/photo/fresh-raw-chicken-meat-with-rosemary-toppings-on-white-surface-5769376/",
+    "query": "chicken breast raw"
+  },
+  "deal-04-eggs-kroger.png": {
+    "source": "Pexels",
+    "photographer": "Teun Nijn",
+    "url": "https://www.pexels.com/photo/eggs-in-paper-box-17903969/",
+    "query": "carton of eggs"
+  },
+  "deal-05-yogurt-publix.png": {
+    "source": "Pexels",
+    "photographer": "C'Pho Ngondo R.Rouge",
+    "url": "https://www.pexels.com/photo/lancewood-double-cream-coconut-yoghurt-and-bowl-20379659/",
+    "query": "yogurt container grocery"
+  },
+  "deal-06-pasta-sauce-walmart.png": {
+    "source": "Pexels",
+    "photographer": "Polina Tankilevitch",
+    "url": "https://www.pexels.com/photo/ingredients-of-a-spaghetti-on-kitchen-counter-6073556/",
+    "query": "pasta sauce jars"
+  }
+}

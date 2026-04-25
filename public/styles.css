@@ -48,6 +48,18 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-distance select { padding: 6px 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; background: rgba(0,0,0,0.3); color: #FFFFFF; cursor: pointer; }
 .landing-hint { font-size: 13px; color: #E8E8E8; }
 
+/* Homepage deal-preview grid — static PNG proof, no JS. Mobile-first: 2 cols
+   (phones), 3 cols (≥768px). Sits below the zip CTA so the form stays above
+   the fold; the grid is the "scroll-down" reinforcement. */
+.landing-preview { max-width: 480px; margin: 20px auto; }
+.landing-preview-caption { margin: 0 0 10px; font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500; letter-spacing: 0.02em; }
+.landing-preview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.landing-preview-grid img { width: 100%; height: auto; display: block; border-radius: 12px; }
+@media (min-width: 768px) {
+  .landing-preview { max-width: 640px; margin: 24px auto; }
+  .landing-preview-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+}
+
 /* ══ PWA Install Banner ══ */
 .pwa-install-banner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 400; background: var(--dark); border-top: 2px solid var(--green-bright); padding: 14px 16px; animation: slideUp 0.3s ease; }
 .pwa-install-inner { max-width: 600px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }

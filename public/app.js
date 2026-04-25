@@ -569,10 +569,24 @@ function showSignupModal(isFinal) {
   overlay.id = "signupNudge";
   overlay.className = "nudge-overlay";
   const count = getAnonRecipeCount();
+  // Recipe-preservation callout — concrete commitment that the CURRENT
+  // batch (state.recipes.length, not the cumulative getAnonRecipeCount)
+  // will be saved on signup. Sits right above the CTA so it's the last
+  // thing read before the click. Guarded on recipeCount > 0 — showSignupNudge
+  // only fires post-generation so this should always be true, but zero
+  // would render a nonsensical "0 recipes will be saved" line.
+  const recipeCount = (state.recipes || []).length;
+  const saveCallout = recipeCount > 0
+    ? '<div style="background:var(--green-light);border-left:4px solid var(--green-dark);border-radius:10px;padding:12px 14px;margin:0 auto 16px;max-width:320px;text-align:left;font-size:14px;color:var(--text);line-height:1.45;">' +
+        '<span style="color:var(--green-dark);font-weight:700;margin-right:6px;">✓</span>Your <strong>' + recipeCount + '</strong> recipe' + (recipeCount === 1 ? '' : 's') + ' will be saved to your account.' +
+        '<div style="color:var(--muted);font-size:12px;margin-top:4px;">Find them anytime under My Recipes.</div>' +
+      '</div>'
+    : '';
   overlay.innerHTML = '<div class="nudge-card">' +
     (isFinal ? '<div style="font-size:32px;margin-bottom:8px;">\u{1F389}</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated ' + count + ' batches of recipes!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">You\'re clearly a deal hunter. Join now and claim your Founding Member badge!</p>'
              : '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div><h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'re getting great use out of Dishcount!</h3><p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Create a free account to:</p>') +
     '<div style="text-align:left;margin:0 auto 20px;max-width:280px;font-size:14px;line-height:2;color:var(--text);">\u2713 Save your favorite recipes<br>\u2713 Build and share shopping lists<br>\u2713 Add ingredients to your Kroger cart<br>\u2713 Track your savings and earn badges<br>\u2713 Get weekly deal emails</div>' +
+    saveCallout +
     '<button type="button" onclick="goToSignup()" style="display:block;width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-weight:700;font-size:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;">Create Account</button>' +
     '<button type="button" onclick="dismissSignupModal()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">Maybe Later</button></div>';
   document.body.appendChild(overlay);
@@ -658,26 +672,18 @@ sb.auth.onAuthStateChange((event, session) => {
       if (pending.recipes?.length) {
         const idx = pending.currentRecipeIndex >= 0 ? pending.currentRecipeIndex : 0;
         state.currentRecipe = state.recipes[idx] || state.recipes[0];
-        // Skip UI rehydration for save_anon_recipes: the user lands on /
-        // only long enough for saveAnonRecipesToAccount to POST the recipes,
-        // then redirects straight to /profile.html where the celebration
-        // toast and any retry banner surface. Rehydrating screen 6 here
-        // races ensureAppScreens (which async-fetches app-screens.html on a
-        // cold tab) — renderRecipeGrid then hits a null #recipesTitle and
-        // throws, aborting the save. The other two branches (save_recipe,
-        // add_to_cart) only run when the user clicked a button on screen 6
-        // and is expected to stay there, so the DOM is already populated.
-        if (pending.pendingAction !== "save_anon_recipes") {
-          goTo(6);
-          renderRecipeGrid();
-        }
+        goTo(6);
+        renderRecipeGrid();
         if (pending.pendingAction === "save_recipe" && state.currentRecipe) {
           setTimeout(() => { openModal(idx); setTimeout(saveRecipe, 500); }, 300);
         } else if (pending.pendingAction === "add_to_cart") {
           setTimeout(() => showToast("Signed in! You can now add items to your Kroger cart.", "success"), 300);
-        } else if (pending.pendingAction === "save_anon_recipes") {
-          setTimeout(() => saveAnonRecipesToAccount(state.recipes.slice(), session.access_token), 300);
         }
+        // save_anon_recipes is handled on /profile.html — if that stash
+        // ever reaches here (e.g. user visits / directly with a stash from
+        // another tab), restorePendingState still consumed it above so it
+        // can't re-fire, and we simply rehydrate the recipes view without
+        // saving. /profile.html is the intended landing page for that flow.
       }
     }
   }
@@ -2205,15 +2211,6 @@ function renderModal(r){
 const PENDING_STATE_KEY = "dishcount_pending_state_v1";
 const PENDING_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Handoff payload written by saveAnonRecipesToAccount on / and consumed by
-// profile.html after the post-save redirect. Short TTL because the payload
-// is only meant to drive the immediate landing-page toast — a stale entry
-// (stray localStorage from a prior session, across-tab leak) should be
-// ignored rather than confusingly announcing an old save.
-// NOTE: Key and TTL are duplicated in public/profile.html. Keep in sync.
-const SAVE_RESULT_KEY = "dishcount_save_result_v1";
-const SAVE_RESULT_TTL_MS = 30 * 1000; // 30s
-
 function savePendingState(action) {
   try {
     localStorage.setItem(PENDING_STATE_KEY, JSON.stringify({
@@ -2240,62 +2237,6 @@ function restorePendingState() {
     }
     return parsed;
   } catch(e) { localStorage.removeItem(PENDING_STATE_KEY); return null; }
-}
-
-// ── Anonymous → registered: persist anon recipes to saved_recipes ─────────────
-// Called from onAuthStateChange when a "save_anon_recipes" pending action is
-// restored after sign-in. Best-effort per-recipe; failures are carried to
-// /profile.html as part of the save-result payload, where profile.html's
-// retry banner handles them.
-//
-// The save happens silently on / (no toast, no UI) — the user lands on /
-// only long enough for the POST loop to complete, then immediately
-// redirects to /profile.html where the celebration toast + any retry
-// banner surface. A prior version toasted on / but the homepage's zip-entry
-// onboarding competed for attention and the toast went unread; the
-// actionable landing page is /profile.html where the saved recipes live.
-async function saveAnonRecipesToAccount(recipes, accessToken) {
-  if (!Array.isArray(recipes) || recipes.length === 0) return;
-  const total = recipes.length;
-  const failed = [];
-  for (const r of recipes) {
-    try {
-      const body = {
-        title:       r.title,
-        emoji:       "🍽️",
-        time:        r.time,
-        servings:    String(r.servings || 4),
-        difficulty:  "",
-        ingredients: r.allIngredients?.map(i => i.name) || [],
-        steps:       r.instructions || [],
-        store_name:  state.selectedBrands.slice(0,2).join(" & "),
-        image:       r.image || "",
-      };
-      const res = await fetch("/api/recipes/saved", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
-        body: JSON.stringify(body),
-      });
-      // Stash the computed store_name on the failed recipe so profile.html's
-      // retry reproduces the original save body — it doesn't have access to
-      // state.selectedBrands.
-      if (!res.ok) failed.push({ ...r, _store_name: body.store_name });
-      else if (r?.title) state.savedRecipeIds?.add(r.title);
-    } catch (e) {
-      console.error("saveAnonRecipesToAccount POST failed:", e);
-      failed.push({ ...r, _store_name: state.selectedBrands.slice(0,2).join(" & ") });
-    }
-  }
-  try {
-    localStorage.setItem(SAVE_RESULT_KEY, JSON.stringify({
-      savedCount: total - failed.length,
-      failedCount: failed.length,
-      totalCount: total,
-      failedRecipes: failed.length > 0 ? failed : undefined,
-      _ts: Date.now(),
-    }));
-  } catch (e) { console.error("failed to persist save result:", e); }
-  window.location.href = "/profile.html";
 }
 
 async function saveRecipe(){

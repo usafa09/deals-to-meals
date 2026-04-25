@@ -140,6 +140,8 @@
     @keyframes fadeUp { from { opacity:0; transform: translate(-50%,10px); } to { opacity:1; transform: translate(-50%,0); } }
 
     .spinner-wrap { display: flex; justify-content: center; padding: 40px; }
+    .spinner-wrap.saving { flex-direction: column; align-items: center; gap: 14px; min-height: 240px; justify-content: center; }
+    .spinner-wrap.saving p { margin: 0; color: #595959; font-size: 14px; font-family: 'DM Sans', sans-serif; }
     .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid #E0E0E0; border-top-color: var(--green-dark); animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -231,52 +233,6 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
-// ── Signup-nudge pending-stash → redirect to / on sign-in ────────────────────
-// When an anonymous user clicks a signup nudge, public/app.js stashes their
-// generated recipes under "dishcount_pending_state_v1" and navigates here.
-// Our job is to bounce them back to / as soon as they're signed in so
-// app.js's SIGNED_IN branch can call saveAnonRecipesToAccount(). We don't
-// delete the stash — / consumes it.
-//
-// A prior version (commit 1ffa21e) ran a synchronous localStorage check on
-// page load, but that raced Supabase's async OAuth-callback processing: when
-// a user returns from "Continue with Google", the auth token isn't written
-// to localStorage until ~200ms after page load, so the sync check saw no
-// token and exited — leaving the user stranded on /profile.html with their
-// stash rotting in localStorage. onAuthStateChange fixes this: Supabase
-// fires SIGNED_IN once the URL fragment is processed, whatever the flow.
-//
-// We also call getSession() to cover the already-signed-in case (returning
-// user who was authenticated earlier, dismissed a nudge, and triggered
-// another later) — SIGNED_IN may not fire for a session that was merely
-// restored from storage. If neither path produces a session, we leave the
-// user on /profile.html. No loop risk: we never redirect an anonymous user.
-//
-// NOTE: "dishcount_pending_state_v1" and the 7-day TTL mirror
-// PENDING_STATE_KEY / PENDING_STATE_TTL_MS in public/app.js. Keep in sync.
-// TODO: extract to shared module.
-(async function(){
-  try {
-    var raw = localStorage.getItem("dishcount_pending_state_v1");
-    if (!raw) return;
-    var p; try { p = JSON.parse(raw); } catch(e) { return; }
-    if (!p || p.pendingAction !== "save_anon_recipes") return;
-    if (typeof p._ts === "number" && Date.now() - p._ts > 7*24*60*60*1000) return;
-
-    var redirected = false;
-    function goHome(){ if (redirected) return; redirected = true; window.location.replace("/"); }
-
-    sb.auth.onAuthStateChange(function(event, session){
-      if (event === "SIGNED_IN" && session) goHome();
-    });
-
-    // Cover the returning-signed-in-user case (SIGNED_IN may not re-fire
-    // for a session restored from storage before we subscribed).
-    var res = await sb.auth.getSession();
-    if (res?.data?.session) goHome();
-  } catch(e) { /* fall through and render normally on any error */ }
-})();
-
 const DIETARY_OPTIONS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie"];
 const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];
 const STORES = [
@@ -296,24 +252,88 @@ function showToast(msg, type="success") {
   setTimeout(() => t.classList.remove("show"), 4000);
 }
 
-// ── Anon → registered save-result announcement ────────────────────────────────
-// app.js's saveAnonRecipesToAccount writes a result payload to localStorage
-// before redirecting here, and we pick it up on page load. Key and TTL are
-// duplicated from SAVE_RESULT_KEY / SAVE_RESULT_TTL_MS in public/app.js.
-// Keep them in sync. TODO: extract to shared module.
-const SAVE_RESULT_KEY = "dishcount_save_result_v1";
-const SAVE_RESULT_TTL_MS = 30 * 1000;
+// ── Anon → registered save: in-page POST loop + result announcement ──────────
+// When an anonymous user clicks a signup nudge, public/app.js stashes their
+// generated recipes under "dishcount_pending_state_v1" and navigates here.
+// After sign-in (OAuth callback, email confirmation, or existing session),
+// we consume the stash, POST each recipe to /api/recipes/saved, and fire a
+// celebration toast on the Recipes tab.
+//
+// This used to cross-navigate to / so app.js could do the POST loop there,
+// but the homepage's first-visit onboarding UI showed up behind the redirect
+// flash and looked like an error state to brand-new signups. Doing the save
+// directly here keeps the user on /profile.html end-to-end.
+//
+// Key and 7-day TTL mirror PENDING_STATE_KEY / PENDING_STATE_TTL_MS in
+// public/app.js. Keep them in sync. TODO: extract to shared module.
+const PENDING_STATE_KEY = "dishcount_pending_state_v1";
+const PENDING_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function readPendingSaveResult() {
+function isValidPendingSaveStash(p) {
+  if (!p || p.pendingAction !== "save_anon_recipes") return false;
+  if (typeof p._ts === "number" && Date.now() - p._ts > PENDING_STATE_TTL_MS) return false;
+  return Array.isArray(p.recipes) && p.recipes.length > 0;
+}
+
+// Consuming read. Matches the pattern of app.js's restorePendingState:
+// always remove the stash on successful read so a single stash is consumed
+// exactly once, even if the POST loop fails partway (the retry banner
+// keeps the failed recipes in memory — the stash itself is done).
+function readPendingSaveAnonRecipes() {
   let raw;
-  try { raw = localStorage.getItem(SAVE_RESULT_KEY); } catch(e) { return null; }
+  try { raw = localStorage.getItem(PENDING_STATE_KEY); } catch(e) { return null; }
   if (!raw) return null;
-  try { localStorage.removeItem(SAVE_RESULT_KEY); } catch(e) {}
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch(e) { return null; }
-  if (!parsed || typeof parsed._ts !== "number") return null;
-  if (Date.now() - parsed._ts > SAVE_RESULT_TTL_MS) return null;
-  return parsed;
+  try { localStorage.removeItem(PENDING_STATE_KEY); } catch(e) {}
+  let p;
+  try { p = JSON.parse(raw); } catch(e) { return null; }
+  return isValidPendingSaveStash(p) ? p : null;
+}
+
+function showSavingOverlay() {
+  const m = document.getElementById("main-content");
+  if (!m) return;
+  m.innerHTML = '<div class="spinner-wrap saving"><div class="spinner"></div><p>Saving your recipes to your account…</p></div>';
+}
+
+// POST each recipe, return a result object. Mirrors the body shape that
+// app.js used so the server side (routes/recipes.js POST /api/recipes/saved)
+// doesn't need to change. Failed recipes carry _store_name so the retry
+// banner's retryAnonSaveFailures reproduces the original payload.
+async function saveAnonRecipesOnProfile(pending, accessToken) {
+  const recipes = pending.recipes || [];
+  const storeName = (pending.selectedBrands || []).slice(0, 2).join(" & ");
+  const total = recipes.length;
+  const failed = [];
+  for (const r of recipes) {
+    try {
+      const body = {
+        title:       r.title,
+        emoji:       "🍽️",
+        time:        r.time,
+        servings:    String(r.servings || 4),
+        difficulty:  "",
+        ingredients: r.allIngredients?.map(i => i.name) || [],
+        steps:       r.instructions || [],
+        store_name:  storeName,
+        image:       r.image || "",
+      };
+      const res = await fetch("/api/recipes/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) failed.push({ ...r, _store_name: storeName });
+    } catch (e) {
+      console.error("saveAnonRecipesOnProfile POST failed:", e);
+      failed.push({ ...r, _store_name: storeName });
+    }
+  }
+  return {
+    savedCount: total - failed.length,
+    failedCount: failed.length,
+    totalCount: total,
+    failedRecipes: failed.length > 0 ? failed : undefined,
+  };
 }
 
 // Longer-duration, click-dismissible variant of showToast for the
@@ -404,44 +424,51 @@ async function initApp() {
   if (params.get("kroger") === "success") showToast("Kroger account connected!", "success");
   if (params.get("kroger") === "error")   showToast("Kroger connection failed", "error");
 
-  // Pick up a pending anon→registered save-result handoff from app.js. If
-  // fresh, force-land on the Recipes tab so the user sees what they just
-  // saved without hunting for it. Fire the toast/banner after renderProfile
-  // runs so the DOM is ready.
-  const pendingSaveResult = readPendingSaveResult();
   const hash = window.location.hash;
-  if (pendingSaveResult && pendingSaveResult.savedCount > 0) activeProfileTab = "saved";
-  else if (hash === "#saved") activeProfileTab = "saved";
+  if (hash === "#saved") activeProfileTab = "saved";
   else if (hash === "#lists") activeProfileTab = "lists";
   else if (hash === "#badges") activeProfileTab = "badges";
   else activeProfileTab = "profile";
 
-  let announced = false;
-  const announceOnce = () => { if (announced) return; announced = true; announceSaveResult(pendingSaveResult); };
+  // Handles both the OAuth/email-confirm callback (SIGNED_IN fires) and
+  // the returning-already-signed-in case (getSession returns a session).
+  // Guarded so it runs once per session. Tab is overridden to "saved" only
+  // after at least one recipe saves successfully — all-fail case leaves the
+  // user on their default tab with a retry banner floating above.
+  let handledSignIn = false;
+  async function handleSignedIn(session) {
+    if (handledSignIn || _profileLoading || userProfile) return;
+    handledSignIn = true;
+    currentUser = session.user;
+    let saveResult = null;
+    const pending = readPendingSaveAnonRecipes();
+    if (pending) {
+      showSavingOverlay();
+      saveResult = await saveAnonRecipesOnProfile(pending, session.access_token);
+      if (saveResult.savedCount > 0) activeProfileTab = "saved";
+    }
+    await loadProfileData();
+    renderProfile();
+    if (saveResult) announceSaveResult(saveResult);
+  }
 
-  // Auth state change — only handle sign-out and fresh sign-in after redirect
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === "SIGNED_OUT") {
       currentUser = null; userProfile = null; savedRecipes = [];
       renderAuth();
+      return;
     }
-    // Only reload on SIGNED_IN if we haven't loaded yet (prevents double-load)
-    if (event === "SIGNED_IN" && session?.user && !_profileLoading && !userProfile) {
-      currentUser = session.user;
-      await loadProfileData();
-      renderProfile();
-      announceOnce();
+    if (event === "SIGNED_IN" && session?.user) {
+      await handleSignedIn(session);
     }
   });
 
-  // Initial session check
+  // Initial session check — covers the returning-user path where SIGNED_IN
+  // won't re-fire for a session merely restored from storage.
   try {
     const { data } = await sb.auth.getSession();
     if (data?.session?.user) {
-      currentUser = data.session.user;
-      await loadProfileData();
-      renderProfile();
-      announceOnce();
+      await handleSignedIn(data.session);
     } else {
       renderAuth();
     }

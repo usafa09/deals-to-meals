@@ -20,10 +20,10 @@ const anonDailyCount = new Map();
 const authHourlyCount = new Map();
 const authDailyCount = new Map();
 
-// Hourly IP-based rate limiter for anonymous users (5/hour, cannot be spoofed)
+// Hourly IP-based rate limiter for anonymous users (12/hour, cannot be spoofed)
 const anonRecipeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 12,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Recipe generation limit reached. Create a free account for unlimited recipes!", limitReached: true },

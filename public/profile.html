@@ -235,6 +235,18 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const DIETARY_OPTIONS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie"];
 const RECIPE_TYPES    = ["Quick & Easy","Healthy","Comfort Food","Family Style","Budget Max","Gourmet"];
+// [value, label] — values match the onboarding quiz slugs in app.js (saveSurveyAndClose)
+const FLAVOR_OPTIONS = [
+  ["mild",          "Mild and familiar"],
+  ["spicy",         "Spicy"],
+  ["sweet-savory",  "Sweet and savory"],
+  ["mediterranean", "Mediterranean"],
+  ["asian",         "Asian-inspired"],
+  ["mexican",       "Mexican / Latin"],
+  ["southern",      "Southern / Comfort food"],
+  ["anything",      "We'll try anything"],
+];
+const FAMILY_AGE_GROUPS = [["toddler","Toddler"],["kid","Kid"],["teen","Teen"],["adult","Adult"]];
 const STORES = [
   { id:"kroger",  name:"Kroger",  emoji:"🏪", desc:"Kroger, Ralphs, Fred Meyer, King Soopers & more", available:true },
 ];
@@ -666,16 +678,45 @@ function renderProfile() {
     </div>
     <div class="section">
       <div class="section-header"><div class="section-title">🎯 Cooking Preferences</div></div>
-      ${p.preferences?.skill_level ? `<p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Your preferences help us personalize recipes to your household.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text);">
-        ${p.preferences.household_size ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Household: ' + escapeHtml(String(p.preferences.household_size)) + (p.preferences.has_kids ? ' (kids)' : '') + '</span>' : ''}
-        <span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Skill: ${escapeHtml(p.preferences.skill_level)}</span>
-        ${p.preferences.cook_time ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Time: ' + (p.preferences.cook_time === 'any' ? 'No limit' : escapeHtml(String(p.preferences.cook_time)) + ' min') + '</span>' : ''}
-        ${p.preferences.flavor_preferences?.length ? '<span style="background:var(--cream);padding:6px 12px;border-radius:8px;">Flavors: ' + escapeHtml(p.preferences.flavor_preferences.join(', ')) + '</span>' : ''}
-        ${p.preferences.dietary?.length && !p.preferences.dietary.includes('none') ? '<span style="background:#e8f5e9;padding:6px 12px;border-radius:8px;">Diet: ' + escapeHtml(p.preferences.dietary.join(', ')) + '</span>' : ''}
-        ${p.preferences.dislikes ? '<span style="background:#fef2f2;padding:6px 12px;border-radius:8px;">Dislikes: ' + escapeHtml(p.preferences.dislikes) + '</span>' : ''}
-      </div>` : '<p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Fill out a quick survey so we can personalize your recipes.</p>'}
-      <button onclick="editPreferencesFromProfile()" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">${p.preferences?.skill_level ? 'Edit Preferences' : 'Take Quick Survey'}</button>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Tell us how you cook so we can tailor recipes to your household.</p>
+      ${(p.preferences && (p.preferences.skill_level || p.preferences.cook_time || (p.preferences.flavor_preferences?.length > 0) || p.preferences.dislikes || (p.preferences.family_members?.length > 0))) ? "" : `<div style="background:var(--green-light);border-left:4px solid var(--green-dark);border-radius:10px;padding:12px 14px;margin:0 0 16px 0;font-size:14px;color:var(--text);line-height:1.45;"><strong>New here?</strong> Take the <a onclick="localStorage.setItem('dishcount_show_survey','1');window.location.href='/'" style="color:var(--green-dark);font-weight:700;text-decoration:underline;cursor:pointer;">30-second quiz</a> to set everything up at once, or fill in any fields below.</div>`}
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cooking Skill</label>
+          <select id="prefSkillLevel">
+            <option value="" ${!p.preferences?.skill_level?"selected":""}>—</option>
+            <option value="beginner"     ${p.preferences?.skill_level==="beginner"?"selected":""}>Just starting out — keep it simple</option>
+            <option value="intermediate" ${p.preferences?.skill_level==="intermediate"?"selected":""}>I can follow a recipe</option>
+            <option value="confident"    ${p.preferences?.skill_level==="confident"?"selected":""}>Pretty comfortable — surprise me</option>
+            <option value="advanced"     ${p.preferences?.skill_level==="advanced"?"selected":""}>I love a challenge</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Time for Dinner</label>
+          <select id="prefCookTime">
+            <option value=""    ${!p.preferences?.cook_time?"selected":""}>—</option>
+            <option value="15"  ${p.preferences?.cook_time==="15"?"selected":""}>15 minutes or less</option>
+            <option value="30"  ${p.preferences?.cook_time==="30"?"selected":""}>About 30 minutes</option>
+            <option value="60"  ${p.preferences?.cook_time==="60"?"selected":""}>Up to an hour</option>
+            <option value="any" ${p.preferences?.cook_time==="any"?"selected":""}>I enjoy long cooks</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Flavors Your Family Enjoys</label>
+        <div class="chips-group" id="flavorChips">${FLAVOR_OPTIONS.map(([v,l])=>`<div class="chip ${(p.preferences?.flavor_preferences||[]).includes(v)?"selected":""}" data-value="${v}" onclick="toggleChip(this)">${l}</div>`).join("")}</div>
+      </div>
+      <div class="form-group">
+        <label>Ingredients to Avoid</label>
+        <textarea id="prefDislikes" rows="3" placeholder="e.g., mushrooms, seafood, cilantro" style="width:100%;padding:11px 13px;border:2px solid #D0C5A0;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;background:var(--cream);box-sizing:border-box;resize:vertical;outline:none;">${escapeHtml(p.preferences?.dislikes||"")}</textarea>
+      </div>
+      <label style="display:block;margin-bottom:12px;font-size:14px;cursor:pointer;"><input type="checkbox" id="prefHasKids" ${p.preferences?.has_kids?"checked":""} style="margin-right:8px;"> I have kids under 12</label>
+      <details id="familyMembersDetails" ${(p.preferences?.family_members||[]).length>0?"open":""} style="border:1px solid var(--sand);border-radius:10px;padding:12px;background:var(--cream);">
+        <summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--green-dark);">Family Members (${(p.preferences?.family_members||[]).length})</summary>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 12px;">Helps us find meals everyone will enjoy.</p>
+        <div id="familyMembersList">${(p.preferences?.family_members||[]).map(m=>familyMemberRowHtml(m)).join("")}</div>
+        <button type="button" onclick="addProfileFamilyMember()" style="padding:10px 16px;background:white;border:2px dashed #D0C5A0;border-radius:10px;color:var(--green-dark);font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;font-family:'DM Sans',sans-serif;">+ Add Family Member</button>
+      </details>
     </div>
     <div class="section">
       <div style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:24px;color:white;text-align:center;">
@@ -781,10 +822,39 @@ function renderProfile() {
 // ── Actions ───────────────────────────────────────────────────────────────────
 function toggleChip(el) { el.classList.toggle("selected"); markDirty(); }
 
-function editPreferencesFromProfile() {
-  // Open the main app page with a flag to show the survey
-  localStorage.setItem("dishcount_show_survey", "1");
-  window.location.href = "/";
+function familyMemberRowHtml(m) {
+  m = m || { name:"", ageGroup:"adult", dietary:"", dislikes:"", notes:"" };
+  const inputCss = "width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:'DM Sans',sans-serif;";
+  return '<div class="family-member-row" style="border:1px solid var(--sand);border-radius:10px;padding:10px;margin-bottom:8px;background:white;">'
+    + '<div style="display:flex;gap:8px;margin-bottom:6px;">'
+    +   '<input type="text" class="fm-name" placeholder="Name or nickname" value="'+escapeHtml(m.name||"")+'" style="flex:1;'+inputCss+'" />'
+    +   '<select class="fm-age" style="'+inputCss+'width:auto;">'
+    +     FAMILY_AGE_GROUPS.map(([v,l])=>'<option value="'+v+'"'+(m.ageGroup===v?' selected':'')+'>'+l+'</option>').join("")
+    +   '</select>'
+    +   '<button type="button" onclick="this.closest(\'.family-member-row\').remove();markDirty();updateFamilyMemberCount();" style="background:none;border:none;color:#c00;cursor:pointer;font-size:16px;padding:0 6px;">✕</button>'
+    + '</div>'
+    + '<input type="text" class="fm-dietary" placeholder="Dietary restrictions (e.g., dairy-free)" value="'+escapeHtml(m.dietary||"")+'" style="'+inputCss+'margin-bottom:4px;" />'
+    + '<input type="text" class="fm-dislikes" placeholder="Dislikes (e.g., mushrooms)" value="'+escapeHtml(m.dislikes||"")+'" style="'+inputCss+'margin-bottom:4px;" />'
+    + '<input type="text" class="fm-notes" placeholder="Notes (e.g., only likes plain pasta)" value="'+escapeHtml(m.notes||"")+'" style="'+inputCss+'" />'
+    + '</div>';
+}
+
+function addProfileFamilyMember() {
+  const list = document.getElementById("familyMembersList");
+  if (!list) return;
+  list.insertAdjacentHTML("beforeend", familyMemberRowHtml());
+  const det = document.getElementById("familyMembersDetails");
+  if (det && !det.open) det.open = true;
+  markDirty();
+  updateFamilyMemberCount();
+  list.lastElementChild?.querySelector(".fm-name")?.focus();
+}
+
+function updateFamilyMemberCount() {
+  const list = document.getElementById("familyMembersList");
+  if (!list) return;
+  const summary = document.getElementById("familyMembersDetails")?.querySelector("summary");
+  if (summary) summary.textContent = "Family Members (" + list.querySelectorAll(".family-member-row").length + ")";
 }
 
 function addPriceAlert() {
@@ -849,12 +919,31 @@ async function saveAllSettings() {
       const match = text.match(/(.+)\s+under\s+\$(\d+\.?\d*)/);
       return match ? { item: match[1].trim(), price: parseFloat(match[2]) } : null;
     }).filter(Boolean);
+    // Cooking preferences: read form values, then merge OVER existing preferences so
+    // unrelated keys in the JSONB blob aren't wiped (PATCH replaces the whole column).
+    const familyMembers = [...document.querySelectorAll("#familyMembersList .family-member-row")].map(row => ({
+      name:     row.querySelector(".fm-name")?.value.trim()    || "",
+      ageGroup: row.querySelector(".fm-age")?.value            || "adult",
+      dietary:  row.querySelector(".fm-dietary")?.value.trim() || "",
+      dislikes: row.querySelector(".fm-dislikes")?.value.trim()|| "",
+      notes:    row.querySelector(".fm-notes")?.value.trim()   || "",
+    })).filter(m => m.name);
+    const mergedPrefs = {
+      ...(userProfile?.preferences || {}),
+      skill_level:        document.getElementById("prefSkillLevel")?.value || null,
+      cook_time:          document.getElementById("prefCookTime")?.value || null,
+      flavor_preferences: [...document.querySelectorAll("#flavorChips .chip.selected")].map(c => c.dataset.value),
+      dislikes:           document.getElementById("prefDislikes")?.value.trim() || "",
+      has_kids:           document.getElementById("prefHasKids")?.checked || false,
+      family_members:     familyMembers,
+    };
     const payload = {
       full_name:             document.getElementById("fullName")?.value ?? "",
       household_size:        parseInt(document.getElementById("householdSize")?.value, 10),
       preferred_store:       document.getElementById("preferredStore")?.value ?? "",
       dietary_preferences:   dietary,
       favorite_recipe_types: favTypes,
+      preferences:           mergedPrefs,
       email_prefs: {
         weekly_digest:        document.getElementById("weeklyEmail")?.checked ?? true,
         price_alerts_enabled: document.getElementById("priceAlertToggle")?.checked ?? userProfile?.email_prefs?.price_alerts_enabled ?? true,

@@ -50,7 +50,7 @@ app.use((req, res, next) => {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' https: data: blob: https://www.facebook.com",
     "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://analytics.google.com https://connect.facebook.net https://www.facebook.com",
-    "frame-src 'none'",
+    "frame-src https://www.facebook.com",
     "object-src 'none'",
     "base-uri 'self'"
   ].join('; '));

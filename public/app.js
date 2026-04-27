@@ -1222,7 +1222,11 @@ async function findStores() {
     const fetchJson = async (url) => {
       const r = await fetch(url);
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || "Request failed");
+      if (!r.ok) {
+        const e = new Error(data.error || "Request failed");
+        e.status = r.status;
+        throw e;
+      }
       return data;
     };
     const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
@@ -1230,10 +1234,19 @@ async function findStores() {
       fetchJson(`/api/aldi/stores?zip=${zip}`).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
       fetchJson(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`),
     ]);
-    // If every store lookup rejected with the same validation error, surface it
-    const rejectedMessages = [krogerRes, aldiRes, nearbyRes].filter(r => r.status === "rejected").map(r => r.reason?.message).filter(Boolean);
-    if (rejectedMessages.length === 3 && rejectedMessages.every(m => /zip/i.test(m))) {
-      throw new Error(rejectedMessages[0]);
+    const rejected = [krogerRes, aldiRes, nearbyRes].filter(r => r.status === "rejected").map(r => r.reason).filter(Boolean);
+    // Any 429 → user hit a free-tier limit. Show the rate-limit modal (same UX
+    // as the recipe flow) rather than letting partial results mask the cause.
+    // Detected by status code, not body flag — these endpoints don't set
+    // limitReached:true (only /api/recipes/ai does).
+    if (rejected.some(e => e.status === 429)) {
+      hideLoading();
+      showRateLimitModal();
+      return;
+    }
+    // If every store lookup rejected with the same zip validation error, surface it
+    if (rejected.length === 3 && rejected.every(e => /zip/i.test(e.message || ""))) {
+      throw new Error(rejected[0].message);
     }
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
@@ -1270,9 +1283,29 @@ async function findStores() {
       if(!a.hasDeals && b.hasDeals) return 1;
       return a.name.localeCompare(b.name);
     });
-    if(!state.storeBrands.length)throw new Error("No stores with weekly ads found near that zip code. Try a different zip or increase the distance.");
+    if(!state.storeBrands.length) {
+      // True zero stores. If all three lookups failed (without 429 or zip error),
+      // it's almost certainly a network/server reachability issue — not "no stores."
+      if (rejected.length === 3) {
+        const e = new Error("Network error"); e.isNetwork = true; throw e;
+      }
+      const e = new Error("No stores with weekly ads found near " + zip + ". Try a different zip or increase the distance.");
+      e.isZeroResult = true;
+      throw e;
+    }
     await renderStoreBrands(); goTo(2);
-  } catch(err){showToast(err.message);} finally{hideLoading();}
+  } catch(err){
+    if (err.isZeroResult) {
+      showToast(err.message);
+    } else if (err.isNetwork || err.name === "TypeError" || !navigator.onLine) {
+      showToast("Can't reach the server. Check your connection and try again.");
+    } else if (/zip/i.test(err.message || "")) {
+      // Server-provided zip validation error — pass through
+      showToast(err.message);
+    } else {
+      showToast("Something went wrong. Please try again in a moment.");
+    }
+  } finally{hideLoading();}
 }
 
 // ── Screen 2: Store Brands ────────────────────────────────────────────────────

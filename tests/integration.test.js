@@ -62,12 +62,6 @@ async function runTests() {
   } catch (e) { log("GET /api/aldi/deals", false, e.message); }
 
   try {
-    const r = await get("/api/aldi/stores?zip=45432");
-    const d = await r.json();
-    log("GET /api/aldi/stores", r.ok && d.stores?.length > 0, `status=${r.status}`);
-  } catch (e) { log("GET /api/aldi/stores", false, e.message); }
-
-  try {
     const r = await get("/api/walmart/stores?zip=45432");
     log("GET /api/walmart/stores", r.status === 200 || r.status === 500, `status=${r.status} (500=creds not set)`);
   } catch (e) { log("GET /api/walmart/stores", false, e.message); }

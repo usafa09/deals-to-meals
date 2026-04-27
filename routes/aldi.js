@@ -40,20 +40,6 @@ router.get("/api/aldi/deals", async (req, res) => {
   }
 });
 
-router.get("/api/aldi/stores", (req, res) => {
-  const zip = req.query.zip || "";
-  if (!validateZip(zip)) return res.status(400).json({ error: "Please enter a valid US ZIP code" });
-  res.json({
-    stores: [{
-      id: "aldi-1",
-      name: "ALDI",
-      address: `Near ${zip}`,
-      hours: "9am–8pm",
-      chain: "aldi"
-    }]
-  });
-});
-
 router.get("/api/aldi/status", async (req, res) => {
   try {
     const { count, data } = await supabase

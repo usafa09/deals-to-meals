@@ -1229,12 +1229,11 @@ async function findStores() {
       }
       return data;
     };
-    const [krogerRes,aldiRes,nearbyRes] = await Promise.allSettled([
+    const [krogerRes,nearbyRes] = await Promise.allSettled([
       fetchJson(`/api/stores?zip=${zip}`).then(d=>(d.stores||[]).map(s=>({...s,source:"kroger"}))),
-      fetchJson(`/api/aldi/stores?zip=${zip}`).then(d=>(d.stores||[]).map(s=>({...s,source:"aldi"}))),
       fetchJson(`/api/nearby-stores?zip=${zip}&radius=${state.distance}`),
     ]);
-    const rejected = [krogerRes, aldiRes, nearbyRes].filter(r => r.status === "rejected").map(r => r.reason).filter(Boolean);
+    const rejected = [krogerRes, nearbyRes].filter(r => r.status === "rejected").map(r => r.reason).filter(Boolean);
     // Any 429 → user hit a free-tier limit. Show the rate-limit modal (same UX
     // as the recipe flow) rather than letting partial results mask the cause.
     // Detected by status code, not body flag — these endpoints don't set
@@ -1245,17 +1244,18 @@ async function findStores() {
       return;
     }
     // If every store lookup rejected with the same zip validation error, surface it
-    if (rejected.length === 3 && rejected.every(e => /zip/i.test(e.message || ""))) {
+    if (rejected.length === 2 && rejected.every(e => /zip/i.test(e.message || ""))) {
       throw new Error(rejected[0].message);
     }
     const allStores=[];
     if(krogerRes.status==="fulfilled")allStores.push(...krogerRes.value);
-    if(aldiRes.status==="fulfilled")allStores.push(...aldiRes.value);
 
-    // Add nearby stores from Google Places (excluding Kroger/ALDI which are already handled)
+    // Add nearby stores from Google Places (excluding Kroger which is already handled
+    // via the real Kroger API). ALDI now flows through here too — proximity is
+    // determined by Google Places, not a phantom always-include entry.
     if(nearbyRes.status==="fulfilled" && nearbyRes.value.stores) {
       const nearbyStores = nearbyRes.value.stores
-        .filter(s => s.name !== "Kroger" && s.name !== "ALDI")
+        .filter(s => s.name !== "Kroger")
         .filter(s => s.hasDeals || s.canExtract) // only show stores we can get ads for
         .map(s => ({
           name: s.name,
@@ -1284,9 +1284,9 @@ async function findStores() {
       return a.name.localeCompare(b.name);
     });
     if(!state.storeBrands.length) {
-      // True zero stores. If all three lookups failed (without 429 or zip error),
+      // True zero stores. If both lookups failed (without 429 or zip error),
       // it's almost certainly a network/server reachability issue — not "no stores."
-      if (rejected.length === 3) {
+      if (rejected.length === 2) {
         const e = new Error("Network error"); e.isNetwork = true; throw e;
       }
       const e = new Error("No stores with weekly ads found near " + zip + ". Try a different zip or increase the distance.");

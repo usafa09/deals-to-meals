@@ -20,12 +20,14 @@ router.get("/api/nearby-stores", async (req, res) => {
   if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   const miles = parseInt(radiusMiles) || 10;
   const radiusMeters = Math.min(miles * 1609, 48000);
-  const cacheKey = `nearby-stores:${zip}:${miles}mi`;
+  // v2 cache key: invalidates pre-fix entries that contained phantom Walmart/Kroger/ALDI
+  // entries injected unconditionally regardless of proximity.
+  const cacheKey = `nearby-stores:v2:${zip}:${miles}mi`;
 
   try {
     const cached = await getCachedStores(zip, cacheKey);
     if (cached) {
-      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name) || s.name === "Kroger" || s.name === "ALDI" || s.name === "Walmart");
+      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name));
       console.log(`Nearby stores for ${zip} (${miles}mi): ${filtered.length} stores [cached]`);
       logSearch(zip, filtered.length, 0);
       return res.json({ stores: filtered, cached: true });
@@ -136,16 +138,6 @@ router.get("/api/nearby-stores", async (req, res) => {
         krogerFamily: isKrogerFamilyBrand(s.name),
       }))
       .filter(s => s.hasDeals || s.canExtract);
-
-    const existingNames = new Set(enrichedStores.map(s => s.name));
-    const alwaysInclude = [
-      { name: "Walmart", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
-      { name: "Kroger", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
-      { name: "ALDI", count: 1, address: "Nearby", hasDeals: true, canExtract: true, lat: location.lat, lng: location.lng },
-    ];
-    for (const s of alwaysInclude) {
-      if (!existingNames.has(s.name)) enrichedStores.push(s);
-    }
 
     await setCachedStores(zip, enrichedStores, cacheKey);
     console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);

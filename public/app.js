@@ -1210,8 +1210,19 @@ const BANNER_INFO = {
 function getBanner(name) { const k=(name||"").toLowerCase(); for(const[b,info]of Object.entries(BANNER_INFO)){if(k.includes(b))return info;} return{emoji:"🏪",color:"#666"}; }
 
 const KROGER_FAMILY_NORM=new Set(["kroger","ralphs","fredmeyer","frys","frysfood","harristeeter","kingsoopers","smiths","qfc","marianos","picksave","metromarket","dillons","bakers","payless","gerbes","jayc","food4less","foodsco","owens","citymarket"]);
+// Canonical proper-case display name for each Kroger-family banner. Keyed by normBrand()
+// so it merges variants like "KROGER"/"Kroger" and "FREDMEYER"/"Fred Meyer" (Kroger API
+// returns uppercase chain codes; Google Places returns proper-case names).
+const KROGER_FAMILY_DISPLAY={kroger:"Kroger",ralphs:"Ralphs",fredmeyer:"Fred Meyer",frys:"Fry's",frysfood:"Fry's",harristeeter:"Harris Teeter",kingsoopers:"King Soopers",smiths:"Smith's",qfc:"QFC",marianos:"Mariano's",picksave:"Pick 'n Save",metromarket:"Metro Market",dillons:"Dillons",bakers:"Baker's",payless:"Pay-Less",gerbes:"Gerbes",jayc:"Jay C",food4less:"Food 4 Less",foodsco:"Foods Co",owens:"Owen's Market",citymarket:"City Market"};
 function normBrand(n){return(n||"").toLowerCase().replace(/['\s\-]/g,"");}
 function isKrogerFamily(name){return KROGER_FAMILY_NORM.has(normBrand(name));}
+function canonicalBrandName(name){
+  if(!name) return name;
+  if(name.toLowerCase().includes("aldi")) return "ALDI";
+  const norm=normBrand(name);
+  if(KROGER_FAMILY_DISPLAY[norm]) return KROGER_FAMILY_DISPLAY[norm];
+  return name.trim();
+}
 
 async function findStores() {
   const zip=document.getElementById("zipInput").value.trim();
@@ -1255,7 +1266,7 @@ async function findStores() {
     // determined by Google Places, not a phantom always-include entry.
     if(nearbyRes.status==="fulfilled" && nearbyRes.value.stores) {
       const nearbyStores = nearbyRes.value.stores
-        .filter(s => s.name !== "Kroger")
+        .filter(s => !isKrogerFamily(s.name))
         .filter(s => s.hasDeals || s.canExtract) // only show stores we can get ads for
         .map(s => ({
           name: s.name,
@@ -1269,9 +1280,7 @@ async function findStores() {
 
     const brandMap=new Map();
     for(const s of allStores){
-      let brandName;
-      if(s.name.toLowerCase().includes("aldi"))brandName="ALDI";
-      else brandName=s.name.trim();
+      const brandName=canonicalBrandName(s.name);
       if(!brandMap.has(brandName)){const info=getBanner(brandName);brandMap.set(brandName,{name:brandName,source:s.source,emoji:info.emoji,color:info.color,stores:[],hasDeals:s.hasDeals||s.source==="kroger"||s.source==="aldi",krogerFamily:isKrogerFamily(brandName)||s.krogerFamily||false});}
       const brand=brandMap.get(brandName);
       brand.stores.push(s);

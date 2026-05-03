@@ -592,10 +592,46 @@ function showSignupModal(isFinal) {
   document.body.appendChild(overlay);
 }
 
-function showRateLimitModal() {
+function showRateLimitModal(context = "recipe", { serverMessage } = {}) {
+  const isAuthed = !!state.session?.user;
   const overlay = document.createElement("div");
   overlay.className = "nudge-overlay";
   overlay.id = "rateLimitModal";
+
+  // Variants 2-4 short-circuit. Variant 1 (recipe + anon) falls through to the original innerHTML below.
+  if (context !== "recipe" || isAuthed) {
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const close = "document.getElementById('rateLimitModal').remove()";
+    const PRI = "display:block;width:100%;padding:14px;background:var(--green-dark);color:white;border:none;border-radius:12px;font-weight:700;font-size:16px;margin-bottom:10px;cursor:pointer;font-family:inherit;";
+    const SEC = "background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;";
+    let emoji, title, body, primary, secondary = "";
+    if (context === "recipe" && isAuthed) {
+      emoji = "\u{1F37D}️";
+      title = "You've hit your recipe limit";
+      body = serverMessage || "You've reached your limit. Try again later.";
+      primary = '<button type="button" onclick="' + close + '" style="' + PRI + '">Browse Previous Recipes</button>';
+      secondary = '<button type="button" onclick="' + close + '" style="' + SEC + '">Close</button>';
+    } else if (context === "discovery" && !isAuthed) {
+      emoji = "\u{1F50D}";
+      title = "Whoa, lots of searches!";
+      body = "You've made too many store searches in a short time. Wait a few minutes and try again, or create a free account for higher limits.";
+      primary = '<button type="button" onclick="goToSignup()" style="' + PRI + '">Create Account</button>';
+      secondary = '<button type="button" onclick="' + close + '" style="' + SEC + '">Close</button>';
+    } else {
+      emoji = "\u{1F50D}";
+      title = "Whoa, lots of searches!";
+      body = "You've hit the store-search limit. Please wait a few minutes and try again.";
+      primary = '<button type="button" onclick="' + close + '" style="' + PRI + '">Close</button>';
+    }
+    overlay.innerHTML = '<div class="nudge-card">' +
+      '<div style="font-size:32px;margin-bottom:8px;">' + emoji + '</div>' +
+      '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">' + escapeHtml(title) + '</h3>' +
+      '<p style="font-size:14px;color:var(--muted);margin-bottom:16px;">' + escapeHtml(body) + '</p>' +
+      primary + secondary + '</div>';
+    document.body.appendChild(overlay);
+    return;
+  }
+
   overlay.innerHTML = '<div class="nudge-card">' +
     '<div style="font-size:32px;margin-bottom:8px;">\u{1F37D}\uFE0F</div>' +
     '<h3 style="font-size:18px;color:var(--green-dark);margin-bottom:8px;">You\'ve generated a lot of recipes!</h3>' +
@@ -640,6 +676,7 @@ function updateAuthUI(session) {
 // Listen for auth state changes (handles OAuth redirects, sign-in, sign-out)
 sb.auth.onAuthStateChange((event, session) => {
   console.log("auth state change:", event, !!session);
+  state.session = session || null;
   updateAuthUI(session);
   // Restore app state after sign-in redirect
   if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
@@ -691,6 +728,7 @@ sb.auth.onAuthStateChange((event, session) => {
 
 // Also check on page load — load preferences and show survey if needed
 sb.auth.getSession().then(({ data }) => {
+  state.session = data?.session || null;
   updateAuthUI(data?.session);
   if (data?.session) {
     loadUserPreferences().then(() => {
@@ -908,6 +946,7 @@ let state = {
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
   selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
   userPreferences:null, survey:{household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""},
+  session:null,  // cached Supabase session — populated by onAuthStateChange + initial getSession
 };
 
 // Fetch app screens from separate file on first use (keeps them out of static HTML for crawlers)
@@ -988,7 +1027,8 @@ function renderProgress(step) {
   // Legacy — replaced by updateStepProgress
 }
 function resetApp() {
-  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[] };
+  const preservedSession = state.session;
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[], session:preservedSession };
   document.getElementById("zipInput").value = "";
 }
 let cookingInterval = null;
@@ -1251,7 +1291,7 @@ async function findStores() {
     // limitReached:true (only /api/recipes/ai does).
     if (rejected.some(e => e.status === 429)) {
       hideLoading();
-      showRateLimitModal();
+      showRateLimitModal("discovery");
       return;
     }
     // If every store lookup rejected with the same zip validation error, surface it
@@ -1854,7 +1894,7 @@ async function searchRecipes() {
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
-    if(!res.ok){ if(data.limitReached){ clearSkeletonBanner(); showRateLimitModal(); return; } if(data.error==="ai_overloaded"){ clearSkeletonBanner(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
+    if(!res.ok){ if(data.limitReached){ clearSkeletonBanner(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } if(data.error==="ai_overloaded"){ clearSkeletonBanner(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     trackRecipeGenerated();
     state.recipes=data.recipes;
@@ -1988,7 +2028,7 @@ async function generateFreezerMeals() {
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
-    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate"); }
+    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } throw new Error(data.error || "Could not generate"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();
@@ -2342,7 +2382,7 @@ async function generateWeeklyPlan() {
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
-    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal(); return; } throw new Error(data.error || "Could not generate plan"); }
+    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } throw new Error(data.error || "Could not generate plan"); }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();

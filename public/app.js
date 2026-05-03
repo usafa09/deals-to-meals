@@ -1157,7 +1157,12 @@ function showLoading(text, sub="") {
   startTipRotation();
 }
 var _loadingProgressTimer = null;
-function showOverloadMessage() {
+function showOverloadMessage(retryFnName = "searchRecipes") {
+  // Whitelist the retry function — the name is interpolated into an inline onclick handler,
+  // and even though current callers only pass hardcoded literals, an unknown value should fall
+  // back to searchRecipes rather than emit a broken/exploitable onclick.
+  const ALLOWED_RETRY = new Set(["searchRecipes", "loadMoreRecipes", "generateFreezerMeals", "generateWeeklyPlan"]);
+  const fn = ALLOWED_RETRY.has(retryFnName) ? retryFnName : "searchRecipes";
   const el = document.getElementById("recipeGrid") || document.querySelector("main");
   if (!el) { showToast("Our recipe builder is temporarily busy. Try again in a minute."); return; }
   const msg = document.createElement("div");
@@ -1165,7 +1170,7 @@ function showOverloadMessage() {
   msg.innerHTML = '<div style="font-size:40px;margin-bottom:8px;">&#128104;&#8205;&#127859;</div>' +
     '<h3 style="color:#92400E;margin-bottom:8px;">Our recipe builder is taking a short break</h3>' +
     '<p style="color:#666;font-size:14px;margin-bottom:16px;">This is a temporary issue with high demand — not a problem with your request. It usually resolves within a minute.</p>' +
-    '<button onclick="this.closest(\'div\').remove();searchRecipes()" style="padding:12px 28px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Try Again</button>';
+    '<button onclick="this.closest(\'div\').remove();' + fn + '()" style="padding:12px 28px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Try Again</button>';
   el.parentNode.insertBefore(msg, el);
 }
 
@@ -1876,6 +1881,35 @@ function clearSkeletonBanner() {
   if (banner?._tipInterval) clearInterval(banner._tipInterval);
 }
 
+// Centralized error handler for /api/recipes/ai responses. Pass {res, data} from the
+// !res.ok branch, or {err} from the catch. Returns true if it displayed a message;
+// false if the caller should throw (HTTP error with no recognized type).
+// retryFnName names the function the overload "Try Again" button invokes — defaults
+// to searchRecipes for backwards compatibility with the original showOverloadMessage call.
+function handleRecipeApiError({ res, data, err, retryFnName } = {}) {
+  if (data?.limitReached) {
+    showRateLimitModal("recipe", { serverMessage: data.error || data.message });
+    return true;
+  }
+  if (data?.error === "ai_overloaded") {
+    showOverloadMessage(retryFnName);
+    return true;
+  }
+  if (err?.name === "AbortError") {
+    showToast("Recipe generation timed out. Please try again.");
+    return true;
+  }
+  if (err && !navigator.onLine) {
+    showToast("You appear to be offline. Check your connection and try again.");
+    return true;
+  }
+  if (err) {
+    showToast(err.message || "Could not generate recipes");
+    return true;
+  }
+  return false;
+}
+
 async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
@@ -1894,7 +1928,11 @@ async function searchRecipes() {
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
-    if(!res.ok){ if(data.limitReached){ clearSkeletonBanner(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } if(data.error==="ai_overloaded"){ clearSkeletonBanner(); showOverloadMessage(); return; } throw new Error(data.message||data.error||"Could not generate recipes"); }
+    if(!res.ok){
+      clearSkeletonBanner();
+      if(handleRecipeApiError({ res, data, retryFnName: "searchRecipes" })) return;
+      throw new Error(data.message||data.error||"Could not generate recipes");
+    }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     trackRecipeGenerated();
     state.recipes=data.recipes;
@@ -1913,9 +1951,7 @@ async function searchRecipes() {
     if (data.badges?.xp) { const total = parseFloat(prevTotalSavings) + state.recipes.reduce((s,r) => s + (r.totalSavings||0), 0); checkSavingsMilestone(total); }
   }catch(err){
     clearSkeletonBanner();
-    if(err.name==="AbortError")showToast("Recipe generation timed out. Please try again.");
-    else if(!navigator.onLine)showToast("You appear to be offline. Check your connection and try again.");
-    else showToast(err.message);
+    handleRecipeApiError({ err, retryFnName: "searchRecipes" });
     goTo(5); // Go back to preferences so they can retry
   }finally{clearTimeout(timeout);if(btn){btn.disabled=false;btn.textContent="\u{1F37D}\uFE0F Build My Meals";}}
 }
@@ -1928,10 +1964,16 @@ async function loadMoreRecipes() {
   const btn=document.getElementById("moreRecipesBtn");
   btn.disabled=true; btn.textContent="🤖 Generating…";
   showCookingLoading();
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),90000);
   try {
-    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload)});
+    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||"Could not generate recipes");
+    if(!res.ok){
+      hideLoading();
+      if(handleRecipeApiError({ res, data, retryFnName: "loadMoreRecipes" })) return;
+      throw new Error(data.error||"Could not generate recipes");
+    }
     if(data.recipes?.length){
       trackRecipeGenerated();
       trackAnonRecipeGeneration();
@@ -1942,7 +1984,11 @@ async function loadMoreRecipes() {
       renderRecipeGrid();
       showToast(`${data.recipes.length} more recipes added!`,"success");
     } else { showToast("No more recipes found. Try a different style."); }
-  }catch(err){showToast(err.message);}finally{
+  }catch(err){
+    hideLoading();
+    handleRecipeApiError({ err, retryFnName: "loadMoreRecipes" });
+  }finally{
+    clearTimeout(timeout);
     hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 5 More Recipes";
   }
 }
@@ -2028,7 +2074,11 @@ async function generateFreezerMeals() {
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
-    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } throw new Error(data.error || "Could not generate"); }
+    if (!res.ok) {
+      hideLoading();
+      if (handleRecipeApiError({ res, data, retryFnName: "generateFreezerMeals" })) return;
+      throw new Error(data.error || "Could not generate");
+    }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();
@@ -2040,8 +2090,8 @@ async function generateFreezerMeals() {
     document.getElementById("recipesTitle").textContent = "&#10052;&#65039; Freezer Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " freezer-friendly recipes";
   } catch (err) {
-    if (err.name === "AbortError") showToast("Timed out.");
-    else showToast(err.message);
+    hideLoading();
+    handleRecipeApiError({ err, retryFnName: "generateFreezerMeals" });
   } finally {
     clearTimeout(timeout); hideLoading();
     if (btn) { btn.disabled = false; btn.textContent = "&#10052;&#65039; Freezer Meals — Cook Now, Eat Later"; }
@@ -2382,7 +2432,11 @@ async function generateWeeklyPlan() {
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
-    if (!res.ok) { if (data.limitReached) { hideLoading(); showRateLimitModal("recipe", { serverMessage: data.error || data.message }); return; } throw new Error(data.error || "Could not generate plan"); }
+    if (!res.ok) {
+      hideLoading();
+      if (handleRecipeApiError({ res, data, retryFnName: "generateWeeklyPlan" })) return;
+      throw new Error(data.error || "Could not generate plan");
+    }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();
@@ -2394,8 +2448,8 @@ async function generateWeeklyPlan() {
     document.getElementById("recipesTitle").textContent = "📅 Your Weekly Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " dinners planned for the week";
   } catch (err) {
-    if (err.name === "AbortError") showToast("Timed out. Please try again.");
-    else showToast(err.message);
+    hideLoading();
+    handleRecipeApiError({ err, retryFnName: "generateWeeklyPlan" });
   } finally {
     clearTimeout(timeout); hideLoading();
     if (btn) { btn.disabled = false; btn.textContent = "📅 Plan My Week (5 Dinners)"; }

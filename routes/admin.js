@@ -8,6 +8,7 @@ import {
   requireAdminToken, verifyAdminToken, createAdminToken,
   getDailyPoints, DAILY_POINT_LIMIT,
   KROGER_API_BASE, SPOONACULAR_BASE, DEAL_CACHE_TTL,
+  IGROCERYADS_STORES,
 } from "../lib/utils.js";
 
 const router = Router();
@@ -146,6 +147,207 @@ router.get("/api/admin/cache-status", adminAuth, async (req, res) => {
     });
     res.json({ regions, totalCached: regions.length, freshCount: regions.filter(r => r.fresh).length });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Source Health: per-chain freshness + quality classification ─────────────
+// Surfaces the silent-failure pattern that hid ALDI for 57 days. Each chain
+// (registered ad-extract chain, Walmart, Kroger aggregate, or orphan cache row)
+// is classified HEALTHY / STALE / DEGRADED / BROKEN / DORMANT against
+// per-source-type freshness windows and quality thresholds.
+
+function _titleCase(s) {
+  return s.split(/(\s+|-)/).map(part => {
+    if (/^\s+$/.test(part) || part === "-") return part;
+    return part.charAt(0).toUpperCase() + part.slice(1);
+  }).join("");
+}
+
+function _findOrphanMatch(orphanId, registeredIds) {
+  // Substring (either direction): catches "fresh-thyme" vs "fresh-thyme-market"
+  for (const reg of registeredIds) {
+    if (reg.length < 4 || orphanId.length < 4) continue;
+    if (reg.includes(orphanId) || orphanId.includes(reg)) return reg;
+  }
+  // Shared 8-char prefix: catches close variants where neither contains the other
+  if (orphanId.length >= 8) {
+    const prefix = orphanId.slice(0, 8);
+    for (const reg of registeredIds) {
+      if (reg.startsWith(prefix)) return reg;
+    }
+  }
+  return null;
+}
+
+function _analyzeChainHealth({ kind, displayName, storeId, sourceUrl, cacheKey, row, staleDays, brokenDays }) {
+  const base = { kind, displayName, storeId, sourceUrl, cacheKey };
+  if (!row) {
+    return { ...base, status: "DORMANT", rowExists: false, dealCount: 0, notes: ["never extracted"] };
+  }
+  const ageMs = Date.now() - new Date(row.fetched_at).getTime();
+  const ageDays = Math.round(ageMs / 86400000 * 10) / 10;
+  const data = Array.isArray(row.data) ? row.data : [];
+  const dealCount = data.length;
+  const priced = data.filter(d => parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, "")) > 0).length;
+  const qualityPct = dealCount > 0 ? Math.round((priced / dealCount) * 100) : 0;
+
+  const notes = [];
+  if (dealCount > 0 && dealCount < 15) notes.push("low volume (<15 deals)");
+
+  let status;
+  if (dealCount === 0) status = "BROKEN";
+  else if (ageDays > brokenDays) status = "BROKEN";
+  else if (ageDays > staleDays) status = "STALE";
+  else if (qualityPct < 50) {
+    status = "DEGRADED";
+    notes.push(`${qualityPct}% of items have valid prices`);
+  } else status = "HEALTHY";
+
+  return { ...base, status, rowExists: true, fetchedAt: row.fetched_at, ageDays, dealCount, pricedCount: priced, qualityPct, notes };
+}
+
+function _renderSourceHealthHtml(payload) {
+  const colors = { BROKEN: "#dc2626", DEGRADED: "#ea580c", STALE: "#d97706", HEALTHY: "#16a34a", DORMANT: "#6b7280" };
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const summaryRow = ["broken", "degraded", "stale", "healthy", "dormant"]
+    .filter(s => payload.summary[s])
+    .map(s => `<span style="display:inline-block;padding:4px 10px;margin-right:8px;border-radius:4px;background:${colors[s.toUpperCase()]};color:white;font-weight:600">${s.toUpperCase()}: ${payload.summary[s]}</span>`)
+    .join("");
+  const rows = payload.chains.map(c => {
+    const color = colors[c.status] || "#999";
+    const ageStr = c.ageDays != null ? `${c.ageDays}d` : "—";
+    const qualityStr = c.qualityPct != null ? `${c.qualityPct}%` : "—";
+    const sourceCell = c.sourceUrl?.startsWith("http")
+      ? `<a href="${esc(c.sourceUrl)}" target="_blank" rel="noopener">${esc(c.sourceUrl)}</a>`
+      : esc(c.sourceUrl);
+    return `<tr>
+        <td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:${color};color:white;font-weight:600;font-size:12px">${c.status}</span></td>
+        <td><strong>${esc(c.displayName)}</strong><br><small style="color:#666">${esc(c.kind)}</small></td>
+        <td style="font-family:monospace;font-size:12px;color:#555">${esc(c.cacheKey)}</td>
+        <td style="text-align:right">${c.dealCount ?? "—"}</td>
+        <td style="text-align:right">${qualityStr}</td>
+        <td style="text-align:right">${ageStr}</td>
+        <td style="font-size:12px">${sourceCell}</td>
+        <td style="font-size:12px;color:#666">${(c.notes || []).map(esc).join("; ")}</td>
+      </tr>`;
+  }).join("");
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Source Health — Dishcount</title>
+<style>
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:24px; max-width:1400px; margin:0 auto; color:#222; }
+h1 { margin:0 0 8px 0; }
+table { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
+th,td { padding:8px 10px; border-bottom:1px solid #e5e5e5; vertical-align:top; }
+th { background:#f5f5f5; text-align:left; font-weight:600; }
+tr:hover { background:#fafafa; }
+.meta { color:#666; font-size:13px; margin-bottom:16px; }
+</style></head>
+<body>
+<h1>Source Health</h1>
+<div class="meta">Generated ${esc(payload.generated_at)} · <a href="?format=json">JSON</a></div>
+<div>${summaryRow}</div>
+<table>
+  <thead><tr><th>Status</th><th>Chain</th><th>Cache key</th><th>Deals</th><th>Quality</th><th>Age</th><th>Source</th><th>Notes</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+}
+
+router.get("/api/admin/source-health", adminAuth, async (req, res) => {
+  try {
+    const format = req.query.format || (req.headers.accept?.includes("text/html") ? "html" : "json");
+
+    const { data: cacheRows } = await supabase.from("deal_cache").select("cache_key, fetched_at, data");
+    const cacheByKey = new Map((cacheRows || []).map(r => [r.cache_key, r]));
+
+    const chains = [];
+    const seenStoreIds = new Set();
+
+    // Registered ad-extract chains (dedup by computed storeId — aliases producing
+    // different storeIds, e.g. "stop & shop" vs "stop and shop", appear as separate
+    // entries with the same sourceUrl, making the duplication visible to operators)
+    const byStoreId = new Map();
+    for (const [name, url] of Object.entries(IGROCERYADS_STORES)) {
+      const storeId = name.replace(/['\s]+/g, "-").replace(/--+/g, "-");
+      if (!byStoreId.has(storeId)) byStoreId.set(storeId, { name, url });
+    }
+    for (const [storeId, { name, url }] of byStoreId.entries()) {
+      seenStoreIds.add(storeId);
+      chains.push(_analyzeChainHealth({
+        kind: "ad-extract", displayName: _titleCase(name), storeId, sourceUrl: url,
+        cacheKey: `ad-extract:${storeId}`, row: cacheByKey.get(`ad-extract:${storeId}`),
+        staleDays: 7, brokenDays: 14,
+      }));
+    }
+
+    // Walmart (live API, daily refresh expected)
+    chains.push(_analyzeChainHealth({
+      kind: "api", displayName: "Walmart", storeId: "walmart",
+      sourceUrl: "Walmart Affiliate API (live)",
+      cacheKey: "walmart:national", row: cacheByKey.get("walmart:national"),
+      staleDays: 2, brokenDays: 4,
+    }));
+
+    // Kroger aggregate (per-locationId rows summarized as one entry — listing each
+    // location would be noise; what matters is whether the live API is responsive)
+    const krogerRows = (cacheRows || []).filter(r => r.cache_key.startsWith("kroger:"));
+    if (krogerRows.length === 0) {
+      chains.push({
+        kind: "api", displayName: "Kroger (live API)", storeId: "kroger-aggregate",
+        sourceUrl: "api.kroger.com (live, per-locationId)", cacheKey: "kroger:*",
+        status: "DORMANT", rowExists: false, dealCount: 0, notes: ["no locations cached yet"],
+      });
+    } else {
+      const ages = krogerRows.map(r => Date.now() - new Date(r.fetched_at).getTime());
+      const oldestDays = Math.round(Math.max(...ages) / 86400000 * 10) / 10;
+      const newestDays = Math.round(Math.min(...ages) / 86400000 * 10) / 10;
+      const totalDeals = krogerRows.reduce((s, r) => s + (Array.isArray(r.data) ? r.data.length : 0), 0);
+      const status = newestDays > 4 ? "STALE" : "HEALTHY";
+      chains.push({
+        kind: "api", displayName: "Kroger (live API)", storeId: "kroger-aggregate",
+        sourceUrl: "api.kroger.com (live, per-locationId)", cacheKey: "kroger:*",
+        status, rowExists: true, dealCount: totalDeals, ageDays: newestDays,
+        notes: [`${krogerRows.length} locations cached, oldest ${oldestDays}d ago`],
+      });
+    }
+
+    // Orphan ad-extract rows (cache keys not matching any registered storeId).
+    // These usually come from user-typed storeNames that don't exactly match an
+    // IGROCERYADS_STORES key — flag with likely-duplicate hint when possible.
+    const orphanRows = (cacheRows || []).filter(r => {
+      if (!r.cache_key.startsWith("ad-extract:")) return false;
+      const id = r.cache_key.split(":")[1];
+      return !seenStoreIds.has(id);
+    });
+    for (const row of orphanRows) {
+      const orphanId = row.cache_key.split(":")[1];
+      const match = _findOrphanMatch(orphanId, seenStoreIds);
+      const matchNote = match ? `likely duplicate of ${match}` : "not in IGROCERYADS_STORES";
+      const analysis = _analyzeChainHealth({
+        kind: "orphan", displayName: _titleCase(orphanId.replace(/-/g, " ")),
+        storeId: orphanId, sourceUrl: "(unregistered — likely user-triggered)",
+        cacheKey: row.cache_key, row, staleDays: 7, brokenDays: 14,
+      });
+      analysis.notes.push(matchNote);
+      chains.push(analysis);
+    }
+
+    // Sort: BROKEN first, then DEGRADED, STALE, HEALTHY, DORMANT
+    const order = { BROKEN: 0, DEGRADED: 1, STALE: 2, HEALTHY: 3, DORMANT: 4 };
+    chains.sort((a, b) => (order[a.status] - order[b.status]) || a.displayName.localeCompare(b.displayName));
+
+    const summary = chains.reduce((acc, c) => {
+      acc[c.status.toLowerCase()] = (acc[c.status.toLowerCase()] || 0) + 1;
+      return acc;
+    }, {});
+
+    const payload = { generated_at: new Date().toISOString(), summary, chains };
+
+    if (format === "html") return res.type("html").send(_renderSourceHealthHtml(payload));
+    res.json(payload);
+  } catch (err) {
+    console.error("Source health error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/api/admin/cache-cleanup", adminAuth, async (req, res) => {

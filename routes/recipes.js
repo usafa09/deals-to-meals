@@ -303,14 +303,14 @@ async function handleRecipeGeneration(req, res) {
       ? `\n\nADDITIONAL ITEMS TO BUY: The customer also wants to purchase these items (not on sale): ${wantItems.trim()}. Include these in recipes where they fit naturally and mark them as type "ADDITIONAL".`
       : "";
     const haveNote = haveItems?.trim()
-      ? `\n\n🏠 HIGHEST PRIORITY — ITEMS THE USER ALREADY HAS AT HOME (FREE):
+      ? `\n\nHIGHEST PRIORITY — ITEMS THE USER ALREADY HAS AT HOME (FREE):
 ${haveItems.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
 
 These items cost the user $0. Use as many of these as possible in EVERY recipe. They are your most valuable ingredients because they save the most money. Build recipes AROUND these items + sale items. Mark them as type "ON_HAND". Do NOT include them in the estimated cost.`
       : "";
     // Build leftovers note
     const leftoversNote = leftovers?.trim()
-      ? `\n\n♻️ HIGHEST PRIORITY — LEFTOVERS TO USE UP:
+      ? `\n\nHIGHEST PRIORITY — LEFTOVERS TO USE UP:
 ${leftovers.trim().split(/,\s*/).map(i => "- " + i.trim()).join("\n")}
 
 These are leftovers that will be WASTED if not used. Use these FIRST in as many recipes as possible. Build at least 2-3 recipes around these leftovers combined with the sale items. Mark leftover items as type "ON_HAND". For each recipe, include "usesLeftovers": true if it uses any leftover items, otherwise "usesLeftovers": false.`
@@ -419,7 +419,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         const removed = before - filteredIngredients.length;
         if (removed > 0) console.log(`Diet filter: removed ${removed} items that violate ${diets.join(", ")} restrictions`);
       }
-      dietNote = `\n\n⚠️ STRICT DIETARY RESTRICTIONS — THESE ARE ABSOLUTE AND MUST NEVER BE VIOLATED:\n${rules.join("\n")}\n\nI have already removed sale items that violate these restrictions from the list below. Do NOT add any ingredients that violate these rules. Do NOT suggest meat/fish/dairy substitutions if those are restricted. Every single recipe must fully comply.`;
+      dietNote = `\n\nSTRICT DIETARY RESTRICTIONS — THESE ARE ABSOLUTE AND MUST NEVER BE VIOLATED:\n${rules.join("\n")}\n\nI have already removed sale items that violate these restrictions from the list below. Do NOT add any ingredients that violate these rules. Do NOT suggest meat/fish/dairy substitutions if those are restricted. Every single recipe must fully comply.`;
     }
 
     // Group sale items by category for the prompt
@@ -446,7 +446,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       if (i.storeName) parts.push(`at ${i.storeName}`);
       grouped[cat].push("- " + parts.join(" "));
     }
-    const catLabels = { protein: "🥩 PROTEINS ON SALE", produce: "🥬 PRODUCE ON SALE", dairy: "🧀 DAIRY ON SALE", pantry: "🥫 PANTRY/STAPLES ON SALE", frozen: "🧊 FROZEN ON SALE", other: "🏷️ OTHER ITEMS ON SALE" };
+    const catLabels = { protein: "PROTEINS ON SALE", produce: "PRODUCE ON SALE", dairy: "DAIRY ON SALE", pantry: "PANTRY/STAPLES ON SALE", frozen: "FROZEN ON SALE", other: "OTHER ITEMS ON SALE" };
     const saleItemsList = Object.entries(grouped).map(([cat, items]) => `${catLabels[cat] || cat.toUpperCase()}:\n${items.join("\n")}`).join("\n\n");
 
     const styleGuide = {
@@ -484,7 +484,7 @@ CRITICAL: Each recipe MUST use AT LEAST 4-6 sale items as core ingredients. Use 
 RECIPE GENERATION RULES:
 1. COST OPTIMIZATION: Using the sale prices provided, calculate the approximate cost per serving for each recipe. Sort recipes from cheapest to most expensive. Include "costPerServing" (a number in dollars, e.g. 2.50) in each recipe object.
 2. INGREDIENT SHARING: Design recipes that share ingredients with each other. If chicken thighs are on sale, use them in 2-3 different recipes with different preparations (stir fry, baked, soup). This minimizes what the user needs to buy.
-3. VARIETY: Do not repeat the same protein in more than 2 of 6 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
+3. VARIETY: Do not repeat the same protein in more than 2 recipes. Ensure at least 2 different cooking methods (baking, stovetop, slow cooker, no-cook). Include at least 1 vegetarian option.
 4. PRACTICAL COOKING: Assume a home kitchen with basic equipment (oven, stovetop, one sheet pan, one pot, one skillet). No specialty equipment unless the user mentions it.
 5. REALISTIC PORTIONS: Default to ${prefs.household_size || "4"} servings. Include storage instructions if the recipe makes good leftovers (add a "storage" field with a short tip, e.g. "Keeps 3 days in the fridge. Reheat in skillet.").
 6. SEASONAL AWARENESS: Current month is ${new Date().toLocaleString("en-US", { month: "long" })}. Prefer seasonal produce and cooking styles appropriate for the season.
@@ -505,17 +505,13 @@ weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday t
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
-- Include simple pantry staples the customer likely already has (salt, pepper, oil, butter, flour, sugar, dried spices/herbs, vinegar, soy sauce, etc.)
+- Add basic pantry staples as needed (see PANTRY rules below)
 - Have clear, numbered step-by-step instructions a beginner cook could follow
 - Be a REAL recipe that actually works — not made up combinations
-- Use sale items appropriately based on what they are:
-  * RAW INGREDIENTS (chicken breasts, ground beef, fresh vegetables, cheese, rice, pasta) → use in from-scratch recipes as you normally would
-  * PRE-MADE/PROCESSED PRODUCTS (chicken nuggets, fish sticks, frozen pizza, hot pockets, breaded shrimp, frozen burritos, mac & cheese boxes) → you have TWO options:
-    Option A: Use the product as-is in a creative assembled dish (e.g. chicken nuggets → chicken nugget parmesan, fish sticks → fish stick tacos)
-    Option B: IGNORE the processed product entirely and use the BASE raw ingredient instead (e.g. if "chicken nuggets" is on sale, make a recipe using "chicken breast" and note it as PANTRY, NOT as a SALE item)
-  * NEVER create a "homemade" version of a processed product that uses that same processed product as an ingredient. "Homemade chicken nuggets" must use raw chicken breast, flour, and breadcrumbs — NOT pre-made chicken nuggets. "Homemade fish sticks" must use fresh fish fillets — NOT frozen fish sticks.
-  * NEVER use a processed product as a substitute for a raw ingredient (e.g. do NOT use breaded frozen shrimp in a butter garlic shrimp skillet, do NOT use chicken nuggets in a chicken stir-fry)
+- Processed products on sale (chicken nuggets, fish sticks, frozen pizza, breaded shrimp, frozen burritos, mac & cheese boxes, etc.): either (a) use as-is in an assembled dish (e.g. nugget parm, fish stick tacos), or (b) skip the product entirely. NEVER substitute a processed product for the raw ingredient it imitates (no breaded frozen shrimp in a butter-garlic shrimp skillet). NEVER list a processed product as an ingredient in a "homemade" version of itself ("homemade chicken nuggets" must use raw chicken breast, not pre-made nuggets).
 ${dietNote}
+
+Output brevity: keep "instructions" to 5-8 short numbered steps. Keep "reasoning" under 30 words. Aim for 6-9 ingredient lines per recipe; add more only when the dish truly requires it.
 
 Respond with ONLY valid JSON, no other text. Use this exact format:
 {
@@ -538,7 +534,6 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
         {"item": "2 cups rice", "type": "SALE", "matchName": "Rice"},
         {"item": "1 lb fresh broccoli", "type": "ADDITIONAL", "matchName": ""},
         {"item": "2 cups cooked quinoa", "type": "ON_HAND", "matchName": ""},
-        {"item": "3 cloves garlic", "type": "PANTRY", "matchName": ""},
         {"item": "1 tbsp olive oil", "type": "PANTRY", "matchName": ""},
         {"item": "Salt and pepper to taste", "type": "PANTRY", "matchName": ""}
       ],
@@ -561,12 +556,19 @@ IMPORTANT ingredient type rules:
 - "ON_HAND" = item the customer already has (from ON HAND list).
 - "PANTRY" = ONLY non-perishable staples most kitchens have: salt, pepper, cooking oil, butter, flour, sugar, dried spices/herbs (paprika, cumin, oregano, chili powder, etc.), vinegar, soy sauce, hot sauce, mustard, ketchup, honey, vanilla extract, baking powder, baking soda, cornstarch. PANTRY does NOT include any fresh/perishable items — garlic, onion, lemon, lime, ginger, fresh herbs, eggs, milk, cream, cheese, and all fresh vegetables/fruits must be "ADDITIONAL" (things the customer needs to buy).
 - Do NOT include "estimatedCost" — we calculate that from real prices.
-- "reasoning" = 1-2 sentences explaining WHY you chose this recipe — mention specific sale prices, savings percentages, and how the sale items work together. Be specific with numbers.
 - "calories", "protein", "carbs", "fat", "fiber" = estimated nutrition per serving (numbers only, no units). These are rough estimates.`;
 
     const _tPromptBuilt = Date.now();
     console.log(`[recipes/ai] prompt_build_ms=${_tPromptBuilt - _t0} history_ms=${_tPromptBuilt - _tHistory} ingredients=${ingredients.length}`);
 
+    // PROMPT CACHING OPPORTUNITY (deferred):
+    // Static prefix is ~900 tokens; Haiku 4.5 minimum cache is 4,096 tokens.
+    // To enable: (1) move dynamic interpolations out (current month, household_size,
+    // skill_level, cook_time, mode branches), (2) inline all guide variants verbatim,
+    // (3) add concrete recipe examples to hit threshold. ~90% input cost reduction
+    // when activated. Defer until: Anthropic lowers Haiku 4.5 cache minimum, OR
+    // daily token spend exceeds ~$5/day (~70x current), OR there's a real product
+    // reason to expand prompt with examples.
     const claudeBody = JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 8192,

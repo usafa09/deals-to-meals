@@ -224,24 +224,10 @@ router.get("/api/deals/regional", async (req, res) => {
         console.log(`  ALDI National: ${cached.length} deals [cached]`);
         return;
       }
-      // Try aldi_deals table directly
-      try {
-        const { data: aldiData } = await supabase.from("aldi_deals").select("*").order("name").limit(500);
-        if (aldiData && aldiData.length > 0) {
-          const deals = aldiData.map(d => ({
-            id: String(d.id), upc: "", name: d.name, brand: d.brand || "", category: d.category || "ALDI",
-            regularPrice: d.regular_price || "", salePrice: d.price, savings: d.savings || "",
-            pctOff: (() => { const s=parseFloat(d.price?.replace(/[^0-9.]/g,"")); const r=parseFloat(d.regular_price?.replace(/[^0-9.]/g,"")); return s&&r&&r>s?Math.round(((r-s)/r)*100):0; })(),
-            size: "", image: d.image || null, source: "aldi", storeName: "ALDI",
-          }));
-          await setCachedDeals(cacheKey, deals);
-          results.aldi = deals;
-          results.sources.push({ store: "aldi", banner: "ALDI", division: "National", deals: deals.length, cached: false });
-          console.log(`  ALDI National: ${deals.length} deals [table]`);
-          return;
-        }
-      } catch (e) { console.error("ALDI table query error:", e.message); }
-      // Fall back to ad-extracted ALDI deals
+      // ALDI deals come from the ad-aggregator OCR pipeline (ad-extract:aldi cache),
+      // populated weekly by the GH Action POST /api/extract-store. Same path as the
+      // 80+ other chains we OCR — no bespoke ALDI scraper anymore. Cutover May 2026
+      // (see commit "Replace broken ALDI scraper with OCR via aldi.weeklyad.us.com").
       const adCached = await getCachedDeals("ad-extract:aldi");
       if (adCached && adCached.length > 0) {
         results.aldi = adCached;
@@ -455,9 +441,27 @@ router.post("/api/extract-store", async (req, res) => {
     const html = await pageRes.text();
 
     const isLadySavings = adUrl.includes("ladysavings.com");
+    const isWeeklyAdUS = adUrl.includes("weeklyad.us.com");
     let images = [];
 
-    if (isLadySavings) {
+    if (isWeeklyAdUS) {
+      // weeklyad.us.com network: sister subdomains ({chain}.weeklyad.us.com) each
+      // serve ad pages at /images/{chain}/view/{N}.webp with sequential numbering.
+      // Used for ALDI because igroceryads/ladysavings only mirror ALDI Finds (non-food
+      // merchandise), while this aggregator carries the actual in-store food ad pages.
+      // Probe sequentially from N=1 until first 404 to discover all pages.
+      const slug = new URL(adUrl).hostname.split(".")[0];
+      console.log(`On-demand: ${storeName} — weeklyad.us.com slug "${slug}", probing pages...`);
+      for (let n = 1; n <= 20; n++) {
+        const u = `https://${slug}.weeklyad.us.com/images/${slug}/view/${n}.webp`;
+        try {
+          const probe = await fetch(u, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
+          if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
+            images.push(u);
+          } else break;
+        } catch { break; }
+      }
+    } else if (isLadySavings) {
       const hcwRegex = /https:\/\/www\.hotcouponworld\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:jpg|jpeg|png|webp)/gi;
       const firstPageImages = (html.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
       if (firstPageImages.length > 0) images.push(firstPageImages[0]);

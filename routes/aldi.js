@@ -1,36 +1,33 @@
 import { Router } from "express";
-import { supabase, validateZip } from "../lib/utils.js";
+import { supabase, getCachedDeals } from "../lib/utils.js";
 
 const router = Router();
 
+// ALDI deals come from the ad-aggregator OCR pipeline (cache_key=ad-extract:aldi),
+// populated weekly by the GH Action POST /api/extract-store. Same path as the
+// 80+ other chains we OCR — no bespoke ALDI scraper anymore. Cutover May 2026
+// (see commit "Replace broken ALDI scraper with OCR via aldi.weeklyad.us.com").
 router.get("/api/aldi/deals", async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("aldi_deals")
-      .select("*")
-      .order("name", { ascending: true })
-      .limit(500);
-    if (error) throw new Error(error.message);
-    const deals = (data || []).map(d => ({
-      id: d.id,
+    const cached = await getCachedDeals("ad-extract:aldi");
+    const deals = (cached || []).map(d => ({
+      id: d.id || "",
       upc: "",
-      name: d.name,
+      name: d.name || "",
       brand: d.brand || "",
       category: d.category || "ALDI",
-      regularPrice: d.regular_price || "",
-      salePrice: d.price,
+      regularPrice: d.regularPrice || "",
+      salePrice: d.salePrice || "",
       savings: d.savings || "",
       pctOff: (() => {
-        const sale = parseFloat(d.price?.replace(/[^0-9.]/g, ""));
-        const reg = parseFloat(d.regular_price?.replace(/[^0-9.]/g, ""));
+        const sale = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+        const reg = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
         if (sale && reg && reg > sale) return Math.round(((reg - sale) / reg) * 100);
         return 0;
       })(),
-      size: "",
+      size: d.size || "",
       image: d.image || null,
-      productUrl: d.product_url || null,
-      weekStart: d.week_start,
-      weekEnd: d.week_end,
+      productUrl: d.productUrl || null,
       source: "aldi",
     }));
     res.json({ deals });
@@ -42,12 +39,13 @@ router.get("/api/aldi/deals", async (req, res) => {
 
 router.get("/api/aldi/status", async (req, res) => {
   try {
-    const { count, data } = await supabase
-      .from("aldi_deals")
-      .select("scraped_at", { count: "exact", head: false })
-      .order("scraped_at", { ascending: false })
-      .limit(1);
-    res.json({ deals_in_db: count || 0, last_scraped: data?.[0]?.scraped_at || null });
+    const { data } = await supabase
+      .from("deal_cache")
+      .select("fetched_at, data")
+      .eq("cache_key", "ad-extract:aldi")
+      .single();
+    const dealCount = Array.isArray(data?.data) ? data.data.length : 0;
+    res.json({ deals_in_db: dealCount, last_scraped: data?.fetched_at || null });
   } catch (err) {
     console.error("Aldi status error:", err.message);
     res.status(500).json({ error: "Something went wrong. Please try again." });

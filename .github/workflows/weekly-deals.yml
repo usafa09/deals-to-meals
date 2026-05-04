@@ -65,6 +65,7 @@ jobs:
         run: |
           BASE="https://dishcount.co/api"
           STORES=(
+            "ALDI|00000|ALDI (national)"
             "Meijer|45432|Meijer (Dayton)"
             "Whole Foods|45432|Whole Foods (Dayton)"
             "Fresh Thyme|45432|Fresh Thyme (Dayton)"

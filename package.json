@@ -10,8 +10,7 @@
     "build": "npm run build:images && npm run build:js && npm run build:css && echo 'Build complete — images+JS+CSS'",
     "start": "node server.js",
     "test": "node tests/utils.test.js",
-    "test:integration": "node tests/integration.test.js",
-    "scrape:aldi": "node scrapers/aldi.js"
+    "test:integration": "node tests/integration.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

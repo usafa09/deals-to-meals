@@ -33,8 +33,8 @@ PORT                        # Set by Render (10000), defaults to 5000 locally
 
 ## Supabase tables
 
-- **`deal_cache`** — Key-value cache for deals. Columns: `cache_key` (text PK), `data` (jsonb), `fetched_at` (timestamptz). TTL: 24 hours. Keys follow patterns like `kroger:{locationId}`, `aldi:national`, `ad-extract:{store-slug}`, `ad-extract:{store-slug}:{zip3}`, `nearby-stores:{zip}:{miles}mi`.
-- **`aldi_deals`** — Scraped ALDI weekly deals. Columns: `id`, `name`, `brand`, `category`, `price`, `regular_price`, `savings`, `image`, `product_url`, `week_start`, `week_end`, `scraped_at`.
+- **`deal_cache`** — Key-value cache for deals. Columns: `cache_key` (text PK), `data` (jsonb), `fetched_at` (timestamptz). TTL: 24 hours. Keys follow patterns like `kroger:{locationId}`, `ad-extract:aldi`, `ad-extract:{store-slug}`, `ad-extract:{store-slug}:{zip3}`, `nearby-stores:{zip}:{miles}mi`.
+- **`aldi_deals`** — Legacy ALDI weekly deals table. Retired May 2026 when the bespoke scraper broke after ALDI's site redesign. ALDI now flows through the OCR pipeline like every other chain. Table may still exist in Supabase but is no longer read or written.
 - **`ad_regions`** — Maps zip3 prefixes to which store chains/banners/divisions serve that area. Columns: `zip3`, `store`, `banner`, `division`, `division_code`, `ad_cycle`, `notes`.
 - **`profiles`** — User profiles. Columns: `id`, `full_name`, `household_size`, `dietary_preferences`, `favorite_recipe_types`, `preferred_store`, `kroger_connected`, `updated_at`.
 - **`saved_recipes`** — User-saved recipes. Columns: `id`, `user_id`, `title`, `emoji`, `time`, `servings`, `difficulty`, `ingredients`, `steps`, `store_name`, `image`, `created_at`.
@@ -68,10 +68,13 @@ PORT                        # Set by Render (10000), defaults to 5000 locally
 - Deals get category-based placeholder images from Unsplash/Pexels (see `CATEGORY_IMAGES` map).
 - Store URL lookup table: `IGROCERYADS_STORES` (~80 entries mapping store names to ad page URLs).
 
-### 4. ALDI (Supabase table)
-- ALDI deals are national (same everywhere). Stored in `aldi_deals` table.
-- Scraped by `Aldi.js` (Playwright-based scraper, runs weekly on Wednesdays).
+### 4. ALDI (OCR via aldi.weeklyad.us.com)
+- ALDI deals are national (same everywhere). Sourced via the same on-demand OCR pipeline as the 80+ other chains.
+- URL: `https://aldi.weeklyad.us.com/` (mapped in `IGROCERYADS_STORES["aldi"]`).
+- Image discovery: sequential probe of `/images/aldi/view/{N}.webp` from N=1 until first 404. Currently yields 3 ad pages (~2 food, 1 ALDI Finds merchandise).
+- Cached at `ad-extract:aldi` in `deal_cache`. Refreshed weekly by the GitHub Action `weekly-deals.yml`.
 - Dummy store endpoint returns a single "ALDI - Near {zip}" entry since deals aren't location-specific.
+- History: previously had a bespoke Playwright scraper (`Aldi.js` / `Aldi-v2.js`) that scraped `aldi.us` directly. Retired May 2026 after ALDI redesigned to an Instacart-powered storefront and the scraper URLs broke. We tried `igroceryads.com` and `ladysavings.com` first — both turned out to mirror only the ALDI Finds (non-food merch) pages of the flyer. `weeklyad.us.com` carries the actual food pages.
 
 ## How recipes are generated
 
@@ -141,9 +144,6 @@ deals-to-meals/
 │   ├── index.html          # Main SPA (all 6 screens, ~900 lines)
 │   ├── login.html          # Password gate page
 │   └── profile.html        # User profile/settings page
-├── scrapers/
-│   └── aldi.js             # ALDI weekly deals scraper (Playwright)
-├── Aldi.js                 # Alternate location for ALDI scraper
 ├── package.json
 ├── .env                    # Local env vars (not in git)
 └── CLAUDE.md               # This file
@@ -196,9 +196,6 @@ node server.js
 # Kill port conflict
 npx kill-port 5000
 
-# Run ALDI scraper
-node Aldi.js
-
 # Check server syntax without running
 node --check server.js
 
@@ -215,6 +212,6 @@ git push
 - **Anthropic API costs money per call.** AI recipe generation and OCR extraction both use Claude. The AI recipe endpoint logs token usage and estimated cost.
 - **Google Places API costs money.** Nearby store results are cached for 30 days to minimize API calls.
 - **Walmart API requires RSA-SHA256 signed requests.** The private key must be in PKCS8 PEM format in the WALMART_PRIVATE_KEY env var.
-- **ALDI deals are national** — one scrape covers all stores. No location-specific variants needed.
+- **ALDI deals are national** — one OCR run covers all stores. No location-specific variants needed.
 - **Kroger deals ARE location-specific** — must pass a locationId to get accurate sale prices for a specific store.
 - **The owner (Billy) is in Dayton, Ohio (zip 45432).** Test with this zip for local results.

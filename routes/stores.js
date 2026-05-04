@@ -673,7 +673,13 @@ Rules:
       console.log(`On-demand: ${storeName} — ${unique.length} deals cached`);
       logApiUsage("anthropic", "extract-store", 0, 0, maxPages * 0.003); // ~$0.003 per page estimate
     } else {
-      console.log(`On-demand: ${storeName} — no deals extracted`);
+      // Extraction yielded 0 deals — overwrite cache with [] so the failure becomes
+      // observable (fetched_at updated, data=[]) rather than silently leaving stale
+      // prior-week data in place. Both read paths treat [] as "no deals" cleanly.
+      // See audit findings (commit "Replace broken ALDI scraper..."): this same
+      // pattern previously hid 7 broken chains for up to 26 days.
+      await setCachedDeals(`ad-extract:${storeId}`, []);
+      console.warn(`On-demand: ${storeName} — extraction yielded 0 deals; cache cleared`);
     }
   } catch (err) {
     console.error(`On-demand extraction error for ${storeName}:`, err.message);

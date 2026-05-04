@@ -958,7 +958,8 @@ async function ensureAppScreens() {
   _appScreensPromise = (async () => {
     const container = document.getElementById("appScreens");
     if (container && !container.children.length) {
-      const res = await fetch("/app-screens.html");
+      const _v = document.querySelector('meta[name="asset-version"]')?.content;
+      const res = await fetch("/app-screens.html" + (_v ? `?v=${_v}` : ""));
       container.innerHTML = await res.text();
     }
     // Populate shopping list slideout panel

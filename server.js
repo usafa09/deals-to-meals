@@ -5,6 +5,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { readFileSync } from "fs";
 
 import { initStoresWithDealsCache } from "./lib/utils.js";
 
@@ -19,6 +20,23 @@ import gamificationRoutes from "./routes/gamification.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// ── Asset version for cache busting (captured once at startup) ─────────────
+const ASSET_VERSION = (() => {
+  if (process.env.RENDER_GIT_COMMIT) return process.env.RENDER_GIT_COMMIT.slice(0, 8);
+  if (process.env.GIT_SHA) return process.env.GIT_SHA.slice(0, 8);
+  try {
+    const head = readFileSync(join(__dirname, ".git", "HEAD"), "utf8").trim();
+    if (head.startsWith("ref: ")) {
+      const sha = readFileSync(join(__dirname, ".git", head.slice(5)), "utf8").trim();
+      return sha.slice(0, 8);
+    }
+    return head.slice(0, 8);
+  } catch {
+    return String(Date.now()).slice(-8);
+  }
+})();
+console.log(`[asset-version] ASSET_VERSION=${ASSET_VERSION}`);
 
 const app = express();
 app.set('trust proxy', 1);
@@ -188,22 +206,59 @@ app.get(['/profile.html', '/admin.html'], (req, res, next) => {
 app.get('/login.html', (req, res) => { res.redirect(301, '/profile.html'); });
 app.get('/login', (req, res) => { res.redirect(301, '/profile.html'); });
 app.get('*.map', (req, res) => { res.status(404).end(); });
+
+// ── HTML version injector — rewrites versioned asset URLs + meta tag ───────
+// Must come BEFORE express.static so it intercepts HTML requests.
+const PUBLIC_DIR = join(__dirname, "public");
+const FRAGMENT_PATHS = new Set(["/app-screens.html", "/header.html"]);
+app.get(["/", /\.html$/], (req, res, next) => {
+  const reqPath = req.path === "/" ? "/index.html" : req.path;
+  const filePath = join(PUBLIC_DIR, reqPath);
+  if (!filePath.startsWith(PUBLIC_DIR)) return next(); // path traversal guard
+  let html;
+  try {
+    html = readFileSync(filePath, "utf8");
+  } catch {
+    return next(); // file not found → fall through to 404 catch-all
+  }
+  html = html
+    .replace(/(\/app\.min\.js)(?!\?)/g, `$1?v=${ASSET_VERSION}`)
+    .replace(/(\/styles\.min\.css)(?!\?)/g, `$1?v=${ASSET_VERSION}`)
+    .replace(/<head([^>]*)>/i, `<head$1>\n  <meta name="asset-version" content="${ASSET_VERSION}">`);
+  if (!res.getHeader("Cache-Control")) {
+    if (FRAGMENT_PATHS.has(req.path)) {
+      res.set("Cache-Control", "public, max-age=300, must-revalidate");
+    } else {
+      res.set("Cache-Control", "no-cache, must-revalidate");
+    }
+  }
+  res.type("html").send(html);
+});
+
 app.use(express.static(join(__dirname, "public"), {
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
     const ext = filePath.split(".").pop().toLowerCase();
+    // Service worker — short cache (browsers also enforce this)
+    if (filePath.endsWith("sw.js")) {
+      res.setHeader("Cache-Control", "public, max-age=3600, must-revalidate");
+    }
+    // Versioned bundles — long cache + immutable (URL changes per deploy via ?v=)
+    else if (filePath.endsWith("app.min.js") || filePath.endsWith("styles.min.css")) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    }
     // Images, fonts, favicons — long cache (1 year)
-    if (["jpg","jpeg","png","webp","avif","svg","ico","gif","woff","woff2","ttf"].includes(ext)) {
+    else if (["jpg","jpeg","png","webp","avif","svg","ico","gif","woff","woff2","ttf"].includes(ext)) {
       res.setHeader("Cache-Control", "public, max-age=31536000");
     }
-    // JS/CSS — 1 hour with revalidation (filenames aren't content-hashed)
+    // Other JS/CSS — 1 hour with revalidation
     else if (["js","css"].includes(ext)) {
       res.setHeader("Cache-Control", "public, max-age=3600, must-revalidate");
     }
-    // HTML — 5 minutes with revalidation
+    // HTML — defensive fallback (injector handles HTML normally)
     else if (ext === "html") {
-      res.setHeader("Cache-Control", "public, max-age=300, must-revalidate");
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
     }
     // Manifest, sitemap, robots — 5 minutes
     else if (["json","xml","txt"].includes(ext)) {

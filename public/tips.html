@@ -56,7 +56,7 @@
 <body>
   <a href="#main-content" class="skip-nav">Skip to main content</a>
   <div id="site-header"></div>
-  <script>fetch("/header.html").then(r=>r.text()).then(h=>{document.getElementById("site-header").innerHTML=h;var s=document.getElementById("site-header").querySelectorAll("script");s.forEach(function(sc){var ns=document.createElement("script");ns.textContent=sc.textContent;document.body.appendChild(ns);});});</script>
+  <script>(function(){var v=(document.querySelector('meta[name="asset-version"]')||{}).content;fetch("/header.html"+(v?"?v="+v:"")).then(r=>r.text()).then(h=>{document.getElementById("site-header").innerHTML=h;var s=document.getElementById("site-header").querySelectorAll("script");s.forEach(function(sc){var ns=document.createElement("script");ns.textContent=sc.textContent;document.body.appendChild(ns);});});})();</script>
 
   <main id="main-content" class="content-page">
   <div class="tips-header">

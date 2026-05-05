@@ -63,18 +63,26 @@ PORT                        # Set by Render (10000), defaults to 5000 locally
 
 ### 3. On-demand ad extraction (OCR pipeline)
 - For 80+ other chains (Publix, Meijer, Sprouts, H-E-B, Safeway, etc.).
-- Flow: user clicks store → `POST /api/extract-store` → fetches weekly ad images from igroceryads.com, iweeklyads.com, or ladysavings.com → sends each page to Claude Haiku Vision for deal extraction → caches results in `deal_cache`.
+- Flow: user clicks store → `POST /api/extract-store` → fetches weekly ad images from igroceryads.com, iweeklyads.com, ladysavings.com, or weeklyad.us.com → sends each page to Claude Haiku Vision for deal extraction → caches results in `deal_cache`.
 - Text fallback: if vision extracts <10 deals, strips HTML from the ad page and sends text to Claude for extraction.
 - Deals get category-based placeholder images from Unsplash/Pexels (see `CATEGORY_IMAGES` map).
 - Store URL lookup table: `IGROCERYADS_STORES` (~80 entries mapping store names to ad page URLs).
 
-### 4. ALDI (OCR via aldi.weeklyad.us.com)
-- ALDI deals are national (same everywhere). Sourced via the same on-demand OCR pipeline as the 80+ other chains.
-- URL: `https://aldi.weeklyad.us.com/` (mapped in `IGROCERYADS_STORES["aldi"]`).
-- Image discovery: sequential probe of `/images/aldi/view/{N}.webp` from N=1 until first 404. Currently yields 3 ad pages (~2 food, 1 ALDI Finds merchandise).
-- Cached at `ad-extract:aldi` in `deal_cache`. Refreshed weekly by the GitHub Action `weekly-deals.yml`.
-- Dummy store endpoint returns a single "ALDI - Near {zip}" entry since deals aren't location-specific.
-- History: previously had a bespoke Playwright scraper (`Aldi.js` / `Aldi-v2.js`) that scraped `aldi.us` directly. Retired May 2026 after ALDI redesigned to an Instacart-powered storefront and the scraper URLs broke. We tried `igroceryads.com` and `ladysavings.com` first — both turned out to mirror only the ALDI Finds (non-food merch) pages of the flyer. `weeklyad.us.com` carries the actual food pages.
+### 4. Chains using weeklyad.us.com OCR (ALDI, Lidl)
+
+Some chains' coverage on igroceryads/ladysavings is **merchandise-only** — those aggregators mirror only the non-food "Finds"-style pages of the flyer, not the actual grocery deals. For these chains we use the `weeklyad.us.com` sister-domain network instead, which carries the full in-store food pages.
+
+**Pattern:** `https://{slug}.weeklyad.us.com/images/{slug}/view/{N}.webp` (sequential page numbering, probe N=1 upward until first 404, max 20 pages per the pipeline cap). The extract-store handler in `routes/stores.js` detects the `weeklyad.us.com` domain and uses sequential probing instead of the regex-based image discovery used for igroceryads/ladysavings.
+
+**Currently using weeklyad.us.com:**
+- **ALDI** — `aldi.weeklyad.us.com` (3 pages, ~2 food + 1 Finds). Cutover May 2026 from `aldi.us` (broke after Instacart redesign).
+- **Lidl** — `lidl.weeklyad.us.com` (20 pages, ~100-200+ food items). Cutover May 2026 from `igroceryads.com/lidl-promotions/` which only mirrored Lidl Finds.
+
+**Sister domains verified to work** (same URL pattern, all return HTTP 200): `foodlion.weeklyad.us.com`, `fredmeyer.weeklyad.us.com`, `jewel.weeklyad.us.com`, others. If another chain's igroceryads coverage drops to merchandise-only or its existing source breaks, this network is a viable fallback — just swap the `IGROCERYADS_STORES` URL.
+
+**ALDI history:** previously had a bespoke Playwright scraper (`Aldi.js` / `Aldi-v2.js`) that scraped `aldi.us` directly. Retired May 2026 after ALDI redesigned to an Instacart-powered storefront and the scraper URLs broke. We tried `igroceryads.com` and `ladysavings.com` first — both turned out to mirror only the ALDI Finds (non-food merch) pages. ALDI deals are national; dummy store endpoint returns a single "ALDI - Near {zip}" entry.
+
+**Lidl history:** triage in May 2026 surfaced Lidl had dropped from 70 deals to 10 on its previous source (igroceryads), with the remaining items being CRIVIT-branded sporting goods (Lidl's house brand for Finds). Same pattern as ALDI — moved to weeklyad.us.com for food coverage.
 
 ## How recipes are generated
 

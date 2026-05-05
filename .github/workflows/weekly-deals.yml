@@ -64,6 +64,7 @@ jobs:
       - name: Extract deals for top stores (OCR pipeline)
         run: |
           BASE="https://dishcount.co/api"
+          # IMPORTANT: Keep this list in sync with the STORES array in the "Verify extractions completed" step below.
           STORES=(
             "ALDI|00000|ALDI (national)"
             "Meijer|45432|Meijer (Dayton)"
@@ -95,9 +96,8 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"storeName\":\"$store\",\"zip\":\"$zip\"}")
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            DEAL_COUNT=$(echo "$BODY" | grep -o '"name"' | wc -l)
-            echo "Status: $HTTP_CODE | Deals extracted: ~$DEAL_COUNT"
+            # Deal counts reported in verification step below
+            echo "Status: $HTTP_CODE"
             if [ "$HTTP_CODE" -ne 200 ]; then
               echo "::warning::$label returned HTTP $HTTP_CODE"
             fi
@@ -105,4 +105,76 @@ jobs:
             echo "Waiting 10s before next extraction..."
             sleep 10
           done
-          echo "Done! All store extractions complete."
+          echo "Done! All store extractions triggered (results verified in next step)."
+
+      - name: Verify extractions completed
+        id: verify
+        run: |
+          BASE="https://dishcount.co/api"
+          # Wait for in-flight extractions to settle. Last trigger was at end of
+          # prior step; extractions take 2-3 min server-side, larger ones (Lidl
+          # at 20 pages) up to ~5 min. 6 min gives a 1-min safety margin.
+          echo "Waiting 6 minutes for extractions to settle..."
+          sleep 360
+
+          # IMPORTANT: Keep this list in sync with the trigger loop in the "Extract deals for top stores" step above.
+          STORES=(
+            "ALDI"
+            "Meijer"
+            "Whole Foods"
+            "Fresh Thyme"
+            "Publix"
+            "Albertsons"
+            "Safeway"
+            "Food Lion"
+            "Giant Eagle"
+            "Sprouts"
+            "Harris Teeter"
+            "Hy-Vee"
+            "ShopRite"
+            "Stop and Shop"
+            "Winn Dixie"
+            "Piggly Wiggly"
+            "Save A Lot"
+            "Grocery Outlet"
+            "Market Basket"
+            "Ingles"
+          )
+
+          FAIL_COUNT=0
+          for store in "${STORES[@]}"; do
+            ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
+            RESPONSE=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED")
+            STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
+            DEALS=$(echo "$RESPONSE" | grep -o '"deals":[0-9]*' | sed 's/.*://')
+
+            case "$STATUS" in
+              ready)
+                if [ "${DEALS:-0}" -lt 10 ]; then
+                  echo "🟡 $store: ready with only $DEALS deals (low volume)"
+                  echo "::warning::$store ready but only $DEALS deals (low)"
+                else
+                  echo "🟢 $store: $DEALS deals"
+                fi
+                ;;
+              extracting)
+                echo "🔴 $store: still extracting after 6 min — likely stuck"
+                echo "::warning::$store still extracting after 6 min — may need investigation"
+                FAIL_COUNT=$((FAIL_COUNT + 1))
+                ;;
+              *)
+                echo "🔴 $store: status=$STATUS (extraction failed or no cache row)"
+                echo "::warning::$store returned status=$STATUS (extraction failed or not yet attempted)"
+                FAIL_COUNT=$((FAIL_COUNT + 1))
+                ;;
+            esac
+          done
+
+          echo ""
+          echo "Verification complete. $FAIL_COUNT chains had issues."
+          echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
+
+          if [ "$FAIL_COUNT" -gt 5 ]; then
+            echo "::error::More than 5 chains failed extraction — investigate immediately"
+            exit 1
+          fi

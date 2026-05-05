@@ -60,11 +60,42 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://dishcount.co/#organization",
+    "name": "Dishcount",
+    "alternateName": "Dishcount — Meals from Deals",
+    "url": "https://dishcount.co",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://dishcount.co/icon-512x512.png",
+      "width": 512,
+      "height": 512
+    },
+    "image": "https://dishcount.co/images/og-hero.jpg",
+    "description": "Dishcount turns this week's grocery deals into personalized meal plans. Free, no signup required.",
+    "founder": { "@id": "https://dishcount.co/#bill" },
+    "foundingLocation": {
+      "@type": "Place",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Dayton",
+        "addressRegion": "OH",
+        "addressCountry": "US"
+      }
+    },
+    "sameAs": ["https://www.facebook.com/dishcountapp/"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": "https://dishcount.co/#website",
     "name": "Dishcount",
     "alternateName": ["Dishcount — Meals from Deals", "Dish Count"],
     "url": "https://dishcount.co",
     "description": "Turn local grocery deals into personalized meals. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable.",
+    "publisher": { "@id": "https://dishcount.co/#organization" },
     "potentialAction": {
       "@type": "SearchAction",
       "target": "https://dishcount.co/?zip={zip_code}",
@@ -76,12 +107,14 @@
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
+    "@id": "https://dishcount.co/#webapp",
     "name": "Dishcount",
     "url": "https://dishcount.co",
     "description": "Turn local grocery deals into personalized meals.",
     "applicationCategory": "LifestyleApplication",
     "operatingSystem": "Web",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "creator": { "@id": "https://dishcount.co/#organization" }
   }
   </script>
 </head>

@@ -4,7 +4,7 @@ import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
-  getCategoryImage, findIgroceryadsUrl, extractingStores,
+  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
@@ -412,7 +412,7 @@ router.post("/api/extract-store", async (req, res) => {
   const { storeName } = req.body;
   if (!validateStoreName(storeName)) return res.status(400).json({ error: "Valid storeName is required (letters, numbers, spaces, hyphens, max 50 chars)" });
 
-  const storeId = storeName.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
+  const storeId = canonicalizeStoreId(storeName);
 
   const existing = await getCachedDeals(`ad-extract:${storeId}`);
   if (existing && existing.length >= 10) {
@@ -691,7 +691,7 @@ Rules:
 router.get("/api/extract-status", async (req, res) => {
   const { store } = req.query;
   if (!validateStoreName(store)) return res.status(400).json({ error: "Valid store name is required" });
-  const storeId = store.toLowerCase().replace(/['\s]+/g, "-").replace(/--+/g, "-");
+  const storeId = canonicalizeStoreId(store);
 
   if (extractingStores.has(storeId)) {
     return res.json({ status: "extracting" });

@@ -8,7 +8,7 @@ import {
   requireAdminToken, verifyAdminToken, createAdminToken,
   getDailyPoints, DAILY_POINT_LIMIT,
   KROGER_API_BASE, SPOONACULAR_BASE, DEAL_CACHE_TTL,
-  IGROCERYADS_STORES,
+  IGROCERYADS_STORES, canonicalizeStoreId,
 } from "../lib/utils.js";
 
 const router = Router();
@@ -549,7 +549,7 @@ router.post("/api/admin/import-deals", adminAuth, async (req, res) => {
   try {
     const { deals, storeName, zip3 } = req.body;
     if (!deals || !storeName || !zip3) return res.status(400).json({ error: "Missing deals, storeName, or zip3" });
-    const cacheKey = `ad-extract:${storeName.toLowerCase().replace(/\s+/g, "-")}:${zip3}`;
+    const cacheKey = `ad-extract:${canonicalizeStoreId(storeName)}:${zip3}`;
     await setCachedDeals(cacheKey, deals);
     res.json({ success: true, cacheKey, count: deals.length });
   } catch (err) { res.status(500).json({ error: err.message }); }

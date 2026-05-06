@@ -939,7 +939,7 @@ const RECIPE_STYLES = [
   { id:"Healthy & Light", icon:"🥗", label:"Healthy & Light", sub:"Under 500 cal/serving" },
   { id:"Slow Cooker", icon:"🫕", label:"Slow Cooker", sub:"Set it and forget it" },
 ];
-const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie"];
+const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie","Halal","Keto","Vegan"];
 
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,

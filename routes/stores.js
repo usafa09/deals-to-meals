@@ -519,6 +519,13 @@ router.post("/api/extract-store", async (req, res) => {
 
     const allDeals = [];
     const maxPages = Math.min(images.length, 20);
+    // Per-chain OCR observability. apiOkCount tallies Anthropic 2xx; apiNon2xxCount
+    // tallies HTTP errors (429/529/5xx); parseFailCount is a sub-tally of pages
+    // where the API returned 2xx but JSON parse + recovery both failed. Without
+    // these we cannot distinguish "Anthropic rate-limited us" from "image was bad"
+    // — both look identical in the cache state.
+    let apiOkCount = 0, apiNon2xxCount = 0, parseFailCount = 0;
+    const perPageOutcome = [];
     for (let i = 0; i < maxPages; i++) {
       try {
         const imgRes = await fetch(images[i], {
@@ -552,13 +559,28 @@ router.post("/api/extract-store", async (req, res) => {
             }]
           })
         });
+
+        if (!aiRes.ok) {
+          apiNon2xxCount++;
+          const errBody = await aiRes.text().catch(() => "");
+          console.error(`Vision API non-2xx for ${storeName} page ${i+1}: HTTP ${aiRes.status} — ${errBody.substring(0, 200)}`);
+          perPageOutcome.push({ page: i+1, status: aiRes.status, kind: "api_non2xx" });
+          if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
+          continue;
+        }
+        apiOkCount++;
+
         const aiData = await aiRes.json();
         const text = aiData.content?.map(c => c.text || "").join("") || "";
         let cleaned = text.replace(/```json|```/g, "").trim();
+        let parsedOk = false;
+        let pageDeals = 0;
         try {
           const deals = JSON.parse(cleaned);
           deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
           allDeals.push(...deals);
+          parsedOk = true;
+          pageDeals = deals.length;
         } catch (e) {
           console.error(`OCR page ${i+1} JSON parse error:`, e.message);
           const lastBrace = cleaned.lastIndexOf("}");
@@ -567,12 +589,25 @@ router.post("/api/extract-store", async (req, res) => {
               const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
               recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
               allDeals.push(...recovered);
+              parsedOk = true;
+              pageDeals = recovered.length;
             } catch (e2) { console.error(`OCR page ${i+1} recovery parse error:`, e2.message); }
           }
         }
+        if (parsedOk) {
+          perPageOutcome.push({ page: i+1, ok: true, deals: pageDeals });
+        } else {
+          parseFailCount++;
+          perPageOutcome.push({ page: i+1, kind: "parse_fail" });
+        }
         if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
-      } catch (e) { console.error(`  Page ${i+1} error: ${e.message}`); }
+      } catch (e) {
+        console.error(`  Page ${i+1} error: ${e.message}`);
+        perPageOutcome.push({ page: i+1, kind: "page_outer_error", err: e.message });
+      }
     }
+
+    console.log(`OCR summary for ${storeName}: ${apiOkCount} ok, ${apiNon2xxCount} non-2xx, ${parseFailCount} parse-fail across ${images.length} pages. Per-page: ${JSON.stringify(perPageOutcome)}`);
 
     const seen = new Set();
     let unique = allDeals.filter(d => {
@@ -625,7 +660,11 @@ Rules:
               }]
             })
           });
-          const textAiData = await textAiRes.json();
+          if (!textAiRes.ok) {
+            const errBody = await textAiRes.text().catch(() => "");
+            console.error(`Text fallback Vision API non-2xx for ${storeName}: HTTP ${textAiRes.status} — ${errBody.substring(0, 200)}`);
+          }
+          const textAiData = textAiRes.ok ? await textAiRes.json() : { content: [] };
           const textResult = textAiData.content?.map(c => c.text || "").join("") || "";
           let textCleaned = textResult.replace(/```json|```/g, "").trim();
           try {
@@ -679,7 +718,7 @@ Rules:
       // See audit findings (commit "Replace broken ALDI scraper..."): this same
       // pattern previously hid 7 broken chains for up to 26 days.
       await setCachedDeals(`ad-extract:${storeId}`, []);
-      console.warn(`On-demand: ${storeName} — extraction yielded 0 deals; cache cleared`);
+      console.warn(`On-demand: ${storeName} — extraction yielded 0 deals; cache cleared. OCR: ${apiOkCount} ok, ${apiNon2xxCount} non-2xx, ${parseFailCount} parse-fail.`);
     }
   } catch (err) {
     console.error(`On-demand extraction error for ${storeName}:`, err.message);

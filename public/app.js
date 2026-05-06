@@ -1220,8 +1220,19 @@ const BANNER_INFO = {
   "trader joe":{emoji:"🌺",color:"#CC0000"},"acme":{emoji:"🔴",color:"#E21836"},"jewel":{emoji:"💎",color:"#E31837"},
   "shaw":{emoji:"🏪",color:"#E31837"},"tom thumb":{emoji:"🏪",color:"#E31837"},"randall":{emoji:"🏪",color:"#E31837"},
   "vons":{emoji:"🔴",color:"#E21836"},"carrs":{emoji:"🏪",color:"#E21836"},
+  "whole foods":{emoji:"🌱",color:"#016936"},"foodtown":{emoji:"🛒",color:"#C8102E"},"drexel":{emoji:"🛒",color:"#C8102E"},
 };
-function getBanner(name) { const k=(name||"").toLowerCase(); for(const[b,info]of Object.entries(BANNER_INFO)){if(k.includes(b))return info;} return{emoji:"🏪",color:"#666"}; }
+// Hyphen/underscore normalized on both sides so keys like "save a lot" match
+// inputs like "Save-A-Lot" and vice-versa, and existing hyphenated keys
+// (h-e-b, hy-vee, winn-dixie) still match space-separated inputs.
+function getBanner(name) {
+  const normalize = s => (s||"").toLowerCase().replace(/[-_]/g, " ");
+  const k = normalize(name);
+  for (const [b, info] of Object.entries(BANNER_INFO)) {
+    if (k.includes(normalize(b))) return info;
+  }
+  return { emoji: "🏪", color: "#666" };
+}
 
 const KROGER_FAMILY_NORM=new Set(["kroger","ralphs","fredmeyer","frys","frysfood","harristeeter","kingsoopers","smiths","qfc","marianos","picksave","metromarket","dillons","bakers","payless","gerbes","jayc","food4less","foodsco","owens","citymarket"]);
 // Canonical proper-case display name for each Kroger-family banner. Keyed by normBrand()

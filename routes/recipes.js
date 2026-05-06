@@ -393,6 +393,30 @@ function hardcodedQtyForDeal(matchedDeal) {
   return 1;
 }
 
+// Pantry staples: oils, dried spices, salt/pepper, baking essentials. When a
+// SALE deal matches one of these, we keep the matched-deal info available
+// (so the Kroger cart-add path still works) but exclude it from the recipe's
+// cost total — staples are bought once and reused across many recipes, so
+// billing the full bottle/jar to one meal would over-state per-recipe cost.
+//
+// DELIBERATELY NOT staples (consumed in meaningful recipe quantities):
+// vinegars, condiments (soy sauce, hot sauce, ketchup, mustard, mayo,
+// worcestershire), flour, sugar, honey, maple syrup, broths/stocks, butter.
+const _PANTRY_STAPLE_PATTERNS = [
+  /\boil\b/i,                              // olive, canola, vegetable, coconut, avocado, sesame, peanut
+  /\b(salt|pepper)\b/i,                    // catches "kosher salt", "black pepper", etc.
+  /\b(paprika|cumin|oregano|basil|thyme|rosemary|sage|cinnamon|nutmeg|clove|cardamom|turmeric|coriander|cayenne|chili powder|garlic powder|onion powder|red pepper flake|italian seasoning|herbs de provence|bay leaf)\b/i,
+  /\bvanilla extract\b/i,
+  /\bbaking (powder|soda)\b/i,
+  /\byeast\b/i,
+  /\bcornstarch\b/i,
+];
+function isPantryStaple(...names) {
+  return names.filter(Boolean).some(name =>
+    _PANTRY_STAPLE_PATTERNS.some(re => re.test(String(name)))
+  );
+}
+
 // ── Profile dietary normalization ───────────────────────────────────────────
 // Profile users can set dietary preferences in their account that flow through
 // req.body.preferences.dietary in various string forms (slugs from the
@@ -1002,6 +1026,7 @@ IMPORTANT ingredient type rules:
       let additionalCost = 0;
       let aiQtyCount = 0;
       let fbQtyCount = 0;
+      let stapleExcludedCount = 0;
 
       const ingredientLookup = ingredients.map(ing => ({
         ...ing,
@@ -1072,10 +1097,18 @@ IMPORTANT ingredient type rules:
           }
           if (qtySource === "ai") aiQtyCount++; else fbQtyCount++;
 
-          const itemSaleCost = sale * qty;
-          const itemRegCost = reg * qty;
+          // Pantry-staple exclusion: zero the cost contribution if this match is a
+          // staple (oils, dried spices, salt/pepper, baking essentials). The matched
+          // deal still appears in usedSaleItems with full identity (price, store, upc)
+          // so the Kroger cart-add path keeps working; only the cost roll-up is zeroed.
+          const isStaple = isPantryStaple(ing && ing.item, ing && ing.matchName, matchedDeal.name);
+          const itemSaleCost_raw = sale * qty;
+          const itemRegCost_raw = reg * qty;
+          const itemSaleCost = isStaple ? 0 : itemSaleCost_raw;
+          const itemRegCost = isStaple ? 0 : itemRegCost_raw;
           const savings = itemRegCost > itemSaleCost && itemSaleCost > 0 ? itemRegCost - itemSaleCost : 0;
-          itemActualCost = itemSaleCost.toFixed(2);
+          itemActualCost = isStaple ? "0.00" : itemSaleCost.toFixed(2);
+          if (isStaple) stapleExcludedCount++;
 
           usedSaleItems.push({
             name: matchedDeal.name,
@@ -1087,6 +1120,7 @@ IMPORTANT ingredient type rules:
             storeName: matchedDeal.storeName || "",
             isPerLb,
             qty,
+            isPantryStaple: isStaple,
           });
 
           saleCost += itemSaleCost;
@@ -1108,6 +1142,8 @@ IMPORTANT ingredient type rules:
             regularPrice: matchedDeal.regularPrice,
             isPerLb,
             actualCost: itemActualCost,
+            storeName: matchedDeal.storeName || "",
+            upc: matchedDeal.upc || "",
           } : null,
         };
       });
@@ -1118,6 +1154,9 @@ IMPORTANT ingredient type rules:
       // Observability: per-recipe qty source counts and AI-vs-server cost mismatch.
       // The AI's costPerServing is still discarded for display; this is monitoring only.
       console.log(`Recipe "${r.title}": qty source ai=${aiQtyCount} fallback=${fbQtyCount}`);
+      if (stapleExcludedCount > 0) {
+        console.log(`Recipe "${r.title}": pantry staples excluded from cost: ${stapleExcludedCount}`);
+      }
       const aiClaimed = parseFloat(r.costPerServing);
       const servings = r.servings || 4;
       if (Number.isFinite(aiClaimed) && aiClaimed > 0 && servings > 0 && estimatedCost > 0) {

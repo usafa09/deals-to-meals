@@ -83,46 +83,12 @@ function trapFocus(modalEl, firstFocusEl) {
   };
 }
 
-// ── First-Visit Welcome Modal ───────────────────────────────────────────────
-function closeWelcomeModal() {
-  const wm = document.getElementById("welcomeModal");
-  if (!wm) return;
-  try { wm._focusCleanup?.(); } catch (e) {}
-  document.body.style.overflow = "";
-  wm.remove();
-  localStorage.setItem("dishcount_visited", "true");
-}
-function openWelcomeModal() {
-  const wm = document.createElement("div");
-  wm.id = "welcomeModal";
-  wm.setAttribute("role", "dialog");
-  wm.setAttribute("aria-modal", "true");
-  wm.setAttribute("aria-labelledby", "welcomeTitle");
-  wm.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:6000;";
-  wm.innerHTML = '<div style="background:#fffdf7;border-radius:20px;padding:32px;max-width:500px;width:90%;text-align:center;position:relative;">' +
-    '<button type="button" id="welcomeCloseBtn" aria-label="Close" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;line-height:1;color:#595959;cursor:pointer;padding:6px 10px;min-width:44px;min-height:44px;">&times;</button>' +
-    '<div style="font-size:48px;margin-bottom:12px;">&#128722;</div>' +
-    '<h2 id="welcomeTitle" style="color:#2d6a4f;margin-bottom:8px;">Welcome to Dishcount!</h2>' +
-    '<p style="color:#555;font-size:15px;line-height:1.6;margin-bottom:20px;">Meal planning that starts with savings. Here\'s how it works:</p>' +
-    '<div style="text-align:left;max-width:350px;margin:0 auto 24px;">' +
-    [["1","Enter your zip code to find local stores"],["2","Browse this week's deals from your stores"],["3","Get personalized meals built around the savings"],["4","Build your shopping list or add to Kroger cart"]]
-      .map(([n,t])=>'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><span style="background:#2d6a4f;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">'+n+'</span><span style="color:#555;font-size:14px;">'+t+'</span></div>').join("") +
-    '</div>' +
-    '<button type="button" id="welcomeGoBtn" style="width:100%;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Go! &#8594;</button></div>';
-  document.body.appendChild(wm);
-  document.body.style.overflow = "hidden";
-  wm._close = closeWelcomeModal;
-  wm._focusCleanup = trapFocus(wm);
-  document.getElementById("welcomeCloseBtn").addEventListener("click", closeWelcomeModal);
-  document.getElementById("welcomeGoBtn").addEventListener("click", closeWelcomeModal);
-}
-if (!localStorage.getItem("dishcount_visited")) {
-  if (document.readyState === "loading") {
-    window.addEventListener("DOMContentLoaded", openWelcomeModal);
-  } else {
-    openWelcomeModal();
-  }
-}
+// First-visit welcome modal removed per usability review (item 4 — May 6).
+// The 4-step explainer was redundant with on-screen affordances and added
+// friction. Other onboarding pieces (contextual tooltips, feature-discovery
+// prompts, "What's New" hamburger badge, post-signup survey, homepage carousel)
+// remain. The dishcount_visited localStorage flag may still be read elsewhere
+// for unrelated checks; those stay no-ops since we no longer write it.
 
 // ── Contextual Tooltip System ───────────────────────────────────────────────
 function showTooltip(id, targetSelector, message, position) {
@@ -1003,8 +969,10 @@ async function goTo(step) {
 function updateStepProgress(screen) {
   const bar = document.getElementById("progressSteps");
   const instr = document.getElementById("stepInstruction");
-  // Map app screens to progress steps: 2→1(stores), 3/4→2(deals), 5→3(prefs), 6→4(meals)
-  const stepMap = { 2: 1, 3: 2, 4: 2, 5: 3, 6: 4 };
+  // Map app screens to 5-step progress: 2→1(stores), 3→2(location), 4→3(deals),
+  // 5→4(prefs), 6→5(meals). Location was previously merged into the Deals step;
+  // splitting it makes the location-picker screen a first-class step in the bar.
+  const stepMap = { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5 };
   const current = stepMap[screen] || 0;
   // Show progress only on screens 2-5
   if (bar) bar.style.display = (screen >= 2 && screen <= 5) ? "flex" : "none";
@@ -1020,7 +988,7 @@ function updateStepProgress(screen) {
     line.classList.toggle("completed", i + 1 < current);
   });
   // Instruction text (only for first-time users)
-  const instructions = { 2: "Tap the stores you shop at — you can pick more than one", 3: "Browse deals and pick items you want, or add pantry items", 4: "Browse deals and pick items you want, or add pantry items", 5: "Set your preferences and tap Build My Meals" };
+  const instructions = { 2: "Tap the stores you shop at — you can pick more than one", 3: "Pick your specific store address", 4: "Browse deals and pick items you want, or add pantry items", 5: "Set your preferences and tap Build My Meals" };
   if (instr && !localStorage.getItem("dishcount_flow_complete")) instr.textContent = instructions[screen] || "";
 }
 

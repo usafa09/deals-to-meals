@@ -392,23 +392,10 @@
       margin-top: 16px;
     }
 
-    .post-card-soon {
-      opacity: 0.55;
-      cursor: default;
-    }
-
-    .post-card-soon:hover {
-      border-color: #26402c;
-      transform: none;
-    }
-
-    .post-card-soon .soon-badge {
-      color: #8fb89a;
-      font-size: 12px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
+    /* Coming-soon placeholder posts are hidden until they ship. Markup stays in
+       the source so we can un-hide individual cards by removing the class as
+       posts go live. */
+    .post-card-soon { display: none; }
 
     .intro-copy {
       max-width: 720px;

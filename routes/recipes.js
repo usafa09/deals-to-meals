@@ -383,6 +383,19 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       } catch (e) { /* history fetch failed, continue without it */ }
     }
 
+    // DIET_RULES: existing entries (Vegetarian, Gluten-Free, Dairy-Free, Low Calorie)
+    // use `exclude` with naive substring includes() matching. New entries (Halal, Keto,
+    // Vegan) use `excludeWord` with word-boundary regex matching (now plural-aware via
+    // (s|es)?) to avoid false positives like "egg" matching "eggplant" or "ham" matching
+    // "hamburger". Vegan splits its terms across both fields: substring for fish/seafood
+    // and -y/-ies plurals (where word-boundary fails on compounds like "swordfish" or
+    // "anchovies"), word-boundary for everything else. Future retrofit: migrate the four
+    // existing entries to excludeWord too.
+    //
+    // KNOWN FALSE POSITIVE (deferred): "Peanut Butter" is stripped under Vegan because
+    // \bbutter\b matches it. Intended fix is a `whitelistPhrase` mechanism on each diet
+    // entry — e.g. whitelistPhrase: ["peanut butter", "almond butter", "cocoa butter"] —
+    // checked before exclusion runs. Not implemented today.
     const DIET_RULES = {
       "Vegetarian": {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
@@ -397,29 +410,72 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         exclude: ["milk","cheese","butter","yogurt","cream","sour cream","ice cream","whipped cream","half and half","cottage cheese","cream cheese"]
       },
       "Low Calorie": { rule: "LOW CALORIE: Each serving must be under 500 calories. Lean proteins, lots of vegetables, minimal oil/butter/cheese.", exclude: [] },
+      "Halal": {
+        rule: "HALAL: No pork or pork-derived products, no alcohol or cooking wines, no gelatin or other non-halal animal products. Use halal-certified meats and plant-based ingredients only.",
+        excludeWord: ["pork","bacon","ham","lard","prosciutto","pepperoni","pancetta","chorizo","salami","wine","beer","rum","vodka","whiskey","sake","mirin","sherry","gelatin"]
+      },
+      "Keto": {
+        rule: "KETO: Very low carbohydrate. No bread, pasta, rice, sugar, starchy vegetables, beans/legumes, or grain products. Focus on fats, proteins, and low-carb vegetables.",
+        excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie"]
+      },
+      "Vegan": {
+        rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
+        exclude: ["fish","seafood","anchov","crab","lobster","clam","mussel","salmon","tuna","tilapia","cod","shrimp","oyster","scallop"],
+        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"]
+      },
     };
 
     let filteredIngredients = [...ingredients];
     let dietNote = "";
     if (diets?.length) {
       const allExcluded = new Set();
+      const allExcludedWord = new Set();
       const rules = [];
       for (const d of diets) {
         const info = DIET_RULES[d];
         if (!info) continue;
         rules.push(info.rule);
-        for (const term of info.exclude) allExcluded.add(term);
+        for (const term of (info.exclude || [])) allExcluded.add(term);
+        for (const term of (info.excludeWord || [])) allExcludedWord.add(term);
       }
-      if (allExcluded.size > 0) {
+      if (allExcluded.size > 0 || allExcludedWord.size > 0) {
+        const wordPatterns = [...allExcludedWord].map(t =>
+          new RegExp("\\b" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(s|es)?\\b", "i"));
         const before = filteredIngredients.length;
         filteredIngredients = filteredIngredients.filter(i => {
           const name = i.name.toLowerCase();
-          return ![...allExcluded].some(term => name.includes(term));
+          if ([...allExcluded].some(term => name.includes(term))) return false;
+          if (wordPatterns.some(re => re.test(name))) return false;
+          return true;
         });
         const removed = before - filteredIngredients.length;
         if (removed > 0) console.log(`Diet filter: removed ${removed} items that violate ${diets.join(", ")} restrictions`);
       }
       dietNote = `\n\nSTRICT DIETARY RESTRICTIONS — THESE ARE ABSOLUTE AND MUST NEVER BE VIOLATED:\n${rules.join("\n")}\n\nI have already removed sale items that violate these restrictions from the list below. Do NOT add any ingredients that violate these rules. Do NOT suggest meat/fish/dairy substitutions if those are restricted. Every single recipe must fully comply.`;
+    }
+
+    // prefs.dislikes server-side filter — runs after DIET_RULES filter, uses the same
+    // word-boundary matching style as the new diet entries. Tokenizes free-text on
+    // non-letter chars, drops stop words and short tokens, then word-boundary-matches
+    // each token (with optional plural 's') against ingredient names. This catches
+    // "peanuts" → "Peanut Butter" while preventing "egg" → "Eggplant" false positives.
+    if (prefs.dislikes && typeof prefs.dislikes === "string") {
+      const STOP_WORDS = new Set(["no","not","any","i","my","kid","kids","is","are","to","the","a","an","with","from","for","allergic","hate","hates","dislikes","dislike","dont","wont","cant","eat","eats","like","likes","please","food","ingredient","also"]);
+      const tokens = prefs.dislikes.toLowerCase()
+        .split(/[^a-z]+/)
+        .filter(t => t && t.length >= 3 && !STOP_WORDS.has(t))
+        .map(t => t.endsWith("s") ? t.slice(0, -1) : t);
+      if (tokens.length > 0) {
+        const dislikePatterns = tokens.map(t =>
+          new RegExp("\\b" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(s)?\\b", "i"));
+        const before = filteredIngredients.length;
+        filteredIngredients = filteredIngredients.filter(i => {
+          const name = i.name.toLowerCase();
+          return !dislikePatterns.some(re => re.test(name));
+        });
+        const removed = before - filteredIngredients.length;
+        if (removed > 0) console.log(`Dislikes filter: removed ${removed} items matching tokens [${tokens.join(", ")}]`);
+      }
     }
 
     // Group sale items by category for the prompt

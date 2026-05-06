@@ -272,6 +272,74 @@ function selectSmartIngredients(deals, maxCount = 100) {
   return result;
 }
 
+// ── Post-generation sanity check ────────────────────────────────────────────
+// AI sometimes invents ingredients that violate the active diet (e.g. "rice" in
+// a Keto recipe, or chicken+cream in a Kosher recipe — the meat-dairy rule the
+// pre-filter cannot enforce). These helpers scan the parsed recipe text against
+// the same exclusion lists used in the pre-filter, plus a Kosher-specific
+// meat-dairy conflict check, and drop violators before we serve the response.
+// Defensive: wrapped in try/catch at the call site so a bug here can never
+// break the endpoint.
+function _escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function _wordBoundaryRegex(term) {
+  return new RegExp("\\b" + _escapeRegex(term) + "(s|es)?\\b", "i");
+}
+
+function extractRecipeText(recipe) {
+  const parts = [];
+  if (recipe.title) parts.push(String(recipe.title));
+  if (Array.isArray(recipe.ingredients)) {
+    for (const ing of recipe.ingredients) {
+      if (typeof ing === "string") {
+        parts.push(ing);
+      } else if (ing && typeof ing === "object") {
+        const v = ing.name || ing.item || ing.matchName || ing.text || ing.ingredient || ing.raw || ing.displayName || "";
+        if (v) parts.push(String(v));
+      }
+    }
+  }
+  if (Array.isArray(recipe.instructions)) {
+    for (const step of recipe.instructions) parts.push(String(step));
+  } else if (typeof recipe.instructions === "string") {
+    parts.push(recipe.instructions);
+  }
+  if (recipe.reasoning) parts.push(String(recipe.reasoning));
+  if (recipe.storage) parts.push(String(recipe.storage));
+  return parts.join(" | ").toLowerCase();
+}
+
+const NON_DAIRY_PHRASES = ["coconut milk","coconut cream","coconut butter","coconut yogurt","almond milk","almond butter","almond cream","cashew milk","cashew butter","cashew cream","soy milk","soy yogurt","oat milk","oat cream","rice milk","peanut butter","sunflower butter","sun butter","seed butter","nut butter","vegan butter","vegan cheese","vegan cream","vegan yogurt","nutritional yeast"];
+
+function stripNonDairyPhrases(text) {
+  let out = text;
+  for (const phrase of NON_DAIRY_PHRASES) {
+    out = out.split(phrase).join("");
+  }
+  return out;
+}
+
+const KOSHER_MEAT_TERMS = ["chicken","beef","turkey","lamb","duck","bison","veal","bacon","ham","sausage","prosciutto","pepperoni","salami","chorizo","pancetta","brisket","meatball","ground beef","ground turkey"];
+const KOSHER_DAIRY_TERMS = ["cheese","milk","butter","yogurt","cream","ghee","buttermilk","cheddar","mozzarella","parmesan","feta","ricotta","sour cream","half and half","cottage cheese","cream cheese"];
+
+function checkMeatDairyConflict(text) {
+  const meatTerms = [];
+  for (const t of KOSHER_MEAT_TERMS) {
+    if (_wordBoundaryRegex(t).test(text)) meatTerms.push(t);
+  }
+  const stripped = stripNonDairyPhrases(text);
+  const dairyTerms = [];
+  for (const t of KOSHER_DAIRY_TERMS) {
+    if (_wordBoundaryRegex(t).test(stripped)) dairyTerms.push(t);
+  }
+  return {
+    hasMeat: meatTerms.length > 0,
+    hasDairy: dairyTerms.length > 0,
+    conflict: meatTerms.length > 0 && dairyTerms.length > 0,
+    meatTerms,
+    dairyTerms,
+  };
+}
+
 async function handleRecipeGeneration(req, res) {
   let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
@@ -707,6 +775,51 @@ IMPORTANT ingredient type rules:
       } catch (e2) {
         console.error("Failed to parse AI recipe response:", text.substring(0, 500));
         throw new Error("AI returned invalid recipe format. Please try again.");
+      }
+    }
+
+    // Post-generation sanity check: drop AI-generated recipes that violate active
+    // diet restrictions. Defensive — falls back to unfiltered output on any error.
+    if (Array.isArray(parsed.recipes) && diets?.length) {
+      try {
+        const validateRecipes = (recipeList, activeDiets) => {
+          const valid = [];
+          const dropped = [];
+          for (const recipe of recipeList) {
+            const text = extractRecipeText(recipe);
+            const reasons = [];
+            for (const diet of activeDiets) {
+              if (diet === "Kosher") {
+                const c = checkMeatDairyConflict(text);
+                if (c.conflict) {
+                  reasons.push(`Kosher meat-dairy mix: meat=[${c.meatTerms.join(",")}], dairy=[${c.dairyTerms.join(",")}]`);
+                }
+              }
+              const info = DIET_RULES[diet];
+              if (!info) continue;
+              for (const term of (info.exclude || [])) {
+                if (text.includes(term)) reasons.push(`${diet} forbidden term: ${term}`);
+              }
+              for (const term of (info.excludeWord || [])) {
+                if (_wordBoundaryRegex(term).test(text)) reasons.push(`${diet} forbidden term: ${term}`);
+              }
+            }
+            if (reasons.length > 0) dropped.push({ recipe, reasons });
+            else valid.push(recipe);
+          }
+          return { valid, dropped };
+        };
+
+        const result = validateRecipes(parsed.recipes, diets);
+        if (result.dropped.length > 0) {
+          console.log(`Post-gen sanity check: dropped ${result.dropped.length}/${parsed.recipes.length} recipes for diet violations`);
+          for (const d of result.dropped) {
+            console.log(`  • [${d.recipe.title}] ${d.reasons.join("; ")}`);
+          }
+        }
+        parsed.recipes = result.valid;
+      } catch (e) {
+        console.error("Post-gen sanity check failed (falling back to unfiltered):", e.message);
       }
     }
 

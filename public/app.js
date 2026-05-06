@@ -1806,10 +1806,10 @@ function getRecipePayload(offset) {
   };
 }
 
-function showRecipeSkeletons(count) {
+function showRecipeSkeletons(count, opts) {
   const grid = document.getElementById("recipeGrid");
   if (!grid) return;
-  grid.innerHTML = Array.from({length: count}, () =>
+  const cards = Array.from({length: count}, () =>
     '<div class="recipe-card-tile skeleton-card">' +
     '<div class="skeleton" style="height:140px;border-radius:16px 16px 0 0;"></div>' +
     '<div style="padding:12px;">' +
@@ -1821,6 +1821,10 @@ function showRecipeSkeletons(count) {
     '<div class="skeleton" style="height:22px;width:80px;border-radius:10px;"></div>' +
     '</div></div></div>'
   ).join("");
+  // append:true is used by loadMoreRecipes which adds to existing recipes rather
+  // than replacing them. Default behavior (innerHTML replace) is unchanged.
+  if (opts && opts.append) grid.insertAdjacentHTML("beforeend", cards);
+  else grid.innerHTML = cards;
 }
 
 function showSkeletonBanner() {
@@ -1943,14 +1947,17 @@ async function loadMoreRecipes() {
   state.recipes.forEach(r => { if (!state.savedRecipeIds.has(r.title)) trackInteraction(r.title, "skipped", getRecipeTags(r)); });
   const btn=document.getElementById("moreRecipesBtn");
   btn.disabled=true; btn.textContent="🤖 Generating…";
-  showCookingLoading();
+  // Append 5 skeleton cards to the existing grid; the savings banner is left
+  // alone since we're adding to (not replacing) the current results. The
+  // renderRecipeGrid() in finally below cleans up the appended skeletons in
+  // both success and error paths.
+  showRecipeSkeletons(5, { append: true });
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),90000);
   try {
     const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
     const data=await res.json();
     if(!res.ok){
-      hideLoading();
       if(handleRecipeApiError({ res, data, retryFnName: "loadMoreRecipes" })) return;
       throw new Error(data.error||"Could not generate recipes");
     }
@@ -1961,15 +1968,15 @@ async function loadMoreRecipes() {
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
       state.recipes.push(...newRecipes);
       state.recipeOffset+=5;
-      renderRecipeGrid();
       showToast(`${data.recipes.length} more recipes added!`,"success");
     } else { showToast("No more recipes found. Try a different style."); }
   }catch(err){
-    hideLoading();
     handleRecipeApiError({ err, retryFnName: "loadMoreRecipes" });
   }finally{
     clearTimeout(timeout);
-    hideLoading(); btn.disabled=false; btn.textContent="🤖 Generate 5 More Recipes";
+    clearSkeletonBanner();
+    renderRecipeGrid();
+    btn.disabled=false; btn.textContent="🤖 Generate 5 More Recipes";
   }
 }
 function sortRecipes(by){ensureAppScreens();document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
@@ -2048,14 +2055,21 @@ async function generateFreezerMeals() {
   payload.freezerMeals = true;
   const btn = document.querySelector('[onclick="generateFreezerMeals()"]');
   if (btn) { btn.disabled = true; btn.textContent = "Finding freezer meals..."; }
-  showCookingLoading();
+  // Mirror the canonical searchRecipes pattern: navigate to screen 6 first so
+  // the user sees the skeleton cards on the actual results screen, then run
+  // the API call. On error, navigate back to screen 5 (preferences).
+  goTo(6);
+  document.getElementById("recipesTitle").textContent = "Building your meals...";
+  document.getElementById("resultsCount").textContent = "";
+  showRecipeSkeletons(5);
+  showSkeletonBanner();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
     if (!res.ok) {
-      hideLoading();
+      clearSkeletonBanner();
       if (handleRecipeApiError({ res, data, retryFnName: "generateFreezerMeals" })) return;
       throw new Error(data.error || "Could not generate");
     }
@@ -2066,15 +2080,17 @@ async function generateFreezerMeals() {
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
     state.recipeOffset = 0;
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
-    document.getElementById("recipesTitle").textContent = "&#10052;&#65039; Freezer Meal Plan";
+    clearSkeletonBanner();
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
+    document.getElementById("recipesTitle").textContent = "❄️ Freezer Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " freezer-friendly recipes";
   } catch (err) {
-    hideLoading();
+    clearSkeletonBanner();
     handleRecipeApiError({ err, retryFnName: "generateFreezerMeals" });
+    goTo(5);
   } finally {
-    clearTimeout(timeout); hideLoading();
-    if (btn) { btn.disabled = false; btn.textContent = "&#10052;&#65039; Freezer Meals — Cook Now, Eat Later"; }
+    clearTimeout(timeout);
+    if (btn) { btn.disabled = false; btn.textContent = "❄️ Freezer Meals — Cook Now, Eat Later"; }
   }
 }
 
@@ -2406,14 +2422,20 @@ async function generateWeeklyPlan() {
   payload.weeklyPlan = true;
   const btn = document.querySelector('[onclick="generateWeeklyPlan()"]');
   if (btn) { btn.disabled = true; btn.textContent = "Planning your week..."; }
-  showCookingLoading();
+  // Mirror the canonical searchRecipes pattern: navigate to screen 6 first so
+  // the skeleton cards render on the actual results screen.
+  goTo(6);
+  document.getElementById("recipesTitle").textContent = "Building your meals...";
+  document.getElementById("resultsCount").textContent = "";
+  showRecipeSkeletons(5);
+  showSkeletonBanner();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
   try {
     const res = await fetch("/api/recipes/ai", { method: "POST", headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await res.json();
     if (!res.ok) {
-      hideLoading();
+      clearSkeletonBanner();
       if (handleRecipeApiError({ res, data, retryFnName: "generateWeeklyPlan" })) return;
       throw new Error(data.error || "Could not generate plan");
     }
@@ -2424,14 +2446,16 @@ async function generateWeeklyPlan() {
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;
     state._isWeeklyPlan = true; state._isFreezerPlan = false;
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton(); goTo(6);
+    clearSkeletonBanner();
+    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
     document.getElementById("recipesTitle").textContent = "📅 Your Weekly Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " dinners planned for the week";
   } catch (err) {
-    hideLoading();
+    clearSkeletonBanner();
     handleRecipeApiError({ err, retryFnName: "generateWeeklyPlan" });
+    goTo(5);
   } finally {
-    clearTimeout(timeout); hideLoading();
+    clearTimeout(timeout);
     if (btn) { btn.disabled = false; btn.textContent = "📅 Plan My Week (5 Dinners)"; }
   }
 }

@@ -8,6 +8,16 @@ import {
 
 const router = Router();
 
+// ── Kroger Family private-label tier classification ─────────────────────────
+// Used by pickBest() in /api/kroger/search to give store-brand products a
+// scoring boost when they're meaningfully cheaper. Three tiers reflect
+// Dishcount's savings-first value prop: budget lines get the largest boost,
+// premium store-brand lines a smaller one. Tested against p.brand only (not
+// product description) to avoid banner-name pollution.
+const KROGER_FAMILY_BUDGET = /\b(smart way|fmv|fred meyer value|my-te-fine|big k)\b/i;
+const KROGER_FAMILY_STANDARD = /\b(kroger|simple truth|heritage farm|mercado|home chef|roundy'?s|ht traders|harris teeter)\b/i;
+const KROGER_FAMILY_PREMIUM = /\b(private selection|hemisfares|murray'?s cheese|field & vine|field and vine)\b/i;
+
 // ── Shared Kroger deal fetching logic ─────────────────────────────────────────
 
 export async function fetchKrogerDeals(locationId, banner) {
@@ -127,12 +137,23 @@ router.get("/api/kroger/search", async (req, res) => {
       }
       // Penalize seasoning mixes, sauces, marinades when searching for raw meat
       if (/\b(seasoning|mix|sauce|marinade|gravy|rub|spice)\b/i.test(nameLower) && queryProtein) score -= 40;
-      if (/\borganic\b/i.test(nameLower)) score -= 30;
+      // Kroger Family private-label tiered boost. Tested against p.brand only (not name+brand)
+      // to avoid banner-name pollution: "Harris Teeter" can appear in product names at HT stores
+      // without necessarily indicating private label, but the brand field is the definitive signal.
+      const isKrogerFamilyBudget = KROGER_FAMILY_BUDGET.test(p.brand);
+      const isKrogerFamilyPremium = KROGER_FAMILY_PREMIUM.test(p.brand);
+      const isKrogerFamilyStandard = KROGER_FAMILY_STANDARD.test(p.brand);
+      const isKrogerFamily = isKrogerFamilyBudget || isKrogerFamilyPremium || isKrogerFamilyStandard;
+      if (isKrogerFamilyBudget) score += 12;
+      else if (isKrogerFamilyPremium) score += 5;
+      else if (isKrogerFamilyStandard) score += 10;
+      // Organic penalty suppressed for Kroger Family brands — the family boost already
+      // encodes "store brand savings", and double-penalizing organic on store brands
+      // ranks Simple Truth Organic below national-brand organic, which is backwards.
+      if (/\borganic\b/i.test(nameLower) && !isKrogerFamily) score -= 30;
       if (/\b(artisan|craft|premium|gourmet|specialty)\b/i.test(nameLower)) score -= 15;
       if (/\b(\d+\s*lb bag|\d+\s*pk|family pack|value pack|bulk|bundle|case of|multipack)\b/i.test(nameLower)) score -= 25;
       if (/\b(3 lb|5 lb|10 lb|25 lb)\b/i.test(nameLower)) score -= 20;
-      if (/\bkroger\b/i.test(p.brand)) score += 10;
-      if (/\bsimple truth\b/i.test(p.brand) && !/\borganic\b/i.test(nameLower)) score += 5;
       if (p.price > 0) score += Math.max(0, 20 - Math.round(p.price * 2));
       return { ...p, _score: score };
     }).sort((a, b) => b._score - a._score)[0];

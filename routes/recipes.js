@@ -416,12 +416,23 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       },
       "Keto": {
         rule: "KETO: Very low carbohydrate. No bread, pasta, rice, sugar, starchy vegetables, beans/legumes, or grain products. Focus on fats, proteins, and low-carb vegetables.",
-        excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie"]
+        excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie","rolls","roll","bun","biscuit","muffin","croissant","pita","naan","baguette","pancake","waffle","donut","doughnut","pretzel","breadstick"]
       },
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
         exclude: ["fish","seafood","anchov","crab","lobster","clam","mussel","salmon","tuna","tilapia","cod","shrimp","oyster","scallop"],
         excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"]
+      },
+      // KOSHER: the meat-dairy separation rule (no mixing meat/poultry with dairy in
+      // a single recipe) is a RECIPE-LEVEL constraint that the substring/word-boundary
+      // ingredient filter cannot enforce — both meat and dairy can independently pass
+      // through. Compliance for that rule relies entirely on AI adherence to the
+      // `rule` text below. Same documentation pattern as the Peanut Butter false
+      // positive: server-side filter handles what it can, prompt text handles the rest.
+      "Kosher": {
+        rule: "KOSHER: Follow kashrut laws. NO pork, shellfish, non-finned/scaled fish (catfish, swordfish, shark, eel, monkfish), rabbit, or non-kosher gelatin. CRITICAL: Do NOT mix meat or poultry with dairy in the same recipe. If a recipe contains meat, fish, or poultry, do NOT include any dairy products (milk, cheese, butter, yogurt, cream). Use kosher-certified versions of all animal products and gelatin.",
+        exclude: ["seafood"],
+        excludeWord: ["pork","bacon","ham","lard","prosciutto","pepperoni","pancetta","chorizo","salami","gelatin","rabbit","hare","catfish","swordfish","shark","eel","monkfish","shrimp","lobster","crab","clam","mussel","oyster","scallop","prawn","crawfish","crayfish","langoustine","octopus","squid","calamari","snail","escargot","cuttlefish"]
       },
     };
 

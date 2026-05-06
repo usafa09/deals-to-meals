@@ -473,7 +473,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas BUILT FROM what's on sale this week. Your #1 goal is to MAXIMIZE the use of sale items in every recipe.
 
 ${mealTypeGuide}
-${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : ""}
+${styleDesc ? "RECIPE STYLE: " + style + "\n" + styleDesc : "RECIPE STYLE: Family-friendly default. Recipes should be broadly appealing, approachable, and safe for a household with kids. No exotic ingredients, no advanced techniques, nothing that would surprise a typical American home cook. Keep flavors familiar (mild, savory, mainstream)."}
 
 ${haveNote ? haveNote + "\n" : ""}
 ${saleItemsList}
@@ -501,13 +501,14 @@ weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday t
 - Use the same protein in no more than 2 meals
 - Progress from easiest on Monday (everyone is tired) to more involved later in the week
 - Total combined cost should stay under $50 for a family of ${prefs.household_size || "4"}
-- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : "Generate exactly 6 recipes."} Each recipe should:
+- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : (ingredients.length < 8 ? "Generate exactly 5 recipes. With limited sale items available, prioritize 5 recipes that use distinct cooking methods (e.g., baked, stovetop, slow cooker, sheet pan, no-cook) rather than 6 with overlap." : "Generate exactly 6 recipes.")} Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
 - Add basic pantry staples as needed (see PANTRY rules below)
 - Have clear, numbered step-by-step instructions a beginner cook could follow
 - Be a REAL recipe that actually works — not made up combinations
+- Stay within ONE cuisine register per recipe (Italian, Mexican, Asian, American, Mediterranean, Tex-Mex, etc.). Do not mix cuisines within a single recipe — for example, no soy sauce in an Italian dish, no taco seasoning on chicken parmigiana.
 - Processed products on sale (chicken nuggets, fish sticks, frozen pizza, breaded shrimp, frozen burritos, mac & cheese boxes, etc.): either (a) use as-is in an assembled dish (e.g. nugget parm, fish stick tacos), or (b) skip the product entirely. NEVER substitute a processed product for the raw ingredient it imitates (no breaded frozen shrimp in a butter-garlic shrimp skillet). NEVER list a processed product as an ingredient in a "homemade" version of itself ("homemade chicken nuggets" must use raw chicken breast, not pre-made nuggets).
 ${dietNote}
 
@@ -572,6 +573,7 @@ IMPORTANT ingredient type rules:
     const claudeBody = JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 8192,
+      temperature: 0.7,
       messages: [{ role: "user", content: prompt }],
     });
     const claudeHeaders = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };

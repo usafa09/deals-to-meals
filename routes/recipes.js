@@ -583,15 +583,21 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       familyNote = `\n\nFAMILY MEMBERS:\n${memberLines.join("\n")}\n\nGenerate recipes that work for the WHOLE FAMILY. If a recipe can't please everyone, suggest a simple modification (e.g. "For picky eaters: serve the sauce on the side"). Flag any allergen conflicts.`;
     }
 
-    // Build user profile note from preferences
+    // Build user profile note from preferences. Coerce array fields defensively:
+    // production sends arrays for prefs.dietary and prefs.flavor_preferences,
+    // but legacy survey paths and partial-fill profiles can deliver bare strings,
+    // and .join() on a string throws TypeError. The coercions below preserve the
+    // existing "skip if 'none'/'anything'" semantics for both shapes.
     let profileNote = "";
-    if (prefs.household_size || prefs.skill_level || prefs.cook_time || prefs.dietary?.length || prefs.flavor_preferences?.length || prefs.dislikes) {
+    const _dietaryArr = Array.isArray(prefs.dietary) ? prefs.dietary : (prefs.dietary ? [prefs.dietary] : []);
+    const _flavorArr = Array.isArray(prefs.flavor_preferences) ? prefs.flavor_preferences : (prefs.flavor_preferences ? [prefs.flavor_preferences] : []);
+    if (prefs.household_size || prefs.skill_level || prefs.cook_time || _dietaryArr.length || _flavorArr.length || prefs.dislikes) {
       const parts = ["USER PROFILE:"];
       if (prefs.household_size) parts.push(`- Cooking for: ${prefs.household_size} people${prefs.has_kids ? " (including kids under 12 — keep recipes kid-friendly)" : ""}`);
       if (prefs.skill_level) parts.push(`- Skill level: ${prefs.skill_level}`);
       if (prefs.cook_time) parts.push(`- Available time: ${prefs.cook_time === "any" ? "no limit" : prefs.cook_time + " minutes"}`);
-      if (prefs.dietary?.length && !prefs.dietary.includes("none")) parts.push(`- Dietary needs: ${prefs.dietary.join(", ")}`);
-      if (prefs.flavor_preferences?.length && !prefs.flavor_preferences.includes("anything")) parts.push(`- Flavor preferences: ${prefs.flavor_preferences.join(", ")}`);
+      if (_dietaryArr.length && !_dietaryArr.includes("none")) parts.push(`- Dietary needs: ${_dietaryArr.join(", ")}`);
+      if (_flavorArr.length && !_flavorArr.includes("anything")) parts.push(`- Flavor preferences: ${_flavorArr.join(", ")}`);
       if (prefs.dislikes) parts.push(`- Dislikes (NEVER include these ingredients): ${prefs.dislikes}`);
       parts.push("");
       parts.push(`IMPORTANT: Respect ALL dietary restrictions and dislikes. NEVER include disliked ingredients. Adjust recipe complexity to match the skill level.${prefs.cook_time && prefs.cook_time !== "any" ? " Keep total cook time within " + prefs.cook_time + " minutes." : ""}${prefs.household_size ? " Default serving size to " + prefs.household_size + " people." : ""}`);
@@ -629,15 +635,18 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     // use `exclude` with naive substring includes() matching. New entries (Halal, Keto,
     // Vegan) use `excludeWord` with word-boundary regex matching (now plural-aware via
     // (s|es)?) to avoid false positives like "egg" matching "eggplant" or "ham" matching
-    // "hamburger". Vegan splits its terms across both fields: substring for fish/seafood
-    // and -y/-ies plurals (where word-boundary fails on compounds like "swordfish" or
-    // "anchovies"), word-boundary for everything else. Future retrofit: migrate the four
-    // existing entries to excludeWord too.
+    // "hamburger". Diets can use BOTH fields: substring for terms that need to catch
+    // compounds (Keto "bread" → also breadcrumbs, cornbread, shortbread; Vegan "fish" →
+    // also swordfish, catfish), word-boundary for terms that risk false positives.
     //
-    // KNOWN FALSE POSITIVE (deferred): "Peanut Butter" is stripped under Vegan because
-    // \bbutter\b matches it. Intended fix is a `whitelistPhrase` mechanism on each diet
-    // entry — e.g. whitelistPhrase: ["peanut butter", "almond butter", "cocoa butter"] —
-    // checked before exclusion runs. Not implemented today.
+    // OPTIONAL `whitelistPhrase` field: a list of multi-word phrases that, when present
+    // as a substring in an ingredient name, BYPASS the excludeWord match for that
+    // ingredient. Used for Vegan's "peanut butter" / "almond butter" exception — the
+    // \bbutter\b excludeWord rule needs to fire on dairy butter but not on plant-based
+    // nut/seed butters. Whitelist applies ONLY to excludeWord, not to substring exclude
+    // (substring matches stay authoritative). Whitelists union across active diets, so
+    // a phrase whitelisted by one diet bypasses excludeWord checks from any active diet.
+    // Future retrofit: migrate the four existing legacy entries to excludeWord too.
     const DIET_RULES = {
       "Vegetarian": {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
@@ -658,12 +667,20 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       },
       "Keto": {
         rule: "KETO: Very low carbohydrate. No bread, pasta, rice, sugar, starchy vegetables, beans/legumes, or grain products. Focus on fats, proteins, and low-carb vegetables.",
+        // "bread" appears in BOTH lists: substring catches compounds (breadcrumbs,
+        // cornbread, shortbread, breadfruit), word-boundary catches the standalone
+        // form. The duplicate is idempotent — filter logic ORs across both passes.
+        exclude: ["bread"],
         excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie","rolls","roll","bun","biscuit","muffin","croissant","pita","naan","baguette","pancake","waffle","donut","doughnut","pretzel","breadstick"]
       },
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
         exclude: ["fish","seafood","anchov","crab","lobster","clam","mussel","salmon","tuna","tilapia","cod","shrimp","oyster","scallop"],
-        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"]
+        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"],
+        // Plant-based nut/seed butters: bypass the \bbutter\b excludeWord match.
+        // Substring exclude (above) is unaffected — "peanut butter" still gets checked
+        // against fish/seafood/etc. terms, none of which appear in nut butters.
+        whitelistPhrase: ["peanut butter","almond butter","cashew butter","sunflower butter","nut butter","seed butter"]
       },
       // KOSHER: the meat-dairy separation rule (no mixing meat/poultry with dairy in
       // a single recipe) is a RECIPE-LEVEL constraint that the substring/word-boundary
@@ -698,6 +715,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     if (activeDiets.length) {
       const allExcluded = new Set();
       const allExcludedWord = new Set();
+      const allWhitelist = new Set();
       const rules = [];
       for (const d of activeDiets) {
         const info = DIET_RULES[d];
@@ -705,15 +723,20 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         rules.push(info.rule);
         for (const term of (info.exclude || [])) allExcluded.add(term);
         for (const term of (info.excludeWord || [])) allExcludedWord.add(term);
+        for (const term of (info.whitelistPhrase || [])) allWhitelist.add(term);
       }
       if (allExcluded.size > 0 || allExcludedWord.size > 0) {
         const wordPatterns = [...allExcludedWord].map(t =>
           new RegExp("\\b" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(s|es)?\\b", "i"));
+        const whitelistArr = [...allWhitelist];
         const before = filteredIngredients.length;
         filteredIngredients = filteredIngredients.filter(i => {
           const name = i.name.toLowerCase();
+          // Substring exclude is authoritative — whitelist does NOT bypass it.
           if ([...allExcluded].some(term => name.includes(term))) return false;
-          if (wordPatterns.some(re => re.test(name))) return false;
+          // Whitelist bypasses excludeWord (e.g. "peanut butter" survives \bbutter\b).
+          const isWhitelisted = whitelistArr.length > 0 && whitelistArr.some(phrase => name.includes(phrase));
+          if (!isWhitelisted && wordPatterns.some(re => re.test(name))) return false;
           return true;
         });
         const removed = before - filteredIngredients.length;

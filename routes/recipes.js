@@ -272,6 +272,127 @@ function selectSmartIngredients(deals, maxCount = 100) {
   return result;
 }
 
+// ── Recipe quantity → cost conversion ───────────────────────────────────────
+// AI returns structured `quantity` + `unit` per ingredient (added to the prompt
+// schema as part of the cost-calc structural fix). These helpers convert that
+// structured pair into the per-deal qty the cost calculation needs. Two paths:
+// per-lb deals (return lbs) and per-each/per-pack deals (return count). When
+// the AI omits or returns an unrecognized unit, both helpers return null so
+// the caller can fall back to the legacy hardcoded table (preserved verbatim
+// in hardcodedQtyForDeal below).
+const _UNIT_NORM = {
+  // weight
+  "lb":"lb","lbs":"lb","pound":"lb","pounds":"lb",
+  "oz":"oz","ounce":"oz","ounces":"oz",
+  "kg":"kg","kilogram":"kg","kilograms":"kg",
+  "g":"g","gram":"g","grams":"g",
+  // volume
+  "cup":"cup","cups":"cup",
+  "tbsp":"tbsp","tablespoon":"tbsp","tablespoons":"tbsp",
+  "tsp":"tsp","teaspoon":"tsp","teaspoons":"tsp",
+  "fl_oz":"fl_oz","fl-oz":"fl_oz","floz":"fl_oz","fluid_ounce":"fl_oz","fluid_ounces":"fl_oz",
+  "ml":"ml","milliliter":"ml","milliliters":"ml",
+  "l":"l","liter":"l","liters":"l","litre":"l","litres":"l",
+  "pint":"pint","pints":"pint",
+  "quart":"quart","quarts":"quart",
+  // count
+  "each":"each","piece":"each","pieces":"each","whole":"each","medium":"each","large":"each","small":"each",
+  "can":"can","cans":"can",
+  "jar":"jar","jars":"jar",
+  "box":"box","boxes":"box",
+  "package":"package","packages":"package","pkg":"package","pack":"package","packs":"package",
+  "bunch":"bunch","bunches":"bunch",
+  "head":"head","heads":"head",
+  "clove":"clove","cloves":"clove",
+};
+function _normalizeUnit(u) {
+  if (!u) return "";
+  const s = String(u).toLowerCase().trim().replace(/\./g, "");
+  return _UNIT_NORM[s] || "";
+}
+const _COUNT_UNITS = ["each","can","jar","box","package","piece","bunch","head","clove"];
+
+function aiQtyToLbs(quantity, unit, ingredientHint) {
+  const q = Number(quantity);
+  if (!Number.isFinite(q) || q <= 0) return null;
+  const u = _normalizeUnit(unit);
+  if (!u) return null;
+  // Direct weight conversions
+  switch (u) {
+    case "lb":    return q * 1.0;
+    case "oz":    return q * 0.0625;
+    case "kg":    return q * 2.205;
+    case "g":     return q * (1 / 453.6);
+    case "cup":   return q * 0.4;
+    case "pint":  return q * 1.0;
+    case "quart": return q * 2.0;
+    case "fl_oz": return q * 0.065;
+    case "tbsp":  return q * 0.04;
+    case "tsp":   return q * 0.013;
+    case "ml":    return q * 0.0022;
+    case "l":     return q * 2.2;
+  }
+  // Count units — ingredient-aware lb-per-item lookup
+  if (_COUNT_UNITS.includes(u)) {
+    const hint = String(ingredientHint || "").toLowerCase();
+    let perItem = 0.5;
+    if (u === "clove" && hint.includes("garlic")) perItem = 0.01;
+    else if (u === "head" && hint.includes("garlic")) perItem = 0.15;
+    else if (u === "head" && (hint.includes("lettuce") || hint.includes("cabbage"))) perItem = 1.5;
+    else if (u === "bunch" && /parsley|cilantro|basil|mint|thyme|sage|rosemary|chive|dill|tarragon|oregano|herb/.test(hint)) perItem = 0.1;
+    else if (hint.includes("onion")) perItem = 0.3;
+    else if (/apple|orange|pear/.test(hint)) perItem = 0.35;
+    else if (hint.includes("banana")) perItem = 0.25;
+    else if (hint.includes("potato")) perItem = 0.5;
+    else if (hint.includes("tomato")) perItem = 0.25;
+    else if (hint.includes("pepper")) perItem = 0.3;
+    else if (/lemon|lime/.test(hint)) perItem = 0.2;
+    else if (hint.includes("avocado")) perItem = 0.5;
+    return q * perItem;
+  }
+  return null;
+}
+
+function aiQtyToCount(quantity, unit) {
+  const q = Number(quantity);
+  if (!Number.isFinite(q) || q <= 0) return null;
+  const u = _normalizeUnit(unit);
+  if (!u) return null;
+  if (_COUNT_UNITS.includes(u)) return q;
+  // Weight or volume — no sensible count derivation; let fallback handle.
+  return null;
+}
+
+// Mirrors the per-lb fallback table previously inlined inside the recipe map.
+// Values and matching regex are unchanged — extracted for the AI/fallback split.
+function hardcodedQtyForDeal(matchedDeal) {
+  const nameLower = (matchedDeal && matchedDeal.name || "").toLowerCase();
+  if (nameLower.match(/chicken breast|boneless.*chicken|skinless.*chicken/)) return 2.5;
+  if (nameLower.match(/chicken thigh|drumstick|chicken leg|wing/)) return 2.5;
+  if (nameLower.match(/whole chicken|roaster/)) return 5;
+  if (nameLower.match(/ground beef|ground turkey|ground pork/)) return 1;
+  if (nameLower.match(/steak/)) return 1.5;
+  if (nameLower.match(/beef.*roast|brisket/)) return 3;
+  if (nameLower.match(/pork tenderloin/)) return 1.5;
+  if (nameLower.match(/pork chop|pork loin/)) return 2;
+  if (nameLower.match(/ribs|rack/)) return 3;
+  if (nameLower.match(/salmon|tilapia|cod|fish/)) return 1;
+  if (nameLower.match(/shrimp/)) return 1;
+  if (nameLower.match(/sausage|bratwurst|kielbasa/)) return 1;
+  if (nameLower.match(/bacon/)) return 1;
+  if (nameLower.match(/apple|orange|pear/)) return 3;
+  if (nameLower.match(/banana/)) return 2;
+  if (nameLower.match(/grape|strawberr|blueberr|cherry/)) return 1;
+  if (nameLower.match(/potato|sweet potato/)) return 3;
+  if (nameLower.match(/onion/)) return 1;
+  if (nameLower.match(/tomato|pepper|cucumber|zucchini|squash/)) return 0.75;
+  if (nameLower.match(/broccoli|cauliflower/)) return 1.5;
+  if (nameLower.match(/carrot|celery/)) return 1;
+  if (nameLower.match(/lettuce|spinach|greens/)) return 0.75;
+  if (nameLower.match(/mushroom/)) return 0.5;
+  return 1;
+}
+
 // ── Post-generation sanity check ────────────────────────────────────────────
 // AI sometimes invents ingredients that violate the active diet (e.g. "rice" in
 // a Keto recipe, or chicken+cream in a Kosher recipe — the meat-dairy rule the
@@ -666,12 +787,13 @@ Respond with ONLY valid JSON, no other text. Use this exact format:
       "fiber": 4,
       "saleItemsUsed": ["Chicken Thighs", "Rice"],
       "ingredients": [
-        {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs"},
-        {"item": "2 cups rice", "type": "SALE", "matchName": "Rice"},
-        {"item": "1 lb fresh broccoli", "type": "ADDITIONAL", "matchName": ""},
-        {"item": "2 cups cooked quinoa", "type": "ON_HAND", "matchName": ""},
-        {"item": "1 tbsp olive oil", "type": "PANTRY", "matchName": ""},
-        {"item": "Salt and pepper to taste", "type": "PANTRY", "matchName": ""}
+        {"item": "1.5 lbs chicken thighs", "type": "SALE", "matchName": "Chicken Thighs", "quantity": 1.5, "unit": "lb"},
+        {"item": "2 cups rice", "type": "SALE", "matchName": "Rice", "quantity": 2, "unit": "cup"},
+        {"item": "2 medium yellow onions, diced", "type": "SALE", "matchName": "Yellow Onion", "quantity": 2, "unit": "each"},
+        {"item": "1 lb fresh broccoli", "type": "ADDITIONAL", "matchName": "", "quantity": 1, "unit": "lb"},
+        {"item": "2 cups cooked quinoa", "type": "ON_HAND", "matchName": "", "quantity": 2, "unit": "cup"},
+        {"item": "1 tbsp olive oil", "type": "PANTRY", "matchName": "", "quantity": 1, "unit": "tbsp"},
+        {"item": "Salt and pepper to taste", "type": "PANTRY", "matchName": "", "quantity": 0, "unit": ""}
       ],
       "instructions": [
         "Preheat oven to 400°F.",
@@ -691,6 +813,9 @@ IMPORTANT ingredient type rules:
 - "ADDITIONAL" = item the customer said they want to buy (from ADDITIONAL ITEMS list).
 - "ON_HAND" = item the customer already has (from ON HAND list).
 - "PANTRY" = ONLY non-perishable staples most kitchens have: salt, pepper, cooking oil, butter, flour, sugar, dried spices/herbs (paprika, cumin, oregano, chili powder, etc.), vinegar, soy sauce, hot sauce, mustard, ketchup, honey, vanilla extract, baking powder, baking soda, cornstarch. PANTRY does NOT include any fresh/perishable items — garlic, onion, lemon, lime, ginger, fresh herbs, eggs, milk, cream, cheese, and all fresh vegetables/fruits must be "ADDITIONAL" (things the customer needs to buy).
+- "quantity" must be a number representing the recipe's actual quantity. For "to taste" or trivial amounts, use 0.
+- "unit" must be from this controlled vocabulary: lb, oz, kg, g, cup, tbsp, tsp, fl_oz, ml, l, pint, quart, each, can, jar, box, package, bunch, head, clove. Use empty string for "to taste" amounts.
+- Be ACCURATE about quantity. These fields are used to compute the recipe's actual cost. If "item" says "1.5 lbs chicken thighs", quantity MUST be 1.5 and unit MUST be "lb". Do not round or guess.
 - Do NOT include "estimatedCost" — we calculate that from real prices.
 - "calories", "protein", "carbs", "fat", "fiber" = estimated nutrition per serving (numbers only, no units). These are rough estimates.`;
 
@@ -831,6 +956,8 @@ IMPORTANT ingredient type rules:
       let saleCost = 0;
       let regularCost = 0;
       let additionalCost = 0;
+      let aiQtyCount = 0;
+      let fbQtyCount = 0;
 
       const ingredientLookup = ingredients.map(ing => ({
         ...ing,
@@ -888,33 +1015,18 @@ IMPORTANT ingredient type rules:
           const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
           isPerLb = matchedDeal.isPerLb || matchedDeal.priceUnit === "/lb";
 
+          // Tier 1: AI-supplied quantity + unit. Tier 2: hardcoded fallback table.
+          let qtySource = "fallback";
           if (isPerLb) {
-            const nameLower = (matchedDeal.name || "").toLowerCase();
-            if (nameLower.match(/chicken breast|boneless.*chicken|skinless.*chicken/)) qty = 2.5;
-            else if (nameLower.match(/chicken thigh|drumstick|chicken leg|wing/)) qty = 2.5;
-            else if (nameLower.match(/whole chicken|roaster/)) qty = 5;
-            else if (nameLower.match(/ground beef|ground turkey|ground pork/)) qty = 1;
-            else if (nameLower.match(/steak/)) qty = 1.5;
-            else if (nameLower.match(/beef.*roast|brisket/)) qty = 3;
-            else if (nameLower.match(/pork tenderloin/)) qty = 1.5;
-            else if (nameLower.match(/pork chop|pork loin/)) qty = 2;
-            else if (nameLower.match(/ribs|rack/)) qty = 3;
-            else if (nameLower.match(/salmon|tilapia|cod|fish/)) qty = 1;
-            else if (nameLower.match(/shrimp/)) qty = 1;
-            else if (nameLower.match(/sausage|bratwurst|kielbasa/)) qty = 1;
-            else if (nameLower.match(/bacon/)) qty = 1;
-            else if (nameLower.match(/apple|orange|pear/)) qty = 3;
-            else if (nameLower.match(/banana/)) qty = 2;
-            else if (nameLower.match(/grape|strawberr|blueberr|cherry/)) qty = 1;
-            else if (nameLower.match(/potato|sweet potato/)) qty = 3;
-            else if (nameLower.match(/onion/)) qty = 1;
-            else if (nameLower.match(/tomato|pepper|cucumber|zucchini|squash/)) qty = 0.75;
-            else if (nameLower.match(/broccoli|cauliflower/)) qty = 1.5;
-            else if (nameLower.match(/carrot|celery/)) qty = 1;
-            else if (nameLower.match(/lettuce|spinach|greens/)) qty = 0.75;
-            else if (nameLower.match(/mushroom/)) qty = 0.5;
-            else qty = 1;
+            const aiLbs = aiQtyToLbs(ing && ing.quantity, ing && ing.unit, matchedDeal.name);
+            if (aiLbs != null && aiLbs > 0) { qty = aiLbs; qtySource = "ai"; }
+            else { qty = hardcodedQtyForDeal(matchedDeal); qtySource = "fallback"; }
+          } else {
+            const aiCnt = aiQtyToCount(ing && ing.quantity, ing && ing.unit);
+            if (aiCnt != null && aiCnt > 0) { qty = aiCnt; qtySource = "ai"; }
+            else { qty = 1; qtySource = "fallback"; }
           }
+          if (qtySource === "ai") aiQtyCount++; else fbQtyCount++;
 
           const itemSaleCost = sale * qty;
           const itemRegCost = reg * qty;
@@ -958,6 +1070,20 @@ IMPORTANT ingredient type rules:
 
       const estimatedCost = saleCost + additionalCost;
       const regularPriceTotal = regularCost + additionalCost;
+
+      // Observability: per-recipe qty source counts and AI-vs-server cost mismatch.
+      // The AI's costPerServing is still discarded for display; this is monitoring only.
+      console.log(`Recipe "${r.title}": qty source ai=${aiQtyCount} fallback=${fbQtyCount}`);
+      const aiClaimed = parseFloat(r.costPerServing);
+      const servings = r.servings || 4;
+      if (Number.isFinite(aiClaimed) && aiClaimed > 0 && servings > 0 && estimatedCost > 0) {
+        const serverPerServing = estimatedCost / servings;
+        const delta = Math.abs(serverPerServing - aiClaimed) / aiClaimed;
+        if (delta > 0.4) {
+          const deltaPercent = Math.round(delta * 100);
+          console.warn(`Recipe "${r.title}": cost-calc mismatch, server=$${serverPerServing.toFixed(2)}/serving, AI claimed $${aiClaimed.toFixed(2)}/serving (delta ${deltaPercent}%)`);
+        }
+      }
 
       return {
         id: `ai-${Date.now()}-${idx}`,

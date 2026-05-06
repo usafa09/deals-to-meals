@@ -67,7 +67,7 @@ app.use((req, res, next) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' https: data: blob: https://www.facebook.com",
-    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://analytics.google.com https://connect.facebook.net https://www.facebook.com",
+    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://connect.facebook.net https://www.facebook.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com",
     "frame-src https://www.facebook.com",
     "object-src 'none'",
     "base-uri 'self'"
@@ -206,6 +206,7 @@ app.get(['/profile.html', '/admin.html'], (req, res, next) => {
 app.get('/login.html', (req, res) => { res.redirect(301, '/profile.html'); });
 app.get('/login', (req, res) => { res.redirect(301, '/profile.html'); });
 app.get('/tips.html', (req, res) => { res.redirect(301, '/features.html'); });
+app.get('/tips-and-features.html', (req, res) => { res.redirect(301, '/features.html'); });
 app.get('*.map', (req, res) => { res.status(404).end(); });
 
 // ── HTML version injector — rewrites versioned asset URLs + meta tag ───────

@@ -393,6 +393,35 @@ function hardcodedQtyForDeal(matchedDeal) {
   return 1;
 }
 
+// ── Profile dietary normalization ───────────────────────────────────────────
+// Profile users can set dietary preferences in their account that flow through
+// req.body.preferences.dietary in various string forms (slugs from the
+// onboarding survey, capitalized labels from the profile page, etc.). This
+// helper maps those forms to canonical DIET_RULES keys so the same server-side
+// filter and post-gen sanity check that runs for chip-selected diets also
+// runs for profile-selected diets. Deliberately not mapped: "low-carb" (less
+// strict than Keto; users tolerate moderate bread/rice) and "nut-allergy"
+// (an allergy, not a DIET_RULES diet — belongs in prefs.dislikes).
+const _PROFILE_DIET_MAP = {
+  "vegetarian":  "Vegetarian",
+  "vegan":       "Vegan",
+  "gluten-free": "Gluten-Free",
+  "gluten_free": "Gluten-Free",
+  "glutenfree":  "Gluten-Free",
+  "dairy-free":  "Dairy-Free",
+  "dairy_free":  "Dairy-Free",
+  "dairyfree":   "Dairy-Free",
+  "halal":       "Halal",
+  "keto":        "Keto",
+  "kosher":      "Kosher",
+  "low calorie": "Low Calorie",
+  "low-calorie": "Low Calorie",
+};
+function normalizeProfileDiet(s) {
+  if (typeof s !== "string") return null;
+  return _PROFILE_DIET_MAP[s.trim().toLowerCase()] || null;
+}
+
 // ── Post-generation sanity check ────────────────────────────────────────────
 // AI sometimes invents ingredients that violate the active diet (e.g. "rice" in
 // a Keto recipe, or chicken+cream in a Kosher recipe — the meat-dairy rule the
@@ -625,13 +654,28 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       },
     };
 
+    // Merge profile dietary preferences with chip-selected diets. activeDiets
+    // is server-side only — the per-recipe response field still reflects the
+    // raw chip selections so the frontend behavior is unchanged.
+    let activeDiets = Array.isArray(diets) ? [...diets] : [];
+    if (prefs && prefs.dietary) {
+      const items = Array.isArray(prefs.dietary) ? prefs.dietary : [prefs.dietary];
+      for (const raw of items) {
+        const norm = normalizeProfileDiet(raw);
+        if (norm && !activeDiets.includes(norm)) activeDiets.push(norm);
+      }
+    }
+    if (activeDiets.length > diets?.length) {
+      console.log(`Profile dietary merged: chips=[${(diets||[]).join(",")}] → active=[${activeDiets.join(",")}]`);
+    }
+
     let filteredIngredients = [...ingredients];
     let dietNote = "";
-    if (diets?.length) {
+    if (activeDiets.length) {
       const allExcluded = new Set();
       const allExcludedWord = new Set();
       const rules = [];
-      for (const d of diets) {
+      for (const d of activeDiets) {
         const info = DIET_RULES[d];
         if (!info) continue;
         rules.push(info.rule);
@@ -649,7 +693,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
           return true;
         });
         const removed = before - filteredIngredients.length;
-        if (removed > 0) console.log(`Diet filter: removed ${removed} items that violate ${diets.join(", ")} restrictions`);
+        if (removed > 0) console.log(`Diet filter: removed ${removed} items that violate ${activeDiets.join(", ")} restrictions`);
       }
       dietNote = `\n\nSTRICT DIETARY RESTRICTIONS — THESE ARE ABSOLUTE AND MUST NEVER BE VIOLATED:\n${rules.join("\n")}\n\nI have already removed sale items that violate these restrictions from the list below. Do NOT add any ingredients that violate these rules. Do NOT suggest meat/fish/dairy substitutions if those are restricted. Every single recipe must fully comply.`;
     }
@@ -905,7 +949,7 @@ IMPORTANT ingredient type rules:
 
     // Post-generation sanity check: drop AI-generated recipes that violate active
     // diet restrictions. Defensive — falls back to unfiltered output on any error.
-    if (Array.isArray(parsed.recipes) && diets?.length) {
+    if (Array.isArray(parsed.recipes) && activeDiets.length) {
       try {
         const validateRecipes = (recipeList, activeDiets) => {
           const valid = [];
@@ -935,7 +979,7 @@ IMPORTANT ingredient type rules:
           return { valid, dropped };
         };
 
-        const result = validateRecipes(parsed.recipes, diets);
+        const result = validateRecipes(parsed.recipes, activeDiets);
         if (result.dropped.length > 0) {
           console.log(`Post-gen sanity check: dropped ${result.dropped.length}/${parsed.recipes.length} recipes for diet violations`);
           for (const d of result.dropped) {

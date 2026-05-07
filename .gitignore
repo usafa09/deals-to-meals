@@ -3,7 +3,7 @@ node_modules/
 .claude/settings.local.json
 public/app.min.js
 public/styles.min.css
-public/images/*.webp
+public/images/**/*.webp
 *.pem
 *.key
 *.p12

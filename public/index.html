@@ -3,25 +3,45 @@
 <head>
   <meta name="impact-site-verification" value="393a6d31-d505-4215-98c2-dcbf7f466365">
   <meta charset="UTF-8" />
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-41675D42V1"></script>
   <script>
+    // Google Analytics: inline init runs immediately so gtag() calls during page
+    // load queue to dataLayer; the actual gtag.js script load is deferred until
+    // window.load + 1000ms to free the main thread for above-the-fold content.
+    // Trade-off: visitors who bounce within ~1s of load fire no GA hit.
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-41675D42V1', { anonymize_ip: true });
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';
+        document.head.appendChild(s);
+      }, 1000);
+    });
   </script>
   <!-- Meta Pixel Code -->
   <script>
+  // Inline fbq stub + queue runs immediately so init/track calls queue up.
+  // The fbevents.js script load is deferred to window.load + 1000ms (same
+  // pattern as GA above). When the script loads, it drains the queue.
   !function(f,b,e,v,n,t,s)
   {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};
   if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
+  n.queue=[];}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '1651395862776794');
   fbq('track', 'PageView');
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      var t = document.createElement('script');
+      t.async = true;
+      t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(t, s);
+    }, 1000);
+  });
   </script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=1651395862776794&ev=PageView&noscript=1"
@@ -224,12 +244,30 @@
       <div class="landing-preview">
         <p class="landing-preview-caption">Real deals from local stores &darr;</p>
         <div class="landing-preview-grid">
-          <img src="/images/sample-deals/deal-01-bananas-aldi.png" width="480" height="388" alt="Bananas, $0.59/lb at ALDI &mdash; 30% off" />
-          <img src="/images/sample-deals/deal-02-ground-beef-kroger.png" width="480" height="390" alt="Ground Beef 80/20, 1 lb at Kroger &mdash; $4.99, 25% off" />
-          <img src="/images/sample-deals/deal-03-chicken-walmart.png" width="480" height="388" alt="Chicken Breast, 2.5 lb pack at Walmart &mdash; $7.49" />
-          <img src="/images/sample-deals/deal-04-eggs-kroger.png" width="480" height="390" loading="lazy" alt="Large Eggs, Dozen at Kroger &mdash; $1.99" />
-          <img src="/images/sample-deals/deal-05-yogurt-publix.png" width="480" height="388" loading="lazy" alt="Lancewood Yogurt, 6 oz at Publix &mdash; $2.49 with coupon" />
-          <img src="/images/sample-deals/deal-06-pasta-sauce-walmart.png" width="480" height="390" loading="lazy" alt="Marinara Sauce, 24 oz at Walmart &mdash; $9.99, 50% off, stock up" />
+          <picture>
+            <source srcset="/images/sample-deals/deal-01-bananas-aldi.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-01-bananas-aldi.png" width="480" height="388" loading="lazy" alt="Bananas, $0.59/lb at ALDI &mdash; 30% off" />
+          </picture>
+          <picture>
+            <source srcset="/images/sample-deals/deal-02-ground-beef-kroger.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-02-ground-beef-kroger.png" width="480" height="390" loading="lazy" alt="Ground Beef 80/20, 1 lb at Kroger &mdash; $4.99, 25% off" />
+          </picture>
+          <picture>
+            <source srcset="/images/sample-deals/deal-03-chicken-walmart.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-03-chicken-walmart.png" width="480" height="388" loading="lazy" alt="Chicken Breast, 2.5 lb pack at Walmart &mdash; $7.49" />
+          </picture>
+          <picture>
+            <source srcset="/images/sample-deals/deal-04-eggs-kroger.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-04-eggs-kroger.png" width="480" height="390" loading="lazy" alt="Large Eggs, Dozen at Kroger &mdash; $1.99" />
+          </picture>
+          <picture>
+            <source srcset="/images/sample-deals/deal-05-yogurt-publix.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-05-yogurt-publix.png" width="480" height="388" loading="lazy" alt="Lancewood Yogurt, 6 oz at Publix &mdash; $2.49 with coupon" />
+          </picture>
+          <picture>
+            <source srcset="/images/sample-deals/deal-06-pasta-sauce-walmart.webp" type="image/webp">
+            <img src="/images/sample-deals/deal-06-pasta-sauce-walmart.png" width="480" height="390" loading="lazy" alt="Marinara Sauce, 24 oz at Walmart &mdash; $9.99, 50% off, stock up" />
+          </picture>
         </div>
       </div>
     </div>

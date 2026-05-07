@@ -1252,6 +1252,7 @@ function canonicalBrandName(name){
 async function findStores() {
   const zip=document.getElementById("zipInput").value.trim();
   if(!/^\d{5}$/.test(zip) || zip.startsWith("000")){ showToast("Please enter a valid US ZIP code"); document.getElementById("zipInput").focus(); return; }
+  if (window.posthog) { window.posthog.capture('entered_zip', { zip }); }
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {
@@ -1605,6 +1606,7 @@ async function loadDealsAndShow() {
       return;
     }
     await renderSaleItems(); goTo(4);
+    if (window.posthog) { window.posthog.capture('viewed_deals', { zip: state.zip, deal_count: (state.deals || []).length }); }
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
@@ -1919,6 +1921,7 @@ async function searchRecipes() {
     }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     trackRecipeGenerated();
+    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length }); }
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
@@ -2076,6 +2079,7 @@ async function generateFreezerMeals() {
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();
+    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length }); }
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2442,6 +2446,7 @@ async function generateWeeklyPlan() {
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackRecipeGenerated();
     trackAnonRecipeGeneration();
+    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length }); }
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;
@@ -3025,6 +3030,7 @@ function connectKrogerFromList() {
 }
 
 async function addListToKrogerCart() {
+  if (window.posthog) { window.posthog.capture('clicked_kroger_cart', { item_count: (state.shoppingList || []).length }); }
   // Open tab immediately on user click to avoid popup blocker
   // (window.open inside async callbacks gets blocked by browsers)
   const KROGER_CART_URLS = {

@@ -3264,7 +3264,14 @@ function addCheckedToList() {
       if (added) count++;
     }
   });
-  if (window.posthog) { window.posthog.capture('added_recipe_to_list', { recipe_title: r.title, item_count: count }); }
+  if (window.posthog) {
+    window.posthog.capture('added_recipe_to_list', {
+      recipe_type: state._isFreezerPlan ? 'freezer' : (state._isWeeklyPlan ? 'weekly' : 'meal_plan'),
+      list_size: (state.shoppingList || []).length,
+      recipe_title: r.title,
+      item_count: count
+    });
+  }
   if (count > 0) showToast(`Added ${count} items to shopping list`, "success");
   else showToast("Items already in list", "success");
   renderModal(r);

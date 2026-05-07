@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    // Google Analytics inline init — runs synchronously so gtag() calls during
+    // page load queue to dataLayer. The actual gtag.js script download is
+    // gated below (interaction-or-timeout).
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-41675D42V1', { anonymize_ip: true });
+
+    // Facebook Pixel inline stub + queue.
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1651395862776794');
+    fbq('track', 'PageView');
+
+    // Interaction-gated tracker load.
+    var _trackersLoaded = false;
+    function loadTrackers() {
+      if (_trackersLoaded) return;
+      _trackersLoaded = true;
+      var ga = document.createElement('script');
+      ga.async = true;
+      ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';
+      document.head.appendChild(ga);
+      var fb = document.createElement('script');
+      fb.async = true;
+      fb.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(fb, s);
+    }
+    ['scroll','click','touchstart','keydown','mousemove'].forEach(function(ev) {
+      window.addEventListener(ev, loadTrackers, { once: true, passive: true });
+    });
+    setTimeout(loadTrackers, 4000);
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1651395862776794&ev=PageView&noscript=1"
+  /></noscript>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Affiliate Disclosure — Dishcount</title>
+  <!-- PostHog -->
+  <script>
+      !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Mi Ri init Vi Gi Rr Wi Ji Bi capture calculateEventProperties tn register register_once register_for_session unregister unregister_for_session an getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync un identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty nn Xi createPersonProfile setInternalOrTestUser sn Hi cn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ki debug Lr rn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+      posthog.init('phc_xgzVu5b8NobAzGooeWqkAySEnNnDo2D9PEMxnxCavmGT', {
+          api_host: 'https://us.i.posthog.com',
+          defaults: '2026-01-30',
+          person_profiles: 'identified_only',
+      })
+  </script>
+  <link rel="canonical" href="https://dishcount.co/disclosures.html">
+  <meta name="description" content="Dishcount's affiliate disclosure — the programs we participate in and how affiliate compensation does and doesn't influence what we surface." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥬</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.min.css" />
+  <style>
+    :root {
+      --green-dark: #2d6a4f;
+      --cream: #fffdf7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: #333; }
+
+    /* Page header */
+    .page-header { background: #1a2e1f; padding: 120px 24px 60px; text-align: center; }
+    .page-header h1 { font-family: 'Outfit', sans-serif; font-size: 42px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+    .page-header p { color: #b6c7ba; font-size: 16px; line-height: 1.6; max-width: 640px; margin: 0 auto; }
+    .page-header .effective-date { color: #7a8b7d; font-size: 14px; margin-top: 10px; }
+
+    /* Content */
+    .disclosures-content { max-width: 760px; margin: 0 auto; padding: 60px 24px; background: var(--cream); }
+    .disclosures-content h2 { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700; color: var(--green-dark); border-bottom: 2px solid #e8e0d0; padding-bottom: 8px; margin-top: 40px; margin-bottom: 16px; }
+    .disclosures-content h2:first-child { margin-top: 0; }
+    .disclosures-content p { font-size: 15px; line-height: 1.8; color: #444; margin-bottom: 12px; }
+    .disclosures-content ul { font-size: 15px; line-height: 1.8; color: #444; margin: 0 0 16px 24px; padding-left: 0; }
+    .disclosures-content ul li { margin-bottom: 4px; }
+    .disclosures-content a { color: var(--green-dark); text-decoration: underline; text-underline-offset: 2px; }
+    .disclosures-content a:hover { color: #1a2e1f; }
+
+    /* Footer */
+    footer a:hover { color: #ccc !important; }
+
+    /* Mobile */
+    @media (max-width: 500px) {
+      .page-header { padding: 52px 20px 40px; }
+      .page-header h1 { font-size: 30px; }
+      .landing-nav-links { display: none; }
+      .disclosures-content { padding: 40px 18px; }
+      .disclosures-content h2 { font-size: 19px; margin-top: 32px; }
+    }
+  </style>
+  <meta property="og:title" content="Affiliate Disclosure — Dishcount" />
+  <meta property="og:description" content="The affiliate programs Dishcount participates in and how affiliate compensation does and doesn't influence what we surface." />
+  <meta property="og:image" content="https://dishcount.co/images/og-hero.jpg" />
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://dishcount.co/disclosures.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Dishcount" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Affiliate Disclosure — Dishcount" />
+  <meta name="twitter:description" content="The affiliate programs Dishcount participates in and how affiliate compensation does and doesn't influence what we surface." />
+  <meta name="twitter:image" content="https://dishcount.co/images/og-hero.jpg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+</head>
+<body>
+<a href="#main-content" class="skip-nav">Skip to main content</a>
+<noscript><div style="text-align:center;padding:60px 20px;font-family:'Trebuchet MS',sans-serif;"><h1 style="color:#2d6a4f;">Dishcount</h1><p style="font-size:18px;color:#666;">Dishcount requires JavaScript to run. Please enable JavaScript in your browser and reload the page.</p></div></noscript>
+
+<nav class="landing-nav">
+  <div class="landing-nav-inner">
+    <div class="nav-left" style="position:relative;z-index:9000;">
+  <button id="hamBtn" type="button" onclick="var m=document.getElementById('hamMenu');m.style.display=m.style.display==='block'?'none':'block'" style="background:none;border:none;color:#c8d6cb;font-size:28px;cursor:pointer;padding:8px 12px;-webkit-tap-highlight-color:rgba(255,255,255,0.2);touch-action:manipulation;" aria-label="Menu">&#9776;</button>
+  <div id="hamMenu" style="display:none;position:absolute;top:100%;left:0;background:#1a2e1f;border:1px solid #52b788;border-radius:12px;padding:8px 0;min-width:200px;z-index:9001;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+    <a href="/#how-it-works" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;" onclick="document.getElementById('hamMenu').style.display='none'">How It Works</a>
+    <a href="/blog/" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Blog</a>
+    <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
+    <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
+    <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
+    <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
+  </div>
+</div>
+    <a href="/" class="logo-link" aria-label="Dishcount — Meals from Deals" style="display:flex;align-items:center;gap:1px;text-decoration:none;">
+      <svg width="42" height="48" viewBox="0 0 52 60" aria-hidden="true" style="flex-shrink:0;"><path d="M15 8 L15 52 Q48 52 48 30 Q48 8 15 8 Z" fill="#1a2e1f" stroke="#52b788" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="29" cy="30" r="10" fill="none" stroke="#52b788" stroke-width="1.8"/><line x1="26" y1="25" x2="26" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><line x1="24.5" y1="25" x2="24.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="27.5" y1="25" x2="27.5" y2="28" stroke="#52b788" stroke-width="1" stroke-linecap="round"/><line x1="32" y1="28" x2="32" y2="36" stroke="#52b788" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="32" cy="26.5" rx="2" ry="2.5" fill="#52b788"/></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">D</span><span style="display:flex;flex-direction:column;line-height:1.1;"><span style="font-size:22px;font-weight:bold;font-family:'Trebuchet MS',sans-serif;"><span style="color:#e8f0ea;">ish</span><span style="color:#D97706;">count</span></span><span class="logo-tagline" style="font-size:9px;color:#9ca38f;letter-spacing:1.5px;text-transform:uppercase;font-family:'Trebuchet MS',sans-serif;">Meals from Deals</span></span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="/#how-it-works">How It Works</a>
+      <a href="/blog/">Blog</a>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
+    <div class="nav-right"><span onclick="toggleSlideout()" class="nav-cart-badge">&#128722; 0</span> <a href="/profile.html" class="nav-signin">Sign In</a></div>
+  </div>
+</nav>
+
+<header class="page-header">
+  <h1>Affiliate Disclosure</h1>
+  <p>How Dishcount earns when it earns, and what that does and doesn't change about what we surface.</p>
+  <p class="effective-date">Last updated: May 7, 2026</p>
+</header>
+
+<main class="disclosures-content content-page" id="main-content">
+
+  <h2>Affiliate Disclosure</h2>
+  <p>Dishcount is a free service. To help fund continued development, we participate in affiliate programs with select grocery retailers and platforms. When you click certain links on our site and complete a purchase, we may earn a small commission at no additional cost to you.</p>
+
+  <p>Affiliate links never affect which deals or recipes Dishcount surfaces &mdash; those are determined by your local store data and your preferences, not by which retailers compensate us.</p>
+
+  <h2>Programs we participate in</h2>
+  <p>We currently participate in (or have applied to) the following programs:</p>
+  <ul>
+    <li>Amazon Associates</li>
+    <li>Kroger affiliate program (via FlexOffers)</li>
+    <li>Walmart affiliate program (via Impact)</li>
+    <li>Instacart affiliate program (via Impact)</li>
+  </ul>
+  <p>Affiliate compensation is the only commercial relationship we have with these retailers. We are not paid by any retailer to feature their deals or promote specific products in our recipes.</p>
+
+  <h2>Questions</h2>
+  <p>Questions about this disclosure or how affiliate links appear in the product? <a href="/contact.html">Contact us</a> or email <a href="mailto:bill.mccormick@dishcount.co">bill.mccormick@dishcount.co</a>.</p>
+
+</main>
+
+<footer style="background:#1a2e1f;padding:32px 24px;text-align:center">
+  <p style="font-size:14px;color:#b7c7ba;line-height:1.8">Dishcount &mdash; Meals from Deals &middot; Built in Dayton, Ohio &middot; <a href="/blog/" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Blog</a> &middot; <a href="/about.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">About</a> &middot; <a href="/features.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Features</a> &middot; <a href="/contact.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Contact</a> &middot; <a href="/tips.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Tips</a> &middot; <a href="/terms.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Terms</a> &middot; <a href="/privacy.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Privacy</a></p>
+  <p style="font-size:13px;color:#5a6b5d;margin-top:4px">&copy; 2026 Dishcount. All rights reserved.</p>
+  <p style="margin-top:12px;font-size:12px;color:#8fb89a;line-height:1.5;max-width:720px;margin-left:auto;margin-right:auto">Dishcount participates in affiliate programs. We may earn a commission from qualifying purchases at no additional cost to you. <a href="/disclosures.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Learn more</a>.</p>
+</footer>
+
+<script>
+document.addEventListener("click",function(e){var m=document.getElementById("hamMenu");var btn=document.getElementById("hamBtn");if(m&&btn&&m.style.display==="block"&&!btn.contains(e.target)&&!m.contains(e.target))m.style.display="none";});
+</script>
+</body>
+</html>

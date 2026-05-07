@@ -30,7 +30,22 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .has-tooltip:hover .tooltip, .has-tooltip.tap-active .tooltip { visibility: visible; opacity: 1; }
 
 /* ══ Landing Hero ══ */
-.landing-hero { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; background: url('/images/og-hero.jpg') center/cover no-repeat; padding: 120px 24px 80px; }
+/* Two background declarations stacked. Browsers without image-set support
+   (rare in 2026) parse the first and use the JPG. Modern browsers parse both
+   and the second one wins, choosing WebP when supported, JPG otherwise. */
+.landing-hero {
+  background: url('/images/og-hero.jpg') center/cover no-repeat;
+  background: image-set(
+    url('/images/og-hero.webp') type('image/webp'),
+    url('/images/og-hero.jpg') type('image/jpeg')
+  ) center/cover no-repeat;
+  position: relative;
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 24px 80px;
+}
 .landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.9) 0%, rgba(26,46,31,0.8) 50%, rgba(26,46,31,0.92) 100%); pointer-events: none; }
 .landing-hero-content { position: relative; z-index: 1; text-align: center; max-width: 720px; }
 .landing-badge { display: inline-block; padding: 8px 20px; border-radius: 24px; background: #A85D05; border: 1px solid #A85D05; color: #FFFFFF; font-size: 14px; font-weight: 700; margin-bottom: 24px; }

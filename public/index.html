@@ -55,6 +55,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://bvwwtrwxnuncalgtuqvx.supabase.co">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <!-- Preload the hero image (LCP element on the homepage) so the request fires
+       during HTML parse instead of waiting for styles.min.css to be downloaded
+       and the .landing-hero rule to be discovered. type="image/webp" makes the
+       browser skip this preload if WebP isn't supported (rare in 2026). -->
+  <link rel="preload" as="image" href="/images/og-hero.webp" type="image/webp" fetchpriority="high">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.min.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

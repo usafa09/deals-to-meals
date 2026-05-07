@@ -4,44 +4,52 @@
   <meta name="impact-site-verification" value="393a6d31-d505-4215-98c2-dcbf7f466365">
   <meta charset="UTF-8" />
   <script>
-    // Google Analytics: inline init runs immediately so gtag() calls during page
-    // load queue to dataLayer; the actual gtag.js script load is deferred until
-    // window.load + 1000ms to free the main thread for above-the-fold content.
-    // Trade-off: visitors who bounce within ~1s of load fire no GA hit.
+    // Google Analytics inline init — runs synchronously so gtag() calls during
+    // page load queue to dataLayer. The actual gtag.js script download is
+    // gated below (interaction-or-timeout).
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-41675D42V1', { anonymize_ip: true });
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        var s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';
-        document.head.appendChild(s);
-      }, 1000);
-    });
-  </script>
-  <!-- Meta Pixel Code -->
-  <script>
-  // Inline fbq stub + queue runs immediately so init/track calls queue up.
-  // The fbevents.js script load is deferred to window.load + 1000ms (same
-  // pattern as GA above). When the script loads, it drains the queue.
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '1651395862776794');
-  fbq('track', 'PageView');
-  window.addEventListener('load', function() {
-    setTimeout(function() {
-      var t = document.createElement('script');
-      t.async = true;
-      t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+
+    // Facebook Pixel inline stub + queue — same pattern. fbq() calls queue
+    // until fbevents.js loads and drains the queue.
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1651395862776794');
+    fbq('track', 'PageView');
+
+    // Interaction-gated tracker load. The actual third-party scripts (gtag.js
+    // and fbevents.js) load on the first user interaction (scroll, click,
+    // touch, key, mousemove) OR after 4 seconds — whichever comes first. This
+    // pushes their parse + execution out of the FCP→TTI window for users still
+    // forming a first impression. Past the moment the user interacts, TBT no
+    // longer reflects perceived performance.
+    //
+    // Trade-off: a visitor who lands and bounces within 4s without any
+    // interaction will not be tracked. Acceptable — non-converting cohort,
+    // and we're trading granularity for first-impression speed.
+    var _trackersLoaded = false;
+    function loadTrackers() {
+      if (_trackersLoaded) return;
+      _trackersLoaded = true;
+      var ga = document.createElement('script');
+      ga.async = true;
+      ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';
+      document.head.appendChild(ga);
+      var fb = document.createElement('script');
+      fb.async = true;
+      fb.src = 'https://connect.facebook.net/en_US/fbevents.js';
       var s = document.getElementsByTagName('script')[0];
-      s.parentNode.insertBefore(t, s);
-    }, 1000);
-  });
+      s.parentNode.insertBefore(fb, s);
+    }
+    ['scroll','click','touchstart','keydown','mousemove'].forEach(function(ev) {
+      window.addEventListener(ev, loadTrackers, { once: true, passive: true });
+    });
+    setTimeout(loadTrackers, 4000);
   </script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=1651395862776794&ev=PageView&noscript=1"

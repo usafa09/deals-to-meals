@@ -63,11 +63,11 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net https://us-assets.i.posthog.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' https: data: blob: https://www.facebook.com",
-    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://connect.facebook.net https://www.facebook.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com",
+    "connect-src 'self' https://bvwwtrwxnuncalgtuqvx.supabase.co https://cdn.jsdelivr.net https://api.kroger.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://connect.facebook.net https://www.facebook.com https://fonts.googleapis.com https://fonts.gstatic.com https://www.google.com https://us.i.posthog.com https://us-assets.i.posthog.com",
     "frame-src https://www.facebook.com",
     "object-src 'none'",
     "base-uri 'self'"

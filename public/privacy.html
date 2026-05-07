@@ -302,6 +302,52 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://dishcount.co/#organization",
+        "name": "Dishcount",
+        "alternateName": "Dishcount — Meals from Deals",
+        "url": "https://dishcount.co",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://dishcount.co/icon-512x512.png",
+          "width": 512,
+          "height": 512
+        },
+        "description": "Dishcount turns this week's grocery deals into personalized meal plans. Free, no signup required.",
+        "founder": { "@id": "https://dishcount.co/#bill" },
+        "foundingLocation": {
+          "@type": "Place",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Dayton",
+            "addressRegion": "OH",
+            "addressCountry": "US"
+          }
+        },
+        "sameAs": ["https://www.facebook.com/dishcountapp/"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://dishcount.co/#website",
+        "name": "Dishcount",
+        "alternateName": ["Dishcount — Meals from Deals", "Dish Count"],
+        "url": "https://dishcount.co",
+        "description": "Turn local grocery deals into personalized meals. Pick nearby stores, browse weekly sales, and get recipe ideas based on what's actually affordable.",
+        "publisher": { "@id": "https://dishcount.co/#organization" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://dishcount.co/?zip={zip_code}",
+          "query-input": "required name=zip_code"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
 <a href="#main-content" class="skip-nav">Skip to main content</a>

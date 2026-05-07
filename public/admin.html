@@ -314,6 +314,8 @@
       <a href="#" data-section="overview" class="active" onclick="navigate('overview',this)">&#x1F4CA; Overview</a>
       <a href="#" data-section="users" onclick="navigate('users',this)">&#x1F465; Users</a>
       <a href="#" data-section="messages" onclick="navigate('messages',this)">&#x1F4AC; Messages <span class="badge" id="unread-badge" style="display:none">0</span></a>
+      <a href="#" data-section="subscribers" onclick="navigate('subscribers',this)">&#x1F4EC; Subscribers <span class="badge" id="unread-badge-subscribers" style="display:none">0</span></a>
+      <a href="#" data-section="store-requests" onclick="navigate('store-requests',this)">&#x1F3EA; Store Requests <span class="badge" id="unread-badge-store-requests" style="display:none">0</span></a>
       <a href="#" data-section="deals" onclick="navigate('deals',this)">&#x1F3F7;&#xFE0F; Deals &amp; Stores</a>
       <a href="#" data-section="api-usage" onclick="navigate('api-usage',this)">&#x1F4B0; API Usage</a>
       <a href="#" data-section="searches" onclick="navigate('searches',this)">&#x1F4CD; Searches</a>
@@ -442,6 +444,8 @@ function navigate(section, el) {
     overview: renderOverview,
     users: renderUsers,
     messages: renderMessages,
+    subscribers: renderSubscribers,
+    "store-requests": renderStoreRequests,
     deals: renderDeals,
     "api-usage": renderApiUsage,
     searches: renderSearches,
@@ -550,12 +554,21 @@ async function renderOverview() {
       </div>
     `;
 
-    // Update unread badge
-    if (data.unreadMessages && data.unreadMessages > 0) {
-      const badge = document.getElementById("unread-badge");
-      badge.textContent = data.unreadMessages;
-      badge.style.display = "inline";
+    // Update unread badges (Messages, Subscribers, Store Requests).
+    // Mirrors the existing pattern: badge only refreshes when Overview re-renders.
+    function setBadge(id, count) {
+      const badge = document.getElementById(id);
+      if (!badge) return;
+      if (count && count > 0) {
+        badge.textContent = count;
+        badge.style.display = "inline";
+      } else {
+        badge.style.display = "none";
+      }
     }
+    setBadge("unread-badge", data.unreadMessages);
+    setBadge("unread-badge-subscribers", data.unreadSubscribers);
+    setBadge("unread-badge-store-requests", data.unreadStoreRequests);
 
     // Signup chart
     const signups = data.signupsByDay || [];
@@ -814,6 +827,184 @@ async function deleteMsg(id) {
     showToast("Message deleted");
   } else {
     showToast("Failed to delete message", true);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SUBSCRIBERS SECTION
+//  Mirrors the Messages section: list ordered newest-first, bold rows for
+//  unread, mark-read toggle + delete per row. No expand-detail row since
+//  there's no message body to expand.
+// ═══════════════════════════════════════════════════
+let subscribersData = [];
+
+async function renderSubscribers() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Subscribers</h1>
+      <button class="refresh-btn" onclick="renderSubscribers()">&#x21BB; Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="subscribers-table">${loading()}</div>
+    </div>
+  `;
+  try {
+    const res = await adminFetch("/api/admin/subscribers");
+    if (!res) return;
+    const data = await res.json();
+    subscribersData = data.subscribers || [];
+    renderSubscribersTable();
+  } catch (err) {
+    document.getElementById("subscribers-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load subscribers: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderSubscribersTable() {
+  document.getElementById("subscribers-table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Subscribed</th>
+          <th>Email</th>
+          <th>ZIP</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${subscribersData.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No subscribers</td></tr>` :
+          subscribersData.map(s => `
+            <tr style="${s.read ? '' : 'font-weight:600'}">
+              <td>${fmtDateTime(s.subscribed_at)}</td>
+              <td>${escHtml(s.email || "—")}</td>
+              <td>${escHtml(s.zip || "—")}</td>
+              <td>${s.read ? '<span class="badge-pill badge-green">Read</span>' : '<span class="badge-pill badge-red">Unread</span>'}</td>
+              <td style="white-space:nowrap">
+                <button class="btn btn-sm btn-outline" onclick="toggleSubscriberRead('${s.id}', ${!s.read})">${s.read ? "Mark Unread" : "Mark Read"}</button>
+                ${s.email ? `<a class="btn btn-sm btn-primary" href="mailto:${escHtml(s.email)}" style="text-decoration:none;color:white;margin-left:4px">Reply</a>` : ""}
+                <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteSubscriber('${s.id}')">Delete</button>
+              </td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function toggleSubscriberRead(id, read) {
+  const res = await adminFetch(`/api/admin/subscribers/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ read }),
+  });
+  if (res && res.ok) {
+    const row = subscribersData.find(s => String(s.id) === String(id));
+    if (row) row.read = read;
+    renderSubscribersTable();
+    showToast(read ? "Marked as read" : "Marked as unread");
+  } else {
+    showToast("Failed to update subscriber", true);
+  }
+}
+
+async function deleteSubscriber(id) {
+  if (!confirm("Delete this subscriber?")) return;
+  const res = await adminFetch(`/api/admin/subscribers/${id}`, { method: "DELETE" });
+  if (res && res.ok) {
+    subscribersData = subscribersData.filter(s => String(s.id) !== String(id));
+    renderSubscribersTable();
+    showToast("Subscriber deleted");
+  } else {
+    showToast("Failed to delete subscriber", true);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  STORE REQUESTS SECTION
+//  Same pattern as Subscribers — schema differs (store_name + zip + created_at)
+//  but the UX (list, mark-read, delete) is identical.
+// ═══════════════════════════════════════════════════
+let storeRequestsData = [];
+
+async function renderStoreRequests() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `
+    <div class="main-header">
+      <h1>Store Requests</h1>
+      <button class="refresh-btn" onclick="renderStoreRequests()">&#x21BB; Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll" id="store-requests-table">${loading()}</div>
+    </div>
+  `;
+  try {
+    const res = await adminFetch("/api/admin/store-requests");
+    if (!res) return;
+    const data = await res.json();
+    storeRequestsData = data.storeRequests || [];
+    renderStoreRequestsTable();
+  } catch (err) {
+    document.getElementById("store-requests-table").innerHTML = `<p style="color:var(--red);padding:20px">Failed to load store requests: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderStoreRequestsTable() {
+  document.getElementById("store-requests-table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Requested</th>
+          <th>Store</th>
+          <th>ZIP</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${storeRequestsData.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No store requests</td></tr>` :
+          storeRequestsData.map(r => `
+            <tr style="${r.read ? '' : 'font-weight:600'}">
+              <td>${fmtDateTime(r.created_at)}</td>
+              <td>${escHtml(r.store_name || "—")}</td>
+              <td>${escHtml(r.zip || "—")}</td>
+              <td>${r.read ? '<span class="badge-pill badge-green">Read</span>' : '<span class="badge-pill badge-red">Unread</span>'}</td>
+              <td style="white-space:nowrap">
+                <button class="btn btn-sm btn-outline" onclick="toggleStoreRequestRead('${r.id}', ${!r.read})">${r.read ? "Mark Unread" : "Mark Read"}</button>
+                <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteStoreRequest('${r.id}')">Delete</button>
+              </td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function toggleStoreRequestRead(id, read) {
+  const res = await adminFetch(`/api/admin/store-requests/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ read }),
+  });
+  if (res && res.ok) {
+    const row = storeRequestsData.find(r => String(r.id) === String(id));
+    if (row) row.read = read;
+    renderStoreRequestsTable();
+    showToast(read ? "Marked as read" : "Marked as unread");
+  } else {
+    showToast("Failed to update store request", true);
+  }
+}
+
+async function deleteStoreRequest(id) {
+  if (!confirm("Delete this store request?")) return;
+  const res = await adminFetch(`/api/admin/store-requests/${id}`, { method: "DELETE" });
+  if (res && res.ok) {
+    storeRequestsData = storeRequestsData.filter(r => String(r.id) !== String(id));
+    renderStoreRequestsTable();
+    showToast("Store request deleted");
+  } else {
+    showToast("Failed to delete store request", true);
   }
 }
 

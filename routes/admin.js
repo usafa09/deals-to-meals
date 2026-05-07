@@ -46,11 +46,15 @@ router.get("/api/admin/stats", adminAuth, async (req, res) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const weekStart = new Date(now - 7 * 86400000).toISOString();
 
-    const [usersRes, newWeekRes, msgsRes, unreadRes, cacheRes, pointsVal] = await Promise.all([
+    const [usersRes, newWeekRes, msgsRes, unreadRes, subsRes, subsUnreadRes, srRes, srUnreadRes, cacheRes, pointsVal] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }).gte("updated_at", weekStart),
       supabase.from("contact_messages").select("id", { count: "exact", head: true }),
       supabase.from("contact_messages").select("id", { count: "exact", head: true }).eq("read", false),
+      supabase.from("email_subscribers").select("id", { count: "exact", head: true }),
+      supabase.from("email_subscribers").select("id", { count: "exact", head: true }).eq("read", false),
+      supabase.from("store_requests").select("id", { count: "exact", head: true }),
+      supabase.from("store_requests").select("id", { count: "exact", head: true }).eq("read", false),
       supabase.from("deal_cache").select("cache_key, fetched_at"),
       getDailyPoints(),
     ]);
@@ -67,6 +71,10 @@ router.get("/api/admin/stats", adminAuth, async (req, res) => {
       newUsersWeek: newWeekRes.count || 0,
       totalMessages: msgsRes.count || 0,
       unreadMessages: unreadRes.count || 0,
+      totalSubscribers: subsRes.count || 0,
+      unreadSubscribers: subsUnreadRes.count || 0,
+      totalStoreRequests: srRes.count || 0,
+      unreadStoreRequests: srUnreadRes.count || 0,
       totalCached: cacheData.length,
       freshStores: freshCount,
       spoonacularPoints: pointsVal,
@@ -123,6 +131,61 @@ router.patch("/api/admin/messages/:id", adminAuth, async (req, res) => {
 router.delete("/api/admin/messages/:id", adminAuth, async (req, res) => {
   try {
     const { error } = await supabase.from("contact_messages").delete().eq("id", req.params.id);
+    if (error) throw new Error(error.message);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ══ SUBSCRIBERS ══════════════════════════════════════════════════════════════
+// Mirrors the Messages endpoints exactly. Order by subscribed_at desc so newest
+// signups land at the top of the admin list.
+
+router.get("/api/admin/subscribers", adminAuth, async (req, res) => {
+  try {
+    const { data } = await supabase.from("email_subscribers").select("*").order("subscribed_at", { ascending: false });
+    res.json({ subscribers: data || [] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch("/api/admin/subscribers/:id", adminAuth, async (req, res) => {
+  try {
+    const { read } = req.body;
+    const { error } = await supabase.from("email_subscribers").update({ read }).eq("id", req.params.id);
+    if (error) throw new Error(error.message);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete("/api/admin/subscribers/:id", adminAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from("email_subscribers").delete().eq("id", req.params.id);
+    if (error) throw new Error(error.message);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ══ STORE REQUESTS ═══════════════════════════════════════════════════════════
+// Same pattern; ordered by created_at desc.
+
+router.get("/api/admin/store-requests", adminAuth, async (req, res) => {
+  try {
+    const { data } = await supabase.from("store_requests").select("*").order("created_at", { ascending: false });
+    res.json({ storeRequests: data || [] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch("/api/admin/store-requests/:id", adminAuth, async (req, res) => {
+  try {
+    const { read } = req.body;
+    const { error } = await supabase.from("store_requests").update({ read }).eq("id", req.params.id);
+    if (error) throw new Error(error.message);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete("/api/admin/store-requests/:id", adminAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from("store_requests").delete().eq("id", req.params.id);
     if (error) throw new Error(error.message);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -199,6 +199,97 @@
 
     .article-body a:hover { color: #74c69d; }
 
+    /* ── Comparison table ─────────────────────────────────────────────── */
+    .comp-intro {
+      font-size: 15px;
+      color: #b0bfb3;
+      font-style: italic;
+      margin: 28px 0 12px;
+    }
+
+    .comp-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 0 0 36px;
+      background: #1a2e1f;
+      border: 1px solid #26402c;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* Caption is screen-reader only — the visible intro paragraph above the
+       table serves the same role for sighted users. */
+    .comp-table caption {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+
+    .comp-table thead th {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 14px 16px;
+      text-align: left;
+    }
+
+    .comp-table thead .comp-label-head {
+      background: transparent;
+      border-bottom: 2px solid #26402c;
+    }
+
+    .comp-table thead .comp-d-head {
+      background: #1a2e1f;
+      color: #fffdf7;
+      border-bottom: 2px solid #52b788;
+    }
+
+    .comp-table thead .comp-f-head {
+      background: #f0f0f0;
+      color: #1a1a1a;
+      border-bottom: 2px solid #cccccc;
+    }
+
+    .comp-table tbody th.comp-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #d97706;
+      text-align: left;
+      vertical-align: middle;
+      padding: 14px 16px;
+      width: 28%;
+      white-space: nowrap;
+    }
+
+    .comp-table tbody td {
+      color: #d8e3da;
+      padding: 14px 16px;
+      vertical-align: middle;
+      font-size: 15px;
+    }
+
+    .comp-table tbody tr + tr th,
+    .comp-table tbody tr + tr td {
+      border-top: 1px solid #26402c;
+    }
+
+    /* Subtle alternating row tint — barely-there overlay over the card-style
+       background so the table reads as banded without breaking the dark theme. */
+    .comp-table tbody tr:nth-child(even) th,
+    .comp-table tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
     .article-cta {
       background: linear-gradient(135deg, #1a2e1f 0%, #26402c 100%);
       border: 1px solid #2d6a4f;
@@ -289,6 +380,20 @@
       .article-body { padding: 30px 20px 60px; font-size: 16px; }
       .article-body .lede { font-size: 18px; }
       .article-body h2 { font-size: 24px; }
+      /* Comparison table: keep side-by-side on phones (the side-by-side view IS
+         the point of a comparison) but trim font and padding so it fits. */
+      .comp-table { font-size: 13px; }
+      .comp-table thead th,
+      .comp-table tbody td,
+      .comp-table tbody th.comp-label { padding: 10px 10px; }
+      .comp-table thead .comp-d-head,
+      .comp-table thead .comp-f-head { font-size: 12px; letter-spacing: 0.6px; }
+      .comp-table tbody th.comp-label {
+        font-size: 10px;
+        letter-spacing: 1px;
+        white-space: normal;
+        width: 26%;
+      }
     }
   </style>
 </head>
@@ -339,6 +444,50 @@
     <article class="article-body">
 
       <p class="lede">I've used Flipp. I built Dishcount. They get talked about as alternatives, and I get asked a lot about how they compare and if they're alternatives to one another. They're not really alternatives. They're solving different problems. Here's what each is actually for, and when to use which one.</p>
+
+      <p class="comp-intro">The short version, then the longer one:</p>
+      <table class="comp-table">
+        <caption>Dishcount vs Flipp: side-by-side comparison</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="comp-label-head"><span class="sr-only">Category</span></th>
+            <th scope="col" class="comp-d-head">Dishcount</th>
+            <th scope="col" class="comp-f-head">Flipp</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" class="comp-label">Best for</th>
+            <td>Building meals around what's on sale</td>
+            <td>Browsing weekly ads from many stores</td>
+          </tr>
+          <tr>
+            <th scope="row" class="comp-label">Output</th>
+            <td>Recipes plus a cart-ready list</td>
+            <td>Weekly ads</td>
+          </tr>
+          <tr>
+            <th scope="row" class="comp-label">Coverage</th>
+            <td>80+ US chains, structured deal data</td>
+            <td>1,600+ retailers, ad images</td>
+          </tr>
+          <tr>
+            <th scope="row" class="comp-label">Recipes</th>
+            <td>Built from your local deals and personal preferences</td>
+            <td>Not the focus</td>
+          </tr>
+          <tr>
+            <th scope="row" class="comp-label">Cart integration</th>
+            <td>Export your shopping list to any Kroger brand store</td>
+            <td>None. Print or save to phone.</td>
+          </tr>
+          <tr>
+            <th scope="row" class="comp-label">Use it when</th>
+            <td>&ldquo;I want to save on groceries and make meal planning easier&rdquo;</td>
+            <td>&ldquo;What&rsquo;s on sale near me?&rdquo;</td>
+          </tr>
+        </tbody>
+      </table>
 
       <h2>What Flipp is actually for</h2>
 

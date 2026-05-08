@@ -9,3 +9,4 @@ public/images/**/*.webp
 *.p12
 *.pfx
 scripts/migrations/
+scripts/analysis/output/

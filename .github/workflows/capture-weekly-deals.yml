@@ -1,0 +1,43 @@
+name: Capture weekly deal snapshots
+
+# Schedule fires Wednesdays at 11:00 UTC.
+# DST note: that is 6am EST in winter and 7am EDT in summer. Exact hour does
+# not matter much for grocery weekly-ad snapshots — chains drop new ads
+# overnight Tuesday→Wednesday and prices stay stable through the day. The
+# 1-hour DST drift is acceptable.
+on:
+  schedule:
+    - cron: '0 11 * * 3'
+  workflow_dispatch: {}
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run weekly capture
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/cron/capture-weekly-deals.js 2>&1 | tee capture.log
+
+      - name: Upload log artifact on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capture-log-${{ github.run_id }}
+          path: capture.log
+          retention-days: 14

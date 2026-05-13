@@ -892,7 +892,7 @@ const RECIPE_STYLES = [
 const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie","Halal","Keto","Vegan","Kosher"];
 
 let state = {
-  zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
+  zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, selectedKrogerIds:[],
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
   selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
   userPreferences:null, survey:{household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""},
@@ -981,7 +981,7 @@ function renderProgress(step) {
 }
 function resetApp() {
   const preservedSession = state.session;
-  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[], session:preservedSession };
+  state = { zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null, selectedKrogerIds:[], deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all", selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[], session:preservedSession };
   document.getElementById("zipInput").value = "";
 }
 let cookingInterval = null;
@@ -1333,8 +1333,11 @@ async function findStores() {
 async function renderStoreBrands() {
   await ensureAppScreens();
   document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
+  // Default-select every store that already has deals so the visual ✓ matches state.
+  // Stores without deals stay unselected — they need an extraction round-trip first.
+  state.selectedBrands = state.storeBrands.filter(b=>b.hasDeals).map(b=>b.name);
   document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
-    <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
+    <div class="card clickable${b.hasDeals?' selected':''}" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(b.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(b.emoji)}</div>
         <div style="flex:1"><div class="store-name">${escapeHtml(b.name)}</div><div class="store-addr" id="addr-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}">${b.hasDeals?(b.stores.length>1?b.stores.length+" locations nearby":escapeHtml(b.stores[0]?.address)||"Deals available"):"<span style='color:var(--orange);font-size:11px;cursor:pointer'>⚡ Tap to find deals</span>"}</div></div>
@@ -1345,6 +1348,11 @@ async function renderStoreBrands() {
         <p style="color:#666;font-size:14px;margin-bottom:12px">Don't see your store?</p>
         <button type="button" onclick="requestStore()" style="background:var(--green-dark);color:white;border:none;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Request a Store</button>
       </div>`;
+  const n=state.selectedBrands.length;
+  const btn=document.getElementById("storesBtn");
+  btn.disabled=n===0;
+  btn.textContent=n>0?`View Deals from ${n} Store${n>1?"s":""} →`:"View Deals →";
+  btn.setAttribute("aria-label",`View deals from ${n} selected stores`);
 }
 function requestStore() {
   const overlay=document.createElement("div");
@@ -1452,6 +1460,7 @@ async function toggleBrand(name) {
   if(el)el.classList.toggle("selected",state.selectedBrands.includes(name));
   const n=state.selectedBrands.length; const btn=document.getElementById("storesBtn");
   btn.disabled=n===0; btn.textContent=n>0?`View Deals from ${n} Store${n>1?"s":""} →`:"View Deals →";
+  btn.setAttribute("aria-label",`View deals from ${n} selected stores`);
 }
 
 // ── Screen 2 → 3 or 4 ────────────────────────────────────────────────────────
@@ -1485,22 +1494,41 @@ async function onStoresPicked() {
 
 // ── Screen 3: Kroger Location ─────────────────────────────────────────────────
 function renderKrogerLocations() {
+  // Default-select every Kroger location so the visual ✓ matches state.
+  // `selectedKrogerId` (singular) stays as the first-selected for downstream calls — the
+  // Kroger pricing API is location-scoped to one store at a time.
+  state.selectedKrogerIds=state.krogerLocations.map(s=>s.id);
+  state.selectedKrogerId=state.selectedKrogerIds[0]||null;
+  if(state.selectedKrogerId){
+    try { localStorage.setItem("dishcount-kroger-location", state.selectedKrogerId); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
+  }
   document.getElementById("krogerLocationsList").innerHTML=state.krogerLocations.map(s=>{
     const info=getBanner(s.name);
-    return `<div class="card clickable" id="kloc-${escapeHtml(s.id)}" onclick="pickKrogerLocation('${escapeHtml(s.id)}')">
+    return `<div class="card clickable selected" id="kloc-${escapeHtml(s.id)}" onclick="pickKrogerLocation('${escapeHtml(s.id)}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(info.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(info.emoji)}</div>
         <div style="flex:1"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-addr">${escapeHtml(s.address)}${s.hours?" · "+escapeHtml(s.hours):""}</div></div>
         <div class="store-check">✓</div>
       </div>
     </div>`;}).join("");
+  const n=state.selectedKrogerIds.length;
+  const btn=document.getElementById("krogerBtn");
+  btn.disabled=n===0;
+  btn.setAttribute("aria-label",`Continue with ${n} Kroger locations`);
 }
 function pickKrogerLocation(id) {
-  state.selectedKrogerId=id;
-  try { localStorage.setItem("dishcount-kroger-location", id); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
-  document.querySelectorAll("[id^='kloc-']").forEach(el=>el.classList.remove("selected"));
-  document.getElementById(`kloc-${id}`).classList.add("selected");
-  document.getElementById("krogerBtn").disabled=false;
+  const idx=state.selectedKrogerIds.indexOf(id);
+  if(idx>-1)state.selectedKrogerIds.splice(idx,1); else state.selectedKrogerIds.push(id);
+  const card=document.getElementById(`kloc-${id}`);
+  if(card)card.classList.toggle("selected",state.selectedKrogerIds.includes(id));
+  state.selectedKrogerId=state.selectedKrogerIds[0]||null;
+  if(state.selectedKrogerId){
+    try { localStorage.setItem("dishcount-kroger-location", state.selectedKrogerId); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
+  }
+  const n=state.selectedKrogerIds.length;
+  const btn=document.getElementById("krogerBtn");
+  btn.disabled=n===0;
+  btn.setAttribute("aria-label",`Continue with ${n} Kroger locations`);
 }
 function onKrogerPicked(){loadDealsAndShow();}
 function goBackFromDeals(){if(state.selectedBrands.includes("Kroger")&&state.krogerLocations.length>1)goTo(3);else goTo(2);}

@@ -8,7 +8,6 @@
         <a href="/blog/" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Blog</a>
         <a href="/about.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">About</a>
         <a href="/contact.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Contact</a>
-        <a href="/features.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Tips</a>
         <a href="/terms.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Terms</a>
         <a href="/privacy.html" style="display:block;padding:12px 20px;color:#e8f0ea;text-decoration:none;font-size:15px;">Privacy</a>
       </div>
@@ -22,7 +21,28 @@
       <a href="/blog/">Blog</a>
       <a href="/about.html">About</a>
     </div>
+    <a href="/profile.html" class="nav-profile-icon" aria-label="Profile">&#128100;</a>
     <div class="nav-right"><a href="/profile.html" class="nav-signin">Sign In</a></div>
   </div>
 </nav>
 <script>document.addEventListener("click",function(e){var m=document.getElementById("hamMenu");var b=document.getElementById("hamBtn");if(m&&b&&m.style.display==="block"&&!b.contains(e.target)&&!m.contains(e.target))m.style.display="none";});</script>
+<script>
+(function(){
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient) return;
+  try {
+    var SUPABASE_URL = 'https://bvwwtrwxnuncalgtuqvx.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw';
+    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sb.auth.getSession().then(function(res){
+      var session = res && res.data && res.data.session;
+      var el = document.querySelector('.nav-signin');
+      if (!session || !el) return;
+      sb.from('profiles').select('full_name').eq('id', session.user.id).single().then(function(r){
+        var name = (r && r.data && r.data.full_name) || (session.user.email && session.user.email.split('@')[0]) || 'Account';
+        el.textContent = name.split(' ')[0];
+        el.classList.add('logged-in');
+      });
+    });
+  } catch(e) {}
+})();
+</script>

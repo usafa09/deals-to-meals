@@ -385,6 +385,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .kroger-connect-banner a:hover { filter: brightness(1.1); }
 .kroger-connect-banner .dismiss { background: none; border: none; font-size: 18px; cursor: pointer; color: #999; padding: 4px; }
 .coupon-card { background: white; border: 2px dashed var(--orange); border-radius: 12px; padding: 12px 14px; }
+.sale-filter-group { border: 0; padding: 0; margin: 0; }
 .sale-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .sale-filter-btn { padding: 6px 14px; border-radius: 20px; border: 2px solid var(--sand); background: white; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
 .sale-filter-btn.active { background: var(--green-dark); color: white; border-color: var(--green-dark); }

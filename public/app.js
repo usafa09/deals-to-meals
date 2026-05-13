@@ -1805,7 +1805,7 @@ function filterSaleCategory(c){state.saleCategoryFilter=c;state.dealsDisplayed=5
 function renderMealTypes(){ensureAppScreens();
   document.getElementById("mealTypeGrid").innerHTML=MEAL_TYPES.map(m=>`<div class="meal-card${state.selectedMealType===m.id?' selected':''}" onclick="selectMealType('${m.id}')" style="text-align:center;padding:18px 8px"><div class="meal-icon" style="font-size:32px">${m.icon}</div><div class="meal-label" style="font-size:15px">${m.label}</div></div>`).join("");
 }
-function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("findRecipesBtn").disabled=false;}
+function selectMealType(id){state.selectedMealType=id;renderMealTypes();document.getElementById("buildMealsBtn").disabled=false;}
 function renderStyleGrid(){ensureAppScreens();document.getElementById("styleGrid").innerHTML=RECIPE_STYLES.map(m=>`<div class="meal-card${state.selectedStyle===m.id?' selected':''}" id="style-${m.id.replace(/[^a-zA-Z]/g,'_')}" onclick="selectStyle('${escapeHtml(m.id).replace(/'/g,"&#039;")}')" style="text-align:center"><div class="meal-icon">${m.icon}</div><div class="meal-label">${escapeHtml(m.label)}</div><div style="font-size:11px;color:#999;margin-top:2px">${escapeHtml(m.sub)}</div></div>`).join("");}
 function selectStyle(id){state.selectedStyle=id;document.querySelectorAll("[id^='style-']").forEach(c=>c.classList.remove("selected"));document.getElementById(`style-${id.replace(/[^a-zA-Z]/g,'_')}`).classList.add("selected");}
 function renderFilterGrid(){ensureAppScreens();document.getElementById("filterGrid").innerHTML=DIET_FILTERS.map(f=>`<div class="filter-chip ${state.selectedDiets.includes(f)?'selected':''}" onclick="toggleFilter(this,'${escapeHtml(f).replace(/'/g,"&#039;")}')">${escapeHtml(f)}</div>`).join("")+'<p style="font-size:12px;color:#999;font-style:italic;margin-top:8px;line-height:1.5">These filters help match recipes to your preferences. If you have food allergies or medical dietary needs, always verify ingredients before cooking.</p>';}
@@ -1921,7 +1921,7 @@ async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
   // Double-click prevention
-  const btn=document.getElementById("findRecipesBtn");
+  const btn=document.getElementById("buildMealsBtn");
   if(btn){btn.disabled=true;btn.textContent="Building meals...";}
   state.recipeOffset=0;
   // Show skeletons on Screen 6 instead of full-screen overlay

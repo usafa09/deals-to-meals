@@ -50,15 +50,21 @@
   </div>
 
   <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
-  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
-  <div class="sale-filters" id="saleStoreFilters"></div>
-  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
-  <div class="sale-filters" id="saleCategoryFilters"></div>
+  <fieldset class="sale-filter-group">
+    <legend class="sr-only">Filter by store</legend>
+    <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
+    <div class="sale-filters" id="saleStoreFilters"></div>
+  </fieldset>
+  <fieldset class="sale-filter-group">
+    <legend class="sr-only">Filter by category</legend>
+    <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
+    <div class="sale-filters" id="saleCategoryFilters"></div>
+  </fieldset>
   <div class="sale-grid" id="saleGrid"></div>
   <div style="text-align:center;margin-top:12px"><button id="dealsShowMore" class="btn btn-outline" onclick="showMoreDeals()" style="display:none">Show More Deals</button></div>
 
   <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px"><a href="mailto:support@dishcount.co?subject=Deal%20Issue&amp;body=Store:%20%0AItem:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">See a wrong price? Let us know &#8594;</a></p>
-  <button class="btn btn-gradient" onclick="goTo(5)">Find Recipes &#8594;</button>
+  <button class="btn btn-gradient" id="findRecipesBtn" onclick="goTo(5)">Find Recipes &#8594;</button>
 </div>
 
 <!-- SCREEN 5: RECIPE STYLE + FILTERS -->
@@ -91,7 +97,7 @@
     </div>
   </div>
 
-  <button class="btn btn-primary" id="findRecipesBtn" onclick="searchRecipes()">&#127869; Build My Meals &#8594;</button>
+  <button class="btn btn-primary" id="buildMealsBtn" onclick="searchRecipes()">&#127869; Build My Meals &#8594;</button>
   <button onclick="generateWeeklyPlan()" style="width:100%;padding:14px;background:#A85D05;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#128197; Plan My Week (5 Dinners)</button>
   <button onclick="generateFreezerMeals()" style="width:100%;padding:14px;background:#1a5276;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">&#10052;&#65039; Freezer Meals — Cook Now, Eat Later</button>
 </div>

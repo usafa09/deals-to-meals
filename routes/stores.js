@@ -554,7 +554,31 @@ router.post("/api/extract-store", async (req, res) => {
               role: "user",
               content: [
                 { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-                { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. For each item: {"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}. No markdown. Include all items with prices.` }
+                { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
+
+Output shape per item:
+{"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+
+salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
+- "$3.99" -> 3.99
+- "5 for $10" or "5/$10" -> 2.00. Put "5 for $10" in notes.
+- "2/$5" -> 2.50. Put "2 for $5" in notes.
+- B1G1 on a $4 item -> 2.00. Set dealType to "bogo".
+- B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
+- If you cannot determine a per-unit price, omit the row.
+
+regularPrice: the non-sale per-unit price. Compute from any of:
+- "Was $5.99" -> 5.99
+- "SAVE $2", "$2 off", "save up to $2" -> salePrice + 2
+- "SAVE $1.50 PER LB" on a $0.79/lb item -> 2.29
+- "SAVE UP TO 80¢" -> use the upper bound (salePrice + 0.80)
+- For BOGO, regularPrice is the listed single-item price.
+- If the ad shows no reference price and no savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
+
+unit: "lb" if priced per pound; otherwise "each" or the package unit ("12 pk", "case").
+dealType: "sale" for marked-down items, "bogo" for buy-one-get-one (any percentage), "percent_off" for "20% off" markdowns.
+
+Use JSON null (not "") for unknown numeric fields. Return [] if the page has no extractable items.` }
               ]
             }]
           })
@@ -696,6 +720,16 @@ Rules:
       } catch (e) {
         console.error(`  Text fallback error: ${e.message}`);
       }
+    }
+
+    // Drop rows the model couldn't price. The Vision prompt instructs "if you
+    // cannot determine a per-unit price, omit the row" but the model sometimes
+    // includes the row anyway with salePrice=null. Those rows are useless to
+    // UI and analysis alike, so filter them at the cache boundary.
+    const beforeNullFilter = unique.length;
+    unique = unique.filter(d => d.salePrice != null && d.salePrice !== "");
+    if (unique.length < beforeNullFilter) {
+      console.log(`On-demand: ${storeName} — dropped ${beforeNullFilter - unique.length} rows with null salePrice`);
     }
 
     unique = unique.map((d, i) => ({

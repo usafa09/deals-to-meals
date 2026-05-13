@@ -225,16 +225,19 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .btn-green    { background: var(--green-dark); color: white; }
 
 .card { background: white; border: 2px solid var(--sand); border-radius: 18px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
-.card.clickable { cursor: pointer; }
+.card.clickable { cursor: pointer; position: relative; }
 .card.clickable:hover { border-color: var(--green-mid); transform: translateY(-1px); }
 .card.selected  { border-color: var(--green-mid); background: var(--green-light); }
+.card.clickable.selected::after { content: "\2713"; position: absolute; top: 12px; right: 12px; color: var(--green-mid); font-size: 22px; font-weight: bold; line-height: 1; }
 
 /* ── Screen 2 ── */
-.store-row { display: flex; align-items: center; gap: 14px; }
+.store-row { display: flex; align-items: center; gap: 14px; padding-right: 28px; }
 .store-name { font-weight: 700; font-size: 17px; }
 .store-addr { font-size: 13px; color:#595959; margin-top: 2px; }
-.store-check { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; background: #E0D8C8; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; flex-shrink: 0; transition: background 0.2s; }
-.card.selected .store-check { background: var(--green-mid); }
+
+.selection-hint { display: block; margin-top: 8px; font-size: 13px; color: #888; text-align: center; }
+.selection-hint[data-shown-when="empty"] { display: block; }
+.has-selection .selection-hint[data-shown-when="empty"] { display: none; }
 
 /* ── Screen 3: Meal + Filters ── */
 .section-title { font-family: 'Trebuchet MS', sans-serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }

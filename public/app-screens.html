@@ -2,18 +2,20 @@
 <div class="screen" id="screen2">
   <span class="back" onclick="goTo(1)">&#8592; Back</span>
   <h2 class="screen-title" id="storesTitle">Stores near you</h2>
-  <p class="screen-sub">All your nearby stores are picked. Tap any to remove it, or hit View Deals to see what's on sale this week.</p>
+  <p class="screen-sub">Select one or more stores to find deals</p>
   <div id="storesList"></div>
-  <button class="btn btn-primary" id="storesBtn" disabled onclick="onStoresPicked()">View Deals &#8594;</button>
+  <button class="btn btn-primary" id="storesBtn" disabled aria-label="View Deals (select at least one store first)" title="Select at least one store to continue" onclick="onStoresPicked()">View Deals &#8594;</button>
+  <span class="selection-hint" data-shown-when="empty">&#8593; Tap a store above to continue</span>
 </div>
 
 <!-- SCREEN 3: KROGER LOCATION (conditional) -->
 <div class="screen" id="screen3">
   <span class="back" onclick="goTo(2)">&#8592; Back</span>
   <h2 class="screen-title">Choose your Kroger store</h2>
-  <p class="screen-sub">All Kroger locations near you are picked. Tap any to remove it, or hit Continue to see deals from these stores.</p>
+  <p class="screen-sub">Pick the Kroger location closest to where you shop. Prices vary by store.</p>
   <div id="krogerLocationsList"></div>
-  <button class="btn btn-primary" id="krogerBtn" disabled onclick="onKrogerPicked()">Continue &#8594;</button>
+  <button class="btn btn-primary" id="krogerBtn" disabled aria-label="Continue (select a Kroger location first)" title="Select a Kroger location to continue" onclick="onKrogerPicked()">Continue &#8594;</button>
+  <span class="selection-hint" data-shown-when="empty">&#8593; Tap a Kroger location above to continue</span>
 </div>
 
 <!-- SCREEN 4: SALE ITEMS BROWSER -->

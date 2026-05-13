@@ -27,33 +27,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
-// ── Analytics tracking helpers ──────────────────────────────────────────────
-function trackRecipeGenerated() {
-  if (typeof gtag === 'function') {
-    gtag('event', 'recipe_generated', {
-      'event_category': 'engagement',
-      'event_label': 'ai_recipe',
-      'value': 1
-    });
-  }
-  if (typeof fbq === 'function') {
-    fbq('trackCustom', 'RecipeGenerated');
-  }
-}
-
-function trackZipCodeEntered() {
-  if (typeof gtag === 'function') {
-    gtag('event', 'zip_code_entered', {
-      'event_category': 'engagement',
-      'event_label': 'deals_loaded',
-      'value': 1
-    });
-  }
-  if (typeof fbq === 'function') {
-    fbq('trackCustom', 'ZipCodeEntered');
-  }
-}
-
 // ── Focus trap utility ──────────────────────────────────────────────────────
 function trapFocus(modalEl, firstFocusEl) {
   const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -1253,6 +1226,8 @@ async function findStores() {
   const zip=document.getElementById("zipInput").value.trim();
   if(!/^\d{5}$/.test(zip) || zip.startsWith("000")){ showToast("Please enter a valid US ZIP code"); document.getElementById("zipInput").focus(); return; }
   if (window.posthog) { window.posthog.capture('entered_zip', { zip }); }
+  if (typeof gtag === 'function') gtag('event', 'entered_zip', { zip: zip });
+  if (typeof fbq === 'function') fbq('trackCustom', 'EnteredZip', { zip: zip });
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {
@@ -1551,7 +1526,6 @@ async function loadDealsAndShow() {
     const res = await fetch(`/api/deals/regional?${params}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to fetch deals");
-    trackZipCodeEntered();
 
     let allDeals = data.deals || [];
 
@@ -1607,6 +1581,8 @@ async function loadDealsAndShow() {
     }
     await renderSaleItems(); goTo(4);
     if (window.posthog) { window.posthog.capture('viewed_deals', { zip: state.zip, deal_count: (state.deals || []).length }); }
+    if (typeof gtag === 'function') gtag('event', 'viewed_deals', { deal_count: (state.deals || []).length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'ViewedDeals', { deal_count: (state.deals || []).length });
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
 
@@ -1920,8 +1896,9 @@ async function searchRecipes() {
       throw new Error(data.message||data.error||"Could not generate recipes");
     }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
-    trackRecipeGenerated();
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length }); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
@@ -1965,7 +1942,6 @@ async function loadMoreRecipes() {
       throw new Error(data.error||"Could not generate recipes");
     }
     if(data.recipes?.length){
-      trackRecipeGenerated();
       trackAnonRecipeGeneration();
       const existingTitles=new Set(state.recipes.map(r=>r.title));
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
@@ -2077,9 +2053,10 @@ async function generateFreezerMeals() {
       throw new Error(data.error || "Could not generate");
     }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
-    trackRecipeGenerated();
     trackAnonRecipeGeneration();
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length }); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2444,9 +2421,10 @@ async function generateWeeklyPlan() {
       throw new Error(data.error || "Could not generate plan");
     }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
-    trackRecipeGenerated();
     trackAnonRecipeGeneration();
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length }); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;
@@ -3030,7 +3008,20 @@ function connectKrogerFromList() {
 }
 
 async function addListToKrogerCart() {
-  if (window.posthog) { window.posthog.capture('clicked_kroger_cart', { item_count: (state.shoppingList || []).length }); }
+  const itemCount = (state.shoppingList || []).length;
+  // totalValue is the estimated cart cost at click-through time. It may
+  // differ from the actual Kroger checkout total (e.g., Kroger price
+  // changes, items added/removed in the Kroger cart, taxes, fees).
+  const totalValue = (state.shoppingList || []).reduce((sum, i) => {
+    const p = parseFloat(String(i.price || "").replace(/[^0-9.]/g, "")) || 0;
+    return sum + p;
+  }, 0);
+  if (window.posthog) { window.posthog.capture('clicked_kroger_cart', { item_count: itemCount, total_value: totalValue }); }
+  if (typeof gtag === 'function') gtag('event', 'clicked_kroger_cart', { item_count: itemCount, total_value: totalValue });
+  // InitiateCheckout is mapped to Kroger cart click for Facebook ad
+  // optimization. We don't sell directly on dishcount.co; this is the
+  // deepest funnel signal we have.
+  if (typeof fbq === 'function') fbq('track', 'InitiateCheckout', { num_items: itemCount, value: totalValue, currency: 'USD' });
   // Open tab immediately on user click to avoid popup blocker
   // (window.open inside async callbacks gets blocked by browsers)
   const KROGER_CART_URLS = {
@@ -3272,6 +3263,8 @@ function addCheckedToList() {
       item_count: count
     });
   }
+  if (typeof gtag === 'function') gtag('event', 'added_recipe_to_list', { recipe_id: r.id });
+  if (typeof fbq === 'function') fbq('trackCustom', 'AddedRecipeToList', { recipe_id: r.id });
   if (count > 0) showToast(`Added ${count} items to shopping list`, "success");
   else showToast("Items already in list", "success");
   renderModal(r);

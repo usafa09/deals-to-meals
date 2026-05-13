@@ -14,6 +14,17 @@ function parseFraction(str) {
   return parseFloat(str) || 0;
 }
 
+// Render a price for display. Tolerates string ("3.99", "$3.99") and number
+// (3.99) inputs — the ad-extract Vision prompt returns numbers, the Kroger
+// API and Walmart paths return strings.
+function formatPriceDisplay(p) {
+  if (p == null || p === "") return "";
+  if (typeof p === "number") return "$" + p.toFixed(2);
+  const s = String(p).trim();
+  if (!s) return "";
+  return s.startsWith("$") ? s : "$" + s;
+}
+
 const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -1725,15 +1736,15 @@ async function renderSaleItems() {
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
     const unit=d.priceUnit||"";
     const hasCoupon = findMatchingCoupon(d.name);
-    return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${price?escapeHtml(price.startsWith("$")?price:"$"+price):""}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
+    return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${escapeHtml(formatPriceDisplay(price))}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
       ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
-      ${d.image&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
+      ${typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
-        <div class="sale-card-price">${price?`<span class="sale-card-sale">${escapeHtml(price.startsWith("$")?price:"$"+price)}${escapeHtml(unit)}</span>`:""} ${reg?`<span class="sale-card-reg">${escapeHtml(reg.startsWith("$")?reg:"$"+reg)}${escapeHtml(unit)}</span>`:""}</div>
+        <div class="sale-card-price">${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}</div>
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
         <div class="sale-card-store">${escapeHtml(store)}${store?` · <a href="#" onclick="event.preventDefault();event.stopPropagation();openStoreAd('${escapeHtml(store).replace(/'/g,"&#039;")}')" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
         ${ds==="include"?`<button onclick="event.stopPropagation();addDealToList('${escapeHtml(d.id)}')" style="margin-top:4px;padding:3px 8px;border:1px solid var(--green-mid);border-radius:6px;background:var(--green-light);color:var(--green-dark);font-size:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🛒 Add to List</button>`:""}

@@ -2,8 +2,10 @@ name: Weekly Deal Cache Refresh
 
 on:
   schedule:
-    # Every Wednesday at 6:00 AM EST (10:00 UTC)
-    - cron: "0 10 * * 3"
+    # Every Wednesday at 10:00 AM EST (14:00 UTC). Shifted from 6 AM
+    # after 2026-05-13 investigation found upstream aggregators still
+    # publishing the prior week's ads at 6 AM Wednesday. 4-hour buffer.
+    - cron: "0 14 * * 3"
   workflow_dispatch:
 
 jobs:

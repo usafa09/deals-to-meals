@@ -1626,7 +1626,7 @@ async function loadDealsAndShow() {
     }
     await renderSaleItems(); goTo(4);
     if (window.posthog) { window.posthog.capture('viewed_deals', { zip: state.zip, deal_count: (state.deals || []).length }); }
-    if (typeof gtag === 'function') gtag('event', 'viewed_deals', { deal_count: (state.deals || []).length });
+    if (typeof gtag === 'function') gtag('event', 'viewed_deals', { event_category: 'engagement', deal_count: (state.deals || []).length, zip: state.zip });
     if (typeof fbq === 'function') fbq('trackCustom', 'ViewedDeals', { deal_count: (state.deals || []).length });
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
@@ -1942,8 +1942,8 @@ async function searchRecipes() {
     }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length });
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
@@ -2100,8 +2100,8 @@ async function generateFreezerMeals() {
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackAnonRecipeGeneration();
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'freezer', recipe_count: data.recipes.length });
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2468,8 +2468,8 @@ async function generateWeeklyPlan() {
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackAnonRecipeGeneration();
     if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_count: data.recipes.length });
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length });
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'weekly', recipe_count: data.recipes.length });
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;
@@ -3062,7 +3062,7 @@ async function addListToKrogerCart() {
     return sum + p;
   }, 0);
   if (window.posthog) { window.posthog.capture('clicked_kroger_cart', { item_count: itemCount, total_value: totalValue }); }
-  if (typeof gtag === 'function') gtag('event', 'clicked_kroger_cart', { item_count: itemCount, total_value: totalValue });
+  if (typeof gtag === 'function') gtag('event', 'clicked_kroger_cart', { event_category: 'conversion', item_count: itemCount, value: totalValue });
   // InitiateCheckout is mapped to Kroger cart click for Facebook ad
   // optimization. We don't sell directly on dishcount.co; this is the
   // deepest funnel signal we have.
@@ -3308,8 +3308,8 @@ function addCheckedToList() {
       item_count: count
     });
   }
-  if (typeof gtag === 'function') gtag('event', 'added_recipe_to_list', { recipe_id: r.id });
-  if (typeof fbq === 'function') fbq('trackCustom', 'AddedRecipeToList', { recipe_id: r.id });
+  if (typeof gtag === 'function') gtag('event', 'added_recipe_to_list', { event_category: 'conversion', recipe_type: state._isFreezerPlan ? 'freezer' : (state._isWeeklyPlan ? 'weekly' : 'meal_plan'), list_size: (state.shoppingList || []).length });
+  if (typeof fbq === 'function') fbq('trackCustom', 'AddedRecipeToList', { list_size: (state.shoppingList || []).length });
   if (count > 0) showToast(`Added ${count} items to shopping list`, "success");
   else showToast("Items already in list", "success");
   renderModal(r);

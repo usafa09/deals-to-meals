@@ -814,16 +814,16 @@ async function handleSubscribe(e) {
     showToast("Please enter a 5-digit zip code"); zipEl.focus(); return false;
   }
   const btn = document.getElementById("subscribeBtn");
-  btn.disabled = true; btn.textContent = "Subscribing...";
+  btn.disabled = true; btn.textContent = "Sending...";
   try {
     const res = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, zip }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Something went wrong");
     document.getElementById("emailCaptureForm").style.display = "none";
     const successEl = document.getElementById("subscribeSuccess");
-    successEl.textContent = "\u2713 You're in! Watch for your first email this week.";
+    successEl.textContent = "\u2713 You're in! See you Wednesday.";
     successEl.style.display = "block";
-  } catch (err) { showToast(err.message); btn.disabled = false; btn.textContent = "Subscribe"; }
+  } catch (err) { showToast(err.message); btn.disabled = false; btn.textContent = "Get it Wednesdays"; }
   return false;
 }
 

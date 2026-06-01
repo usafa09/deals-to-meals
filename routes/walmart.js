@@ -2,6 +2,16 @@ import { Router } from "express";
 import fetch from "node-fetch";
 import { validateZip, getWalmartHeaders, WALMART_API_BASE } from "../lib/utils.js";
 
+const MAX_PLAUSIBLE_PCT_OFF = 70; // grocery rollbacks above this are almost always bad source data (wrong-unit / case-pack msrp). Tunable.
+
+// Trustworthy "before" price for a Walmart item, or null if we can't trust it.
+// Prefer regularPrice; use msrp only as a fallback. The pctOff ceiling below
+// still guards against msrp returning a garbage value.
+function resolveRegularPrice(p) {
+  const r = Number(p.regularPrice) || Number(p.msrp) || 0;
+  return r > 0 ? r : null;
+}
+
 const router = Router();
 
 export async function fetchWalmartDeals() {
@@ -23,17 +33,20 @@ export async function fetchWalmartDeals() {
       const data = await r.json();
       const items = (data.items || [])
         .filter(p => {
-          const sale = p.salePrice;
-          const regular = p.regularPrice || p.msrp;
-          return sale && regular && sale < regular && regular <= 50;
+          const sale = Number(p.salePrice);
+          const regular = resolveRegularPrice(p);
+          if (!sale || !regular || sale >= regular || regular > 50) return false;
+          const pctOff = Math.round(((regular - sale) / regular) * 100);
+          return pctOff <= MAX_PLAUSIBLE_PCT_OFF; // drop impossible discounts (the fake-price bug)
         })
         .map(p => {
-          const regular = p.regularPrice || p.msrp;
-          const savings = (regular - p.salePrice).toFixed(2);
-          const pctOff = Math.round(((regular - p.salePrice) / regular) * 100);
+          const regular = resolveRegularPrice(p);
+          const sale = Number(p.salePrice);
+          const savings = (regular - sale).toFixed(2);
+          const pctOff = Math.round(((regular - sale) / regular) * 100);
           return {
             id: String(p.itemId), upc: p.upc || "", name: p.name, brand: p.brandName || "",
-            category: term, regularPrice: regular.toFixed(2), salePrice: p.salePrice.toFixed(2),
+            category: term, regularPrice: regular.toFixed(2), salePrice: sale.toFixed(2),
             savings, pctOff, size: p.size || "",
             image: p.thumbnailImage || p.mediumImage || null,
             productUrl: p.productUrl || null, source: "walmart", storeName: "Walmart",
@@ -43,10 +56,13 @@ export async function fetchWalmartDeals() {
     } catch (e) { console.error(`Walmart search "${term}" error:`, e.message); }
   }));
   const seen = new Set();
-  return allProducts
+  const out = allProducts
     .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
     .sort((a, b) => b.pctOff - a.pctOff)
     .slice(0, 500);
+  const maxPct = out.reduce((m, d) => Math.max(m, d.pctOff), 0);
+  console.log(`Walmart: ${out.length} deals, max ${maxPct}% off (ceiling ${MAX_PLAUSIBLE_PCT_OFF})`);
+  return out;
 }
 
 router.get("/api/walmart/stores", async (req, res) => {

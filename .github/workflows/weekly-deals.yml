@@ -104,79 +104,106 @@ jobs:
               echo "::warning::$label returned HTTP $HTTP_CODE"
             fi
             echo "::endgroup::"
-            echo "Waiting 10s before next extraction..."
-            sleep 10
+            echo "Waiting 30s before next extraction..."
+            sleep 30
           done
           echo "Done! All store extractions triggered (results verified in next step)."
 
-      - name: Verify extractions completed
+      - name: Verify extractions (single retry pass)
         id: verify
         run: |
           BASE="https://dishcount.co/api"
-          # Wait for in-flight extractions to settle. Last trigger was at end of
-          # prior step; extractions take 2-3 min server-side, larger ones (Lidl
-          # at 20 pages) up to ~5 min. 6 min gives a 1-min safety margin.
+
+          # Single source of truth for this step: "Name|zip".
+          # Zips MUST stay in sync with the trigger loop in the
+          # "Extract deals for top stores" step above.
+          STORES=(
+            "ALDI|00000"
+            "Meijer|45432"
+            "Whole Foods|45432"
+            "Fresh Thyme|45432"
+            "Publix|32801"
+            "Albertsons|90001"
+            "Safeway|94102"
+            "Food Lion|27601"
+            "Giant Eagle|15201"
+            "Sprouts|85001"
+            "Harris Teeter|27601"
+            "Hy-Vee|50309"
+            "ShopRite|07001"
+            "Stop and Shop|06001"
+            "Winn Dixie|32801"
+            "Piggly Wiggly|35203"
+            "Save A Lot|45432"
+            "Grocery Outlet|94102"
+            "Market Basket|01801"
+            "Ingles|28801"
+          )
+
+          # ---- Pass 1: settle, then check every store. Queue non-ready ones. ----
           echo "Waiting 6 minutes for extractions to settle..."
           sleep 360
 
-          # IMPORTANT: Keep this list in sync with the trigger loop in the "Extract deals for top stores" step above.
-          STORES=(
-            "ALDI"
-            "Meijer"
-            "Whole Foods"
-            "Fresh Thyme"
-            "Publix"
-            "Albertsons"
-            "Safeway"
-            "Food Lion"
-            "Giant Eagle"
-            "Sprouts"
-            "Harris Teeter"
-            "Hy-Vee"
-            "ShopRite"
-            "Stop and Shop"
-            "Winn Dixie"
-            "Piggly Wiggly"
-            "Save A Lot"
-            "Grocery Outlet"
-            "Market Basket"
-            "Ingles"
-          )
-
-          FAIL_COUNT=0
-          for store in "${STORES[@]}"; do
+          RETRY=()
+          for entry in "${STORES[@]}"; do
+            IFS='|' read -r store zip <<< "$entry"
             ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
             RESPONSE=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED")
             STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
             DEALS=$(echo "$RESPONSE" | grep -o '"deals":[0-9]*' | sed 's/.*://')
+            if [ "$STATUS" = "ready" ]; then
+              if [ "${DEALS:-0}" -lt 10 ]; then
+                echo "🟡 $store: ready with only $DEALS deals (low volume)"
+                echo "::warning::$store ready but only $DEALS deals (low)"
+              else
+                echo "🟢 $store: $DEALS deals"
+              fi
+            else
+              echo "🟠 $store: status=${STATUS:-none} on first pass, queuing one retry"
+              RETRY+=("$entry")
+            fi
+          done
 
-            case "$STATUS" in
-              ready)
-                if [ "${DEALS:-0}" -lt 10 ]; then
-                  echo "🟡 $store: ready with only $DEALS deals (low volume)"
-                  echo "::warning::$store ready but only $DEALS deals (low)"
-                else
-                  echo "🟢 $store: $DEALS deals"
-                fi
-                ;;
-              extracting)
-                echo "🔴 $store: still extracting after 6 min — likely stuck"
-                echo "::warning::$store still extracting after 6 min — may need investigation"
-                FAIL_COUNT=$((FAIL_COUNT + 1))
-                ;;
-              *)
-                echo "🔴 $store: status=$STATUS (extraction failed or no cache row)"
-                echo "::warning::$store returned status=$STATUS (extraction failed or not yet attempted)"
-                FAIL_COUNT=$((FAIL_COUNT + 1))
-                ;;
-            esac
+          # ---- Single retry pass: re-trigger ONLY the non-ready stores ----
+          if [ "${#RETRY[@]}" -gt 0 ]; then
+            echo ""
+            echo "Retrying ${#RETRY[@]} non-ready store(s), one pass, 30s apart."
+            for entry in "${RETRY[@]}"; do
+              IFS='|' read -r store zip <<< "$entry"
+              echo "Re-triggering $store (zip $zip)..."
+              curl -s --max-time 180 -X POST "$BASE/extract-store" \
+                -H "Content-Type: application/json" \
+                -d "{\"storeName\":\"$store\",\"zip\":\"$zip\"}" > /dev/null
+              sleep 30
+            done
+            echo "Waiting 4 minutes for retried extractions to settle..."
+            sleep 240
+          fi
+
+          # ---- Final verdict: re-check ONLY the retried stores. ----
+          # A store that recovers here was a transient burst loss (now green).
+          # A store still failing after a retry is a genuine failure (source rot).
+          FAIL_COUNT=0
+          for entry in "${RETRY[@]}"; do
+            IFS='|' read -r store zip <<< "$entry"
+            ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
+            RESPONSE=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED")
+            STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
+            DEALS=$(echo "$RESPONSE" | grep -o '"deals":[0-9]*' | sed 's/.*://')
+            if [ "$STATUS" = "ready" ]; then
+              echo "🟢 $store: recovered on retry ($DEALS deals)"
+            else
+              echo "🔴 $store: status=${STATUS:-none} after retry (genuine failure, likely source rot)"
+              echo "::warning::$store still failing after retry (status=${STATUS:-none}), investigate source"
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            fi
           done
 
           echo ""
-          echo "Verification complete. $FAIL_COUNT chains had issues."
+          echo "Verification complete. $FAIL_COUNT chain(s) failed after retry."
           echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
 
           if [ "$FAIL_COUNT" -gt 5 ]; then
-            echo "::error::More than 5 chains failed extraction — investigate immediately"
+            echo "::error::More than 5 chains failed extraction after retry, investigate immediately"
             exit 1
           fi

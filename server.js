@@ -116,7 +116,14 @@ const expensiveLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Rate limit reached for this action. Please wait before trying again." },
   skip: (req) => {
-    // Skip global rate limit for authenticated users — they have their own limits in routes/recipes.js
+    // Internal jobs (the weekly GitHub Actions deal refresh) carry a shared secret and
+    // bypass the limit. Require BOTH the env var to be set AND the header to match, so a
+    // missing env var can never accidentally skip for everyone.
+    const internal = req.headers["x-internal-token"];
+    if (internal && process.env.INTERNAL_API_TOKEN && internal === process.env.INTERNAL_API_TOKEN) {
+      return true;
+    }
+    // Authenticated users have their own per-user limits in routes/recipes.js
     const auth = req.headers.authorization;
     return !!(auth && auth.startsWith("Bearer ") && auth.length > 20);
   },

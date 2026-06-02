@@ -1,19 +1,25 @@
 name: Capture weekly deal snapshots
 
-# Schedule fires Wednesdays at 11:00 UTC.
-# DST note: that is 6am EST in winter and 7am EDT in summer. Exact hour does
-# not matter much for grocery weekly-ad snapshots — chains drop new ads
-# overnight Tuesday→Wednesday and prices stay stable through the day. The
-# 1-hour DST drift is acceptable.
+# Runs after "Weekly Deal Cache Refresh" finishes, not on a fixed clock.
+# Refresh rewrites the Supabase deal cache every Wednesday at 14:00 UTC.
+# Capture used to run at 11:00 on its own timer, three hours before refresh,
+# so every snapshot was last week's cache. Chaining on completion means the
+# snapshot always reflects the cache refresh just wrote, no matter how long
+# refresh takes.
 on:
-  schedule:
-    - cron: '0 11 * * 3'
+  workflow_run:
+    workflows: ["Weekly Deal Cache Refresh"]
+    types: [completed]
   workflow_dispatch: {}
 
 jobs:
   capture:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # workflow_run fires on completion regardless of result, so gate on success.
+    # The workflow_dispatch clause keeps manual runs working (no workflow_run
+    # context exists on a manual trigger).
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

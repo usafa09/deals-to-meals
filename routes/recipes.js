@@ -5,11 +5,9 @@ import rateLimit from "express-rate-limit";
 import { trackStat } from "./gamification.js";
 import {
   supabase, getUser,
-  recipeCache, aiRecipeCache,
-  SPOONACULAR_BASE, CACHE_TTL,
-  DAILY_POINT_LIMIT, POINTS_PER_SEARCH,
-  getDailyPoints, addDailyPoints, checkAndResetPoints,
-  getCacheKey, findDeal, logApiUsage, logError, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
+  aiRecipeCache,
+  CACHE_TTL,
+  findDeal, logApiUsage, logError, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
 } from "../lib/utils.js";
 
 const router = Router();
@@ -73,136 +71,6 @@ router.delete("/api/recipes/saved/:id", async (req, res) => {
   const { error } = await supabase.from("saved_recipes").delete().eq("id", req.params.id).eq("user_id", user.id);
   if (error) { console.error("Delete recipe error:", error.message); return res.status(500).json({ error: "Something went wrong. Please try again." }); }
   res.json({ success: true });
-});
-
-// ══ SPOONACULAR RECIPE SEARCH ═════════════════════════════════════════════════
-
-router.post("/api/recipes/search", async (req, res) => {
-  const { ingredients, mealType, diets, coupons, boostDeals, offset: reqOffset } = req.body;
-  if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
-
-  try {
-    const apiKey = process.env.SPOONACULAR_API_KEY;
-    const offset = reqOffset || 0;
-
-    const cacheKey = getCacheKey(ingredients, mealType, diets, offset);
-    const cached = recipeCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log("Serving cached recipes");
-      return res.json({ recipes: cached.recipes, cached: true });
-    }
-
-    await checkAndResetPoints();
-    const currentPoints = await getDailyPoints();
-    if (currentPoints + POINTS_PER_SEARCH > DAILY_POINT_LIMIT) {
-      return res.status(429).json({ error: "Daily recipe search limit reached. Please try again tomorrow." });
-    }
-
-    const typeStr = MEAL_TYPE_MAP[mealType] || "main course";
-    const dietStr = diets?.length
-      ? diets.filter(d => DIET_MAP[d]).map(d => DIET_MAP[d]).join(",")
-      : "";
-
-    const skipBrandWords = new Set(["appleton","farms","happy","fremont","fish","simply","nature","carlini","cattlemens","ranch","southern","grove","stonemill","bakers","corner","specially","selected","park","street","deli","casa","mamita","mama","cozzis","millville","brookdale","reggano","savoritz","emporium","friendly","barissimo","choceur","clancys","moser","roth","elevation","health","ade","northern","catch","poppi","bremer","never","any","market","kitchen","aldi"]);
-    const cleanIngName = (name) => name.toLowerCase().replace(/[^a-z\s]/g," ").split(" ").filter(w => w.length > 2 && !skipBrandWords.has(w)).slice(0, 5).join(" ");
-    const ingredientStr = ingredients.slice(0, 20).map(i => cleanIngName(i.name)).join(",");
-    const searchParams = new URLSearchParams({
-      apiKey,
-      includeIngredients: ingredientStr,
-      type: typeStr,
-      number: "50",
-      offset: String(offset),
-      sort: "max-used-ingredients",
-      sortDirection: "desc",
-      addRecipeInformation: "true",
-      fillIngredients: "true",
-      instructionsRequired: "true",
-    });
-    if (dietStr) searchParams.set("diet", dietStr);
-    if (diets?.includes("Low Calorie")) searchParams.set("maxCalories", "500");
-
-    await addDailyPoints(POINTS_PER_SEARCH);
-    const updatedPoints = await getDailyPoints();
-    console.log(`Spoonacular points used today: ${updatedPoints}/${DAILY_POINT_LIMIT}`);
-
-    const searchRes = await fetch(`${SPOONACULAR_BASE}/recipes/complexSearch?${searchParams}`);
-    if (!searchRes.ok) throw new Error(await searchRes.text());
-    const searchData = await searchRes.json();
-    const recipes = searchData.results || [];
-
-    const enriched = recipes.map(recipe => {
-      const usedSaleItems = [];
-      let totalSavings = 0;
-      let estimatedCost = 0;
-      const allRecipeIngs = [
-        ...(recipe.usedIngredients || []),
-        ...(recipe.missedIngredients || []),
-      ];
-      for (const ing of allRecipeIngs) {
-        const deal = findDeal(ing.name, ingredients);
-        if (deal) {
-          const salePrice = parseFloat(deal.salePrice?.replace(/[^0-9.]/g, "")) || 0;
-          const regularPrice = parseFloat(deal.regularPrice?.replace(/[^0-9.]/g, "")) || 0;
-          const savingsAmt = deal.savings
-            ? parseFloat(deal.savings?.replace(/[^0-9.]/g, "")) || 0
-            : (regularPrice > salePrice ? regularPrice - salePrice : 0);
-          usedSaleItems.push({
-            name: deal.name,
-            salePrice: deal.salePrice,
-            regularPrice: deal.regularPrice || "—",
-            savings: savingsAmt > 0 ? savingsAmt.toFixed(2) : "",
-            upc: deal.upc,
-          });
-          totalSavings += savingsAmt;
-          estimatedCost += salePrice;
-        }
-      }
-      estimatedCost += (recipe.missedIngredientCount || 0) * 0.5;
-
-      const allCoupons = [...(coupons || []), ...(boostDeals || [])];
-      const couponsToClip = allCoupons.filter(c => {
-        const desc = (c.description + " " + c.brand).toLowerCase();
-        return (recipe.usedIngredients || []).some(ing =>
-          desc.includes(ing.name.toLowerCase().split(" ")[0])
-        );
-      }).map(c => ({ description: c.description, savings: c.savings, clipped: c.clipped, type: c.type }));
-
-      return {
-        id: recipe.id,
-        title: recipe.title,
-        image: recipe.image,
-        time: recipe.readyInMinutes ? `${recipe.readyInMinutes} min` : "N/A",
-        readyInMinutes: recipe.readyInMinutes || 0,
-        servings: recipe.servings || 4,
-        usedIngredientCount: recipe.usedIngredientCount || 0,
-        missedIngredientCount: recipe.missedIngredientCount || 0,
-        usedSaleItems,
-        totalSavings: parseFloat(totalSavings.toFixed(2)),
-        estimatedCost: parseFloat(estimatedCost.toFixed(2)),
-        couponsToClip,
-        diets: recipe.diets || [],
-        cuisines: recipe.cuisines || [],
-        instructions: recipe.analyzedInstructions?.[0]?.steps?.map(s => s.step) || [],
-        allIngredients: [
-          ...(recipe.usedIngredients || []).map(i => ({ name: i.name, onSale: !!findDeal(i.name, ingredients) })),
-          ...(recipe.missedIngredients || []).filter(i => !findDeal(i.name, ingredients)).map(i => ({ name: i.name, onSale: false })),
-        ],
-      };
-    });
-
-    enriched.sort((a, b) => b.totalSavings - a.totalSavings);
-
-    recipeCache.set(cacheKey, { recipes: enriched, timestamp: Date.now() });
-    for (const [key, val] of recipeCache.entries()) {
-      if (Date.now() - val.timestamp > CACHE_TTL) recipeCache.delete(key);
-    }
-
-    const finalPoints = await getDailyPoints();
-    res.json({ recipes: enriched, cached: false, pointsUsedToday: finalPoints, pointsRemaining: DAILY_POINT_LIMIT - finalPoints });
-  } catch (err) {
-    console.error("Recipe search error:", err.message);
-    res.status(500).json({ error: "Something went wrong. Please try again." });
-  }
 });
 
 // ══ CLAUDE AI RECIPE GENERATION ══════════════════════════════════════════════
@@ -1695,14 +1563,6 @@ router.post("/api/community/recipes", async (req, res) => {
     console.error("Community recipe error:", e.message);
     res.status(500).json({ error: "Could not save recipe" });
   }
-});
-
-// ══ POINTS STATUS ═════════════════════════════════════════════════════════════
-
-router.get("/api/points", async (req, res) => {
-  await checkAndResetPoints();
-  const points = await getDailyPoints();
-  res.json({ used: points, limit: DAILY_POINT_LIMIT, remaining: DAILY_POINT_LIMIT - points, resetsAt: "midnight" });
 });
 
 export default router;

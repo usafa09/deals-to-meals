@@ -72,7 +72,6 @@ async function testApiEndpoints() {
     { path: "/api/walmart/stores?zip=45432", check: () => true, name: "Walmart stores" },
     { path: "/api/walmart/deals", check: () => true, name: "Walmart deals" },
     { path: "/api/extract-status?store=meijer", check: (d) => ["none","extracting","ready"].includes(d.status), name: "extract status" },
-    { path: "/api/points", check: (d) => d.limit === 180, name: "points" },
     { path: "/api/recipe-image?title=chicken+parmesan", check: (d) => d.url !== undefined, name: "recipe image" },
     { path: "/api/kroger/search?query=butter&locationId=01400765", check: (d) => d.product !== undefined, name: "Kroger search" },
   ];
@@ -134,14 +133,14 @@ async function testSecurity() {
 
   // Helmet headers
   try {
-    const r = await get("/api/points");
+    const r = await get("/api/nearby-stores?zip=45432&radius=10");
     log("Security", "X-Content-Type-Options: nosniff", r.headers.get("x-content-type-options") === "nosniff");
     log("Security", "X-Frame-Options present", !!r.headers.get("x-frame-options"));
   } catch (e) { log("Security", "helmet", false, e.message); }
 
   // No secrets in response
   try {
-    const r = await get("/api/points");
+    const r = await get("/api/nearby-stores?zip=45432&radius=10");
     const body = await r.text();
     log("Security", "no API keys in response", !body.includes("sk-ant-") && !body.includes("KROGER_CLIENT"));
   } catch (e) { log("Security", "secrets check", false, e.message); }
@@ -204,7 +203,7 @@ function testFrontendCode() {
   }
 
   // No hardcoded API keys
-  const secretPatterns = ["sk-ant-", "KROGER_CLIENT_SECRET", "WALMART_PRIVATE_KEY", "SPOONACULAR_API_KEY", "GOOGLE_MAPS_API_KEY"];
+  const secretPatterns = ["sk-ant-", "KROGER_CLIENT_SECRET", "WALMART_PRIVATE_KEY", "GOOGLE_MAPS_API_KEY"];
   for (const f of htmlFiles) {
     const html = readFileSync(`public/${f}`, "utf8");
     for (const pat of secretPatterns) {

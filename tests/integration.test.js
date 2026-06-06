@@ -78,12 +78,6 @@ async function runTests() {
   } catch (e) { log("GET /api/extract-status?store=meijer", false, e.message); }
 
   try {
-    const r = await get("/api/points");
-    const d = await r.json();
-    log("GET /api/points", r.ok && d.limit === 180, `used=${d.used} limit=${d.limit}`);
-  } catch (e) { log("GET /api/points", false, e.message); }
-
-  try {
     const r = await get("/api/recipe-image?title=chicken%20parmesan");
     const d = await r.json();
     log("GET /api/recipe-image?title=chicken parmesan", r.ok && d.url !== undefined, `url=${d.url ? "found" : "null"}`);
@@ -140,19 +134,19 @@ async function runTests() {
   console.log("\nSecurity Tests:");
 
   try {
-    const r = await get("/api/points");
+    const r = await get("/api/nearby-stores?zip=45432&radius=10");
     const cto = r.headers.get("x-content-type-options");
     log("Helmet: X-Content-Type-Options present", cto === "nosniff", `value=${cto}`);
   } catch (e) { log("Helmet headers", false, e.message); }
 
   try {
-    const r = await get("/api/points");
+    const r = await get("/api/nearby-stores?zip=45432&radius=10");
     const xfo = r.headers.get("x-frame-options");
     log("Helmet: X-Frame-Options present", !!xfo, `value=${xfo}`);
   } catch (e) { log("X-Frame-Options", false, e.message); }
 
   try {
-    const r = await get("/api/points");
+    const r = await get("/api/nearby-stores?zip=45432&radius=10");
     const body = await r.text();
     const hasSecrets = body.includes("sk-ant-") || body.includes("KROGER_CLIENT") || body.includes("WALMART_PRIVATE");
     log("No API keys in response body", !hasSecrets);
@@ -207,7 +201,7 @@ async function runTests() {
     let foundKey = false;
     for (const f of files) {
       const content = readFileSync(f, "utf8");
-      if (content.includes("sk-ant-") || content.includes("KROGER_CLIENT_SECRET") || content.includes("WALMART_PRIVATE_KEY") || content.includes("SPOONACULAR_API_KEY") || content.includes("GOOGLE_MAPS_API_KEY")) {
+      if (content.includes("sk-ant-") || content.includes("KROGER_CLIENT_SECRET") || content.includes("WALMART_PRIVATE_KEY") || content.includes("GOOGLE_MAPS_API_KEY")) {
         foundKey = true;
         break;
       }

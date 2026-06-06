@@ -6,8 +6,7 @@ import {
   getAppToken, getWalmartHeaders, getCategoryImage,
   getCachedDeals, setCachedDeals,
   requireAdminToken, verifyAdminToken, createAdminToken,
-  getDailyPoints, DAILY_POINT_LIMIT,
-  KROGER_API_BASE, SPOONACULAR_BASE, DEAL_CACHE_TTL,
+  KROGER_API_BASE, DEAL_CACHE_TTL,
   IGROCERYADS_STORES, canonicalizeStoreId,
 } from "../lib/utils.js";
 
@@ -46,7 +45,7 @@ router.get("/api/admin/stats", adminAuth, async (req, res) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const weekStart = new Date(now - 7 * 86400000).toISOString();
 
-    const [usersRes, newWeekRes, msgsRes, unreadRes, subsRes, subsUnreadRes, srRes, srUnreadRes, cacheRes, pointsVal] = await Promise.all([
+    const [usersRes, newWeekRes, msgsRes, unreadRes, subsRes, subsUnreadRes, srRes, srUnreadRes, cacheRes] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }).gte("updated_at", weekStart),
       supabase.from("contact_messages").select("id", { count: "exact", head: true }),
@@ -56,7 +55,6 @@ router.get("/api/admin/stats", adminAuth, async (req, res) => {
       supabase.from("store_requests").select("id", { count: "exact", head: true }),
       supabase.from("store_requests").select("id", { count: "exact", head: true }).eq("read", false),
       supabase.from("deal_cache").select("cache_key, fetched_at"),
-      getDailyPoints(),
     ]);
 
     const cacheData = cacheRes.data || [];
@@ -77,8 +75,6 @@ router.get("/api/admin/stats", adminAuth, async (req, res) => {
       unreadStoreRequests: srUnreadRes.count || 0,
       totalCached: cacheData.length,
       freshStores: freshCount,
-      spoonacularPoints: pointsVal,
-      spoonacularLimit: DAILY_POINT_LIMIT,
       anthropicSpendToday: anthropicSpend.toFixed(4),
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -457,13 +453,12 @@ router.get("/api/admin/api-usage", adminAuth, async (req, res) => {
     const weekStart = new Date(now - 7 * 86400000).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [todayRes, weekRes, monthRes, recentRes, dailyRes, pointsVal] = await Promise.all([
+    const [todayRes, weekRes, monthRes, recentRes, dailyRes] = await Promise.all([
       supabase.from("api_usage_log").select("cost_estimate").eq("service", "anthropic").gte("created_at", todayStart),
       supabase.from("api_usage_log").select("cost_estimate").eq("service", "anthropic").gte("created_at", weekStart),
       supabase.from("api_usage_log").select("cost_estimate").eq("service", "anthropic").gte("created_at", monthStart),
       supabase.from("api_usage_log").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("api_usage_log").select("cost_estimate, created_at").eq("service", "anthropic").gte("created_at", new Date(now - 14 * 86400000).toISOString()),
-      getDailyPoints(),
     ]);
 
     const sum = (arr) => (arr || []).reduce((s, r) => s + parseFloat(r.cost_estimate || 0), 0);
@@ -476,7 +471,6 @@ router.get("/api/admin/api-usage", adminAuth, async (req, res) => {
     });
 
     res.json({
-      spoonacular: { used: pointsVal, limit: DAILY_POINT_LIMIT, remaining: DAILY_POINT_LIMIT - pointsVal },
       anthropic: {
         today: sum(todayRes.data).toFixed(4),
         week: sum(weekRes.data).toFixed(4),

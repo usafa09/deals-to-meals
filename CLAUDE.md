@@ -23,7 +23,6 @@ KROGER_CLIENT_ID            # Kroger developer API
 KROGER_CLIENT_SECRET        # Kroger developer API
 WALMART_CONSUMER_ID         # Walmart affiliate API
 WALMART_PRIVATE_KEY         # Walmart affiliate API (PKCS8 PEM format)
-SPOONACULAR_API_KEY          # Spoonacular recipe API (Starter plan, 200pts/day)
 ANTHROPIC_API_KEY           # Claude API for AI recipe generation & OCR deal extraction
 GOOGLE_MAPS_API_KEY         # Google Places API for nearby store discovery
 PEXELS_API_KEY              # Pexels API for recipe images
@@ -86,18 +85,7 @@ Some chains' coverage on igroceryads/ladysavings is **merchandise-only** — tho
 
 ## How recipes are generated
 
-### Primary: Claude AI (`POST /api/recipes/ai`)
-- Sends sale items + recipe style + dietary restrictions to Claude API.
-- Extensive prompt engineering for budget-friendly recipes, dietary compliance, and proper use of raw vs. processed ingredients.
-- Pexels API fetches food photos for each recipe by title.
-- 30-minute in-memory cache. Anthropic API cost tracked per request.
-- Diet rules filter incompatible sale items BEFORE sending to AI.
-
-### Secondary: Spoonacular (`POST /api/recipes/search`)
-- `complexSearch` API with `includeIngredients` from sale items.
-- `findDeal()` function matches recipe ingredients back to sale items for savings calculation.
-- Brand word stripping for ALDI products (removes "Appleton Farms", "Simply Nature", etc.).
-- 200 points/day limit with 180-point safety buffer. 2-hour in-memory cache.
+`POST /api/recipes/ai` is the single recipe path. Claude Haiku 4.5 generates recipes from current deal data with prompt engineering for budget-friendly meals, dietary compliance, and proper handling of raw vs. processed ingredients. Pexels fetches a food photo for each recipe by title. Diet rules filter incompatible sale items before the prompt is sent. Results are cached in-memory for 30 minutes and Anthropic API cost is tracked per request. Claude Vision is used separately for OCR ad extraction.
 
 ## Nearby store discovery
 
@@ -118,8 +106,7 @@ Some chains' coverage on igroceryads/ladysavings is **merchandise-only** — tho
 - `GET /api/extract-status?store=` — check extraction progress
 
 ### Recipe endpoints
-- `POST /api/recipes/ai` — Claude AI recipe generation (primary)
-- `POST /api/recipes/search` — Spoonacular recipe search (secondary)
+- `POST /api/recipes/ai` — Claude AI recipe generation
 
 ### Auth & user endpoints
 - `POST /api/site-login` — password gate
@@ -136,7 +123,6 @@ Some chains' coverage on igroceryads/ladysavings is **merchandise-only** — tho
 - `GET /api/admin/cache-coverage` — which zips have cached deals
 - `POST /api/extract-ad` — manually extract deals from uploaded ad image
 - `POST /api/admin/import-deals` — import extracted deals to cache
-- `GET /api/points` — Spoonacular daily point usage
 
 ### Debug endpoints
 - `GET /api/debug-kroger-prices?locationId=` — raw Kroger product data
@@ -160,8 +146,7 @@ deals-to-meals/
 ## Known issues and areas for improvement
 
 ### Bugs to investigate
-- Recipe search with non-"Kid Friendly" filters sometimes returns no results — may need better ingredient cleaning before sending to Spoonacular.
-- The `cleanIngName()` function in the Spoonacular path uses `.slice(-3)` which can drop important words from long product names.
+- The `cleanIngName()` function uses `.slice(-3)` which can drop important words from long product names.
 
 ### Architecture improvements needed
 - **server.js is too large** (~2,500 lines). Should be split into route modules: `routes/kroger.js`, `routes/walmart.js`, `routes/aldi.js`, `routes/recipes.js`, `routes/admin.js`, `routes/auth.js`, `routes/stores.js`.
@@ -216,7 +201,6 @@ git push
 
 ## Important notes
 
-- **Spoonacular has a 200 points/day limit.** The server tracks usage and blocks at 180 points. Cache helps avoid unnecessary API calls.
 - **Anthropic API costs money per call.** AI recipe generation and OCR extraction both use Claude. The AI recipe endpoint logs token usage and estimated cost.
 - **Google Places API costs money.** Nearby store results are cached for 30 days to minimize API calls.
 - **Walmart API requires RSA-SHA256 signed requests.** The private key must be in PKCS8 PEM format in the WALMART_PRIVATE_KEY env var.

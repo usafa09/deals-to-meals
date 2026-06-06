@@ -544,10 +544,6 @@ async function renderOverview() {
         <div class="number">${data.freshStores ?? "—"}</div>
         <div class="label">Fresh Stores</div>
       </div>
-      <div class="stat-card blue">
-        <div class="number">${data.spoonacularPoints ?? "—"}</div>
-        <div class="label">Spoonacular Pts Used</div>
-      </div>
       <div class="stat-card orange">
         <div class="number">$${(data.anthropicSpend ?? 0).toFixed(2)}</div>
         <div class="label">Anthropic Spend Today</div>
@@ -1132,10 +1128,6 @@ async function renderApiUsage() {
     const data = await res.json();
 
     document.getElementById("api-stats").innerHTML = `
-      <div class="stat-card blue">
-        <div class="number">${data.spoonacularToday ?? "—"}</div>
-        <div class="label">Spoonacular Points Today</div>
-      </div>
       <div class="stat-card orange">
         <div class="number">$${(data.anthropicToday ?? 0).toFixed(2)}</div>
         <div class="label">Anthropic Spend Today</div>
@@ -1382,13 +1374,6 @@ async function renderTools() {
       </div>
 
       <div class="tool-card">
-        <h4>Spoonacular Points</h4>
-        <p>Check daily Spoonacular API point usage and remaining quota.</p>
-        <button class="btn btn-outline" onclick="checkPoints()">Check Points</button>
-        <div id="points-info" style="margin-top:12px;font-size:13px"></div>
-      </div>
-
-      <div class="tool-card">
         <h4>External Dashboards</h4>
         <p>Quick links to service dashboards.</p>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
@@ -1438,7 +1423,6 @@ async function testEndpoints() {
     { name: "Health", url: "/api/admin/cache-status", method: "GET" },
     { name: "Nearby Stores", url: "/api/nearby-stores?zip=45432&radius=10", method: "GET" },
     { name: "ALDI Deals", url: "/api/aldi/deals", method: "GET" },
-    { name: "Spoonacular Points", url: "/api/points", method: "GET" },
   ];
 
   const results = [];
@@ -1492,27 +1476,6 @@ function formatUptime(seconds) {
   if (h > 0) parts.push(h + "h");
   parts.push(m + "m");
   return parts.join(" ");
-}
-
-async function checkPoints() {
-  const el = document.getElementById("points-info");
-  el.innerHTML = '<span class="spinner"></span>';
-  try {
-    const res = await adminFetch("/api/points");
-    if (!res) return;
-    const data = await res.json();
-    el.innerHTML = `
-      <div style="display:grid;gap:6px">
-        <div><strong>Used today:</strong> ${data.used ?? data.pointsUsed ?? "—"} / 200</div>
-        <div><strong>Remaining:</strong> ${data.remaining ?? (200 - (data.used ?? data.pointsUsed ?? 0))}</div>
-        <div><strong>Status:</strong> ${(data.used ?? data.pointsUsed ?? 0) >= 180 ?
-          '<span class="badge-pill badge-red">Near Limit</span>' :
-          '<span class="badge-pill badge-green">OK</span>'}</div>
-      </div>
-    `;
-  } catch (err) {
-    el.innerHTML = `<span style="color:var(--red)">Failed to load: ${escHtml(err.message)}</span>`;
-  }
 }
 
 // ═══════════════════════════════════════════════════

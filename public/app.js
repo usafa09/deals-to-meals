@@ -1652,7 +1652,7 @@ async function loadDealsAndShow() {
     }
     await renderSaleItems(); goTo(4);
     if (window.posthog) { window.posthog.capture('viewed_deals', { zip: state.zip, deal_count: (state.deals || []).length }); }
-    if (typeof gtag === 'function') gtag('event', 'viewed_deals', { event_category: 'engagement', deal_count: (state.deals || []).length, zip: state.zip });
+    if (typeof gtag === 'function') gtag('event', 'viewed_deals', { event_category: 'engagement', deal_count: (state.deals || []).length, zip: String(state.zip).slice(0, 3) });
     if (typeof fbq === 'function') fbq('trackCustom', 'ViewedDeals', { deal_count: (state.deals || []).length });
   }catch(err){showToast(err.message);}finally{hideLoading();}
 }
@@ -2024,6 +2024,8 @@ async function loadMoreRecipes() {
       const _evt = {
         recipe_type: state._isFreezerPlan ? 'freezer' : (state._isWeeklyPlan ? 'weekly' : 'meal_plan'),
         batch_number: Math.floor(state.recipeOffset / 5) + 1,
+        is_authenticated: !!state.session,
+        generation_index: state.recipeGenerationIndex,
       };
       if (window.posthog) { window.posthog.capture('loaded_more_recipes', _evt); }
       if (typeof gtag === 'function') gtag('event', 'loaded_more_recipes', _evt);

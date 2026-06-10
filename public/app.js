@@ -823,6 +823,14 @@ async function handleSubscribe(e) {
     const successEl = document.getElementById("subscribeSuccess");
     successEl.textContent = "\u2713 You're in! See you Wednesday.";
     successEl.style.display = "block";
+    const _evt = {
+      source: 'landing_inline',
+      zip_prefix: zip.slice(0, 3),
+      is_authenticated: !!state.session,
+    };
+    if (typeof gtag === 'function') gtag('event', 'newsletter_signup', _evt);
+    if (window.posthog) { window.posthog.capture('newsletter_signup', _evt); }
+    if (typeof fbq === 'function') fbq('track', 'Subscribe', _evt);
   } catch (err) { showToast(err.message); btn.disabled = false; btn.textContent = "Get it Wednesdays"; }
   return false;
 }
@@ -894,7 +902,7 @@ const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie","Hal
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
   deals:[], dealStates:{}, coupons:[], boostDeals:[], saleStoreFilter:"all", saleCategoryFilter:"all",
-  selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
+  selectedMealType:"Dinner", selectedStyle:null, selectedDiets:[], recipeOffset:0, recipeGenerationIndex:0, recipes:[], currentRecipe:null, savedRecipeIds:new Set(), shoppingList:[],
   userPreferences:null, survey:{household_size:null,has_kids:false,skill:null,cook_time:null,dietary:[],flavors:[],dislikes:""},
   session:null,  // cached Supabase session — populated by onAuthStateChange + initial getSession
 };
@@ -922,6 +930,14 @@ async function ensureAppScreens() {
   return _appScreensPromise;
 }
 
+const SCREEN_META = {
+  1: { slug: 'landing',       title: 'Dishcount — Landing' },
+  2: { slug: 'stores',        title: 'Dishcount — Stores' },
+  3: { slug: 'preferences',   title: 'Dishcount — Preferences' },
+  4: { slug: 'deals',         title: 'Dishcount — Deals' },
+  5: { slug: 'recipes',       title: 'Dishcount — Recipes' },
+  6: { slug: 'shopping-list', title: 'Dishcount — Shopping List' },
+};
 async function goTo(step) {
   await ensureAppScreens();
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -944,6 +960,14 @@ async function goTo(step) {
   }
   if (!goTo._noPush) history.pushState({ screen: step }, "", "");
   goTo._noPush = false;
+  const _meta = SCREEN_META[step];
+  if (_meta && typeof gtag === 'function') {
+    gtag('event', 'page_view', {
+      page_title: _meta.title,
+      page_location: `${window.location.origin}/screens/${_meta.slug}`,
+      page_path: `/screens/${_meta.slug}`,
+    });
+  }
   window.scrollTo({ top:0, behavior:"smooth" });
   updateStepProgress(step);
   if (step === 5) { renderMealTypes(); renderStyleGrid(); renderFilterGrid(); if(state._savedBudget&&!document.getElementById("budgetTarget")?.value){const bt=document.getElementById("budgetTarget");if(bt)bt.value=state._savedBudget;} showTooltip("budget","#budgetTarget","Set a weekly budget and we'll keep your meal plan under that amount using real sale prices.","top:100%;left:0;margin-top:8px;"); showTooltip("mealrequest","#mealRequest","Tell us what you're in the mood for! \"I want tacos\" or \"easy slow cooker meals\" — we'll work it in.","top:100%;left:0;margin-top:8px;"); }
@@ -1236,9 +1260,11 @@ function canonicalBrandName(name){
 async function findStores() {
   const zip=document.getElementById("zipInput").value.trim();
   if(!/^\d{5}$/.test(zip) || zip.startsWith("000")){ showToast("Please enter a valid US ZIP code"); document.getElementById("zipInput").focus(); return; }
-  if (window.posthog) { window.posthog.capture('entered_zip', { zip }); }
-  if (typeof gtag === 'function') gtag('event', 'entered_zip', { zip: zip });
-  if (typeof fbq === 'function') fbq('trackCustom', 'EnteredZip', { zip: zip });
+  const zip_prefix = zip.slice(0, 3);
+  const radius = parseInt(document.getElementById("radiusSelect").value) || 15;
+  if (window.posthog) { window.posthog.capture('entered_zip', { zip_prefix, radius }); }
+  if (typeof gtag === 'function') gtag('event', 'entered_zip', { zip_prefix, radius });
+  if (typeof fbq === 'function') fbq('trackCustom', 'EnteredZip', { zip_prefix, radius });
   state.zip=zip; state.distance=parseInt(document.getElementById("radiusSelect").value)||15;
   showLoading("Finding all stores with deals near you…","Searching grocery stores in your area…");
   try {
@@ -1941,9 +1967,17 @@ async function searchRecipes() {
       throw new Error(data.message||data.error||"Could not generate recipes");
     }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
-    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'meal_plan', recipe_count: data.recipes.length });
+    state.recipeGenerationIndex += 1;
+    const _evt = {
+      recipe_type: 'meal_plan',
+      recipe_count: data.recipes.length,
+      is_authenticated: !!state.session,
+      generation_index: state.recipeGenerationIndex,
+      total_savings: data.savings?.totalSavings || 0,
+    };
+    if (window.posthog) { window.posthog.capture('generated_recipes', _evt); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', _evt);
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', _evt);
     state.recipes=data.recipes;
     state.lastSavings=data.savings||null;
     state._lastBudgetTarget=payload.budgetTarget||null;
@@ -1987,6 +2021,13 @@ async function loadMoreRecipes() {
       throw new Error(data.error||"Could not generate recipes");
     }
     if(data.recipes?.length){
+      const _evt = {
+        recipe_type: state._isFreezerPlan ? 'freezer' : (state._isWeeklyPlan ? 'weekly' : 'meal_plan'),
+        batch_number: Math.floor(state.recipeOffset / 5) + 1,
+      };
+      if (window.posthog) { window.posthog.capture('loaded_more_recipes', _evt); }
+      if (typeof gtag === 'function') gtag('event', 'loaded_more_recipes', _evt);
+      if (typeof fbq === 'function') fbq('trackCustom', 'LoadedMoreRecipes', _evt);
       trackAnonRecipeGeneration();
       const existingTitles=new Set(state.recipes.map(r=>r.title));
       const newRecipes=data.recipes.filter(r=>!existingTitles.has(r.title));
@@ -2099,9 +2140,17 @@ async function generateFreezerMeals() {
     }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackAnonRecipeGeneration();
-    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'freezer', recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'freezer', recipe_count: data.recipes.length });
+    state.recipeGenerationIndex += 1;
+    const _evt = {
+      recipe_type: 'freezer',
+      recipe_count: data.recipes.length,
+      is_authenticated: !!state.session,
+      generation_index: state.recipeGenerationIndex,
+      total_savings: data.savings?.totalSavings || 0,
+    };
+    if (window.posthog) { window.posthog.capture('generated_recipes', _evt); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', _evt);
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', _evt);
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
@@ -2467,9 +2516,17 @@ async function generateWeeklyPlan() {
     }
     if (!data.recipes?.length) throw new Error("No recipes generated.");
     trackAnonRecipeGeneration();
-    if (window.posthog) { window.posthog.capture('generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length }); }
-    if (typeof gtag === 'function') gtag('event', 'generated_recipes', { recipe_type: 'weekly', recipe_count: data.recipes.length });
-    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', { recipe_type: 'weekly', recipe_count: data.recipes.length });
+    state.recipeGenerationIndex += 1;
+    const _evt = {
+      recipe_type: 'weekly',
+      recipe_count: data.recipes.length,
+      is_authenticated: !!state.session,
+      generation_index: state.recipeGenerationIndex,
+      total_savings: data.savings?.totalSavings || 0,
+    };
+    if (window.posthog) { window.posthog.capture('generated_recipes', _evt); }
+    if (typeof gtag === 'function') gtag('event', 'generated_recipes', _evt);
+    if (typeof fbq === 'function') fbq('trackCustom', 'GeneratedRecipes', _evt);
     state.recipes = data.recipes;
     state.lastSavings = data.savings || null;
     state.recipeOffset = 0;

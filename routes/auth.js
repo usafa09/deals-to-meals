@@ -190,11 +190,19 @@ router.post("/api/subscribe", async (req, res) => {
     return res.status(400).json({ error: "Valid 5-digit zip is required" });
   }
   try {
-    const { data: existing } = await supabase.from("email_subscribers").select("id").eq("email", email.toLowerCase()).single();
-    if (existing) return res.json({ success: true, message: "Already subscribed" });
-    const { error } = await supabase.from("email_subscribers").insert({ email: email.toLowerCase(), zip, subscribed_at: new Date().toISOString() });
+    const normalized = email.toLowerCase();
+    const { data, error } = await supabase
+      .from("email_subscribers")
+      .upsert(
+        { email: normalized, zip, subscribed_at: new Date().toISOString() },
+        { onConflict: "email", ignoreDuplicates: true }
+      )
+      .select("id");
     if (error) throw new Error(error.message);
-    console.log(`New subscriber: ${email} (${zip})`);
+    if (!data || data.length === 0) {
+      return res.json({ success: true, message: "Already subscribed" });
+    }
+    console.log(`New subscriber: ${normalized} (${zip})`);
     res.json({ success: true });
   } catch (err) {
     console.error("Subscribe error:", err.message);

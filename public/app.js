@@ -933,10 +933,10 @@ async function ensureAppScreens() {
 const SCREEN_META = {
   1: { slug: 'landing',       title: 'Dishcount — Landing' },
   2: { slug: 'stores',        title: 'Dishcount — Stores' },
-  3: { slug: 'preferences',   title: 'Dishcount — Preferences' },
+  3: { slug: 'location',    title: 'Dishcount — Store Location' },
   4: { slug: 'deals',         title: 'Dishcount — Deals' },
-  5: { slug: 'recipes',       title: 'Dishcount — Recipes' },
-  6: { slug: 'shopping-list', title: 'Dishcount — Shopping List' },
+  5: { slug: 'preferences', title: 'Dishcount — Preferences' },
+  6: { slug: 'recipes',     title: 'Dishcount — Recipes' },
 };
 async function goTo(step) {
   await ensureAppScreens();

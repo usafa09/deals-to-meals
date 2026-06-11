@@ -195,7 +195,7 @@ router.get("/api/deals/regional", async (req, res) => {
         const cacheKey = `kroger:${locationId}`;
         const cached = await getCachedDeals(cacheKey);
         if (cached) {
-          results.kroger = cached;
+          results.kroger = cached.map(d => d.source ? d : { ...d, storeName: d.storeName || banner, source: "kroger" });
           results.sources.push({ store: "kroger", banner, division, deals: cached.length, cached: true });
           console.log(`  Kroger ${banner}: ${cached.length} deals [cached]`);
         } else {

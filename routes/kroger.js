@@ -50,7 +50,7 @@ export async function fetchKrogerDeals(locationId, banner) {
             isPerLb, priceUnit: isPerLb ? "/lb" : isPerCount ? "/ea" : "",
             savings: (regular - sale).toFixed(2), pctOff, size,
             image: p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "medium")?.url || p.images?.find(i => i.perspective === "front")?.sizes?.find(s => s.size === "thumbnail")?.url || null,
-            ...(banner ? { storeName: banner, source: "kroger" } : {}),
+            storeName: banner || "Kroger", source: "kroger",
           };
         });
         allProducts.push(...products);

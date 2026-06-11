@@ -581,6 +581,8 @@ salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
 - "2/$5" -> 2.50. Put "2 for $5" in notes.
 - B1G1 on a $4 item -> 2.00. Set dealType to "bogo".
 - B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
+- B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
+- Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
 - If you cannot determine a per-unit price, omit the row.
 
 regularPrice: the non-sale per-unit price. Compute from any of:
@@ -695,6 +697,8 @@ Rules:
 - Only include items that have a clear price
 - For "2/$5" deals, set salePrice to "2.50" and notes to "2 for $5"
 - For per-lb prices like "$3.99 lb", set unit to "/lb"
+- B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
+- Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
 - No markdown backticks, return ONLY the JSON array
 - If no deals found, return []`
               }]
@@ -743,9 +747,9 @@ Rules:
     // includes the row anyway with salePrice=null. Those rows are useless to
     // UI and analysis alike, so filter them at the cache boundary.
     const beforeNullFilter = unique.length;
-    unique = unique.filter(d => d.salePrice != null && d.salePrice !== "");
+    unique = unique.filter(d => d.salePrice != null && d.salePrice !== "" && parseFloat(d.salePrice) > 0);
     if (unique.length < beforeNullFilter) {
-      console.log(`On-demand: ${storeName} — dropped ${beforeNullFilter - unique.length} rows with null salePrice`);
+      console.log(`On-demand: ${storeName} — dropped ${beforeNullFilter - unique.length} rows with null or zero salePrice`);
     }
 
     unique = unique.map((d, i) => ({

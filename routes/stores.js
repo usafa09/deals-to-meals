@@ -418,7 +418,12 @@ router.post("/api/extract-store", async (req, res) => {
 
   const existing = await getCachedDeals(`ad-extract:${storeId}`);
   if (existing && existing.length >= 10) {
-    return res.json({ status: "ready", deals: existing.length, storeId });
+    const validTo = existing[0]?.adValidTo;
+    const adExpired = validTo && new Date(validTo) < new Date();
+    if (!adExpired) {
+      return res.json({ status: "ready", deals: existing.length, storeId });
+    }
+    console.log(`On-demand: ${storeName} — cached ad expired (${validTo}), re-extracting`);
   }
 
   if (extractingStores.has(storeId)) {
@@ -446,6 +451,34 @@ router.post("/api/extract-store", async (req, res) => {
       }
     });
     const html = await pageRes.text();
+
+    // Parse the ad validity window from the page headline. igroceryads and
+    // iweeklyads print "June 10 - June 16, 2026"; some pages use "through
+    // June 16". ladysavings and weeklyad.us.com pages often lack dates, so
+    // both fields stay null there (unknown is treated as not-expired).
+    let adValidFrom = null, adValidTo = null;
+    try {
+      const MONTHS = { january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
+      const plain = html.replace(/<[^>]+>/g, " ");
+      const rangeM = plain.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*[–—-]\s*(?:(January|February|March|April|May|June|July|August|September|October|November|December)\s+)?(\d{1,2})(?:,?\s*(\d{4}))?/i);
+      const now = new Date();
+      if (rangeM) {
+        const y = rangeM[5] ? parseInt(rangeM[5]) : now.getFullYear();
+        const m1 = MONTHS[rangeM[1].toLowerCase()];
+        const m2 = rangeM[3] ? MONTHS[rangeM[3].toLowerCase()] : m1;
+        const from = new Date(Date.UTC(y, m1, parseInt(rangeM[2])));
+        let to = new Date(Date.UTC(m2 < m1 ? y + 1 : y, m2, parseInt(rangeM[4]), 23, 59, 59));
+        adValidFrom = from.toISOString(); adValidTo = to.toISOString();
+      } else {
+        const throughM = plain.match(/through\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/i);
+        if (throughM) {
+          adValidTo = new Date(Date.UTC(now.getUTCFullYear(), MONTHS[throughM[1].toLowerCase()], parseInt(throughM[2]), 23, 59, 59)).toISOString();
+        }
+      }
+      if (adValidTo && new Date(adValidTo) < now) {
+        console.warn(`On-demand: ${storeName} — source ad is EXPIRED (valid to ${adValidTo}). Extracting anyway; Friday re-pass will retry.`);
+      }
+    } catch (e) { console.error("Ad validity parse error:", e.message); }
 
     const isLadySavings = adUrl.includes("ladysavings.com");
     const isWeeklyAdUS = adUrl.includes("weeklyad.us.com");
@@ -759,6 +792,7 @@ Rules:
       source: "ad-extract",
       image: getCategoryImage(d.category),
       adSourceUrl: adUrl,
+      adValidFrom, adValidTo,
     }));
 
     if (unique.length > 0) {

@@ -6,6 +6,11 @@ on:
     # after 2026-05-13 investigation found upstream aggregators still
     # publishing the prior week's ads at 6 AM Wednesday. 4-hour buffer.
     - cron: "0 14 * * 3"
+    # Friday re-pass at 16:00 UTC. extract-store early-returns for
+    # chains whose ad is still valid, so this only re-runs OCR for
+    # chains whose Wednesday extraction captured an already-expired
+    # ad (source lag).
+    - cron: "0 16 * * 5"
   workflow_dispatch:
 
 jobs:

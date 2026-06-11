@@ -5,7 +5,7 @@ import {
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores,
-  storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL,
+  storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
 import { fetchWalmartDeals } from "./walmart.js";
@@ -267,7 +267,8 @@ router.get("/api/deals/regional", async (req, res) => {
 
     let adExtractDeals = [];
     try {
-      const { data: zip3Data } = await supabase.from("deal_cache").select("data, cache_key").like("cache_key", `ad-extract:%:${zip3}`);
+      const adCutoff = new Date(Date.now() - AD_EXTRACT_CACHE_TTL).toISOString();
+      const { data: zip3Data } = await supabase.from("deal_cache").select("data, cache_key").like("cache_key", `ad-extract:%:${zip3}`).gte("fetched_at", adCutoff);
       const zip3StoreIds = new Set();
       if (zip3Data) {
         for (const row of zip3Data) {
@@ -282,7 +283,8 @@ router.get("/api/deals/regional", async (req, res) => {
         .from("deal_cache")
         .select("data, cache_key")
         .like("cache_key", "ad-extract:%")
-        .not("cache_key", "like", "ad-extract:%:%");
+        .not("cache_key", "like", "ad-extract:%:%")
+        .gte("fetched_at", adCutoff);
       if (masterData) {
         for (const row of masterData) {
           const storeId = row.cache_key.split(":")[1];

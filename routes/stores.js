@@ -459,7 +459,7 @@ router.post("/api/extract-store", async (req, res) => {
     let adValidFrom = null, adValidTo = null;
     try {
       const MONTHS = { january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
-      const plain = html.replace(/<[^>]+>/g, " ");
+      const plain = html.replace(/<[^>]+>/g, " ").replace(/&#8211;|&#x2013;|&ndash;|&#8212;|&#x2014;|&mdash;/gi, "-").replace(/&nbsp;|&#160;/gi, " ");
       const rangeM = plain.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*[–—-]\s*(?:(January|February|March|April|May|June|July|August|September|October|November|December)\s+)?(\d{1,2})(?:,?\s*(\d{4}))?/i);
       const now = new Date();
       if (rangeM) {

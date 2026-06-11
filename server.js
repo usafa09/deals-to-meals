@@ -17,6 +17,7 @@ import recipesRoutes from "./routes/recipes.js";
 import storesRoutes from "./routes/stores.js";
 import adminRoutes from "./routes/admin.js";
 import gamificationRoutes from "./routes/gamification.js";
+import newsletterRoutes from "./routes/newsletter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -285,6 +286,7 @@ app.use(recipesRoutes);
 app.use(storesRoutes);
 app.use(adminRoutes);
 app.use(gamificationRoutes);
+app.use(newsletterRoutes);
 
 // ── 404 catch-all ───────────────────────────────────────────────────────────
 app.use((req, res, next) => {

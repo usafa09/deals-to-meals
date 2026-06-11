@@ -5,7 +5,7 @@ import {
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores,
-  storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL,
+  storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
 import { fetchWalmartDeals } from "./walmart.js";
@@ -417,13 +417,19 @@ router.post("/api/extract-store", async (req, res) => {
   const storeId = canonicalizeStoreId(storeName);
 
   const existing = await getCachedDeals(`ad-extract:${storeId}`);
+  let cacheAgeMs = Infinity;
+  try {
+    const { data: cacheRow } = await supabase.from("deal_cache").select("fetched_at").eq("cache_key", `ad-extract:${storeId}`).single();
+    if (cacheRow?.fetched_at) cacheAgeMs = Date.now() - new Date(cacheRow.fetched_at).getTime();
+  } catch (e) { /* missing row reads as Infinity, which forces extraction below only via the existing null check */ }
   if (existing && existing.length >= 10) {
     const validTo = existing[0]?.adValidTo;
     const adExpired = validTo && new Date(validTo) < new Date();
-    if (!adExpired) {
+    const dueForRefresh = cacheAgeMs > AD_EXTRACT_REFRESH_AFTER;
+    if (!adExpired && !dueForRefresh) {
       return res.json({ status: "ready", deals: existing.length, storeId });
     }
-    console.log(`On-demand: ${storeName} — cached ad expired (${validTo}), re-extracting`);
+    console.log(`On-demand: ${storeName} — re-extracting (${adExpired ? `ad expired ${validTo}` : `cache ${Math.round(cacheAgeMs / 86400000)}d old`})`);
   }
 
   if (extractingStores.has(storeId)) {

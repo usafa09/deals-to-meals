@@ -410,6 +410,49 @@ router.get("/api/deals/regional", async (req, res) => {
 
 // ══ ON-DEMAND AD EXTRACTION ═══════════════════════════════════════════════════
 
+async function fetchBestImage(url, headers) {
+  // WordPress appends -scaled to large uploads; the original usually exists
+  // at the same URL without the suffix. Verified June 11: 4.6-6.4x the pixels.
+  const tryFetch = async (u) => {
+    try {
+      const r = await fetch(u, { headers });
+      if (!r.ok) return null;
+      if (!(r.headers.get("content-type") || "").startsWith("image/")) return null;
+      const buf = Buffer.from(await r.arrayBuffer());
+      return buf.length > 1000 ? buf : null;
+    } catch { return null; }
+  };
+  if (/-scaled\.(jpe?g|png|webp)$/i.test(url)) {
+    const orig = await tryFetch(url.replace(/-scaled(\.(?:jpe?g|png|webp))$/i, "$1"));
+    if (orig) return orig;
+  }
+  return tryFetch(url);
+}
+
+async function tileImage(buffer) {
+  // Crop tall pages into overlapping horizontal bands (~1400px tall, 150px
+  // overlap) so each band stays under the vision API's effective-resolution
+  // cap. Width is bounded to 1600px first. Short pages pass through whole.
+  // Overlap duplicates are collapsed later by the existing name+price dedup.
+  const sharp = (await import("sharp")).default;
+  let img = sharp(buffer);
+  let meta = await img.metadata();
+  if (!meta.width || !meta.height) return [buffer];
+  if (meta.width > 1600) {
+    buffer = await sharp(buffer).resize({ width: 1600 }).jpeg({ quality: 85 }).toBuffer();
+    meta = await sharp(buffer).metadata();
+  }
+  if (meta.height <= 1800) return [buffer];
+  const BAND = 1400, OVERLAP = 150, tiles = [];
+  for (let top = 0; top < meta.height; top += BAND - OVERLAP) {
+    const h = Math.min(BAND, meta.height - top);
+    if (h < 300) break; // sliver; previous band's overlap already covers it
+    tiles.push(await sharp(buffer).extract({ left: 0, top, width: meta.width, height: h }).jpeg({ quality: 85 }).toBuffer());
+    if (top + h >= meta.height) break;
+  }
+  return tiles;
+}
+
 router.post("/api/extract-store", async (req, res) => {
   const { storeName } = req.body;
   if (!validateStoreName(storeName)) return res.status(400).json({ error: "Valid storeName is required (letters, numbers, spaces, hyphens, max 50 chars)" });
@@ -574,42 +617,42 @@ router.post("/api/extract-store", async (req, res) => {
 
     const allDeals = [];
     const maxPages = Math.min(images.length, 20);
+    const MAX_VISION_CALLS = 24;
+    let visionCalls = 0;
     // Per-chain OCR observability. apiOkCount tallies Anthropic 2xx; apiNon2xxCount
-    // tallies HTTP errors (429/529/5xx); parseFailCount is a sub-tally of pages
+    // tallies HTTP errors (429/529/5xx); parseFailCount is a sub-tally of tiles
     // where the API returned 2xx but JSON parse + recovery both failed. Without
     // these we cannot distinguish "Anthropic rate-limited us" from "image was bad"
-    // — both look identical in the cache state.
+    // — both look identical in the cache state. Counters are tile-granular.
     let apiOkCount = 0, apiNon2xxCount = 0, parseFailCount = 0;
     const perPageOutcome = [];
     for (let i = 0; i < maxPages; i++) {
       try {
-        const imgRes = await fetch(images[i], {
-          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-        });
-        if (!imgRes.ok) continue;
-        const contentType = imgRes.headers.get("content-type") || "";
-        if (!contentType.startsWith("image/")) continue;
-        const buffer = await imgRes.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
-        if (base64.length < 1000) continue;
+        const imgBuffer = await fetchBestImage(images[i], { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
+        if (!imgBuffer) continue;
+        const tiles = await tileImage(imgBuffer);
+        if (visionCalls + tiles.length > MAX_VISION_CALLS) break;
+        console.log(`${storeName} page ${i+1}: ${tiles.length} tiles`);
 
-        const mediaType = images[i].endsWith(".webp") ? "image/webp" : images[i].endsWith(".png") ? "image/png" : "image/jpeg";
+        for (let t = 0; t < tiles.length; t++) {
+          const base64 = tiles[t].toString("base64");
+          if (base64.length < 1000) continue;
 
-        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_KEY,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 8000,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-                { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
+          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": ANTHROPIC_KEY,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 8000,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+                  { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
 
 Output shape per item:
 {"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","requiresCoupon":false,"category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
@@ -641,52 +684,54 @@ unit: "lb" if priced per pound; otherwise "each" or the package unit ("12 pk", "
 dealType: "sale" for marked-down items, "bogo" for buy-one-get-one (any percentage), "percent_off" for "20% off" markdowns.
 
 Use JSON null (not "") for unknown numeric fields. Return [] if the page has no extractable items.` }
-              ]
-            }]
-          })
-        });
+                ]
+              }]
+            })
+          });
+          visionCalls++;
 
-        if (!aiRes.ok) {
-          apiNon2xxCount++;
-          const errBody = await aiRes.text().catch(() => "");
-          console.error(`Vision API non-2xx for ${storeName} page ${i+1}: HTTP ${aiRes.status} — ${errBody.substring(0, 200)}`);
-          perPageOutcome.push({ page: i+1, status: aiRes.status, kind: "api_non2xx" });
-          if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
-          continue;
-        }
-        apiOkCount++;
-
-        const aiData = await aiRes.json();
-        const text = aiData.content?.map(c => c.text || "").join("") || "";
-        let cleaned = text.replace(/```json|```/g, "").trim();
-        let parsedOk = false;
-        let pageDeals = 0;
-        try {
-          const deals = JSON.parse(cleaned);
-          deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
-          allDeals.push(...deals);
-          parsedOk = true;
-          pageDeals = deals.length;
-        } catch (e) {
-          console.error(`OCR page ${i+1} JSON parse error:`, e.message);
-          const lastBrace = cleaned.lastIndexOf("}");
-          if (lastBrace > 0) {
-            try {
-              const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
-              recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
-              allDeals.push(...recovered);
-              parsedOk = true;
-              pageDeals = recovered.length;
-            } catch (e2) { console.error(`OCR page ${i+1} recovery parse error:`, e2.message); }
+          if (!aiRes.ok) {
+            apiNon2xxCount++;
+            const errBody = await aiRes.text().catch(() => "");
+            console.error(`Vision API non-2xx for ${storeName} page ${i+1} tile ${t+1}: HTTP ${aiRes.status} — ${errBody.substring(0, 200)}`);
+            perPageOutcome.push({ page: i+1, tile: t+1, status: aiRes.status, kind: "api_non2xx" });
+            await new Promise(r => setTimeout(r, 500));
+            continue;
           }
+          apiOkCount++;
+
+          const aiData = await aiRes.json();
+          const text = aiData.content?.map(c => c.text || "").join("") || "";
+          let cleaned = text.replace(/```json|```/g, "").trim();
+          let parsedOk = false;
+          let tileDeals = 0;
+          try {
+            const deals = JSON.parse(cleaned);
+            deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
+            allDeals.push(...deals);
+            parsedOk = true;
+            tileDeals = deals.length;
+          } catch (e) {
+            console.error(`OCR page ${i+1} tile ${t+1} JSON parse error:`, e.message);
+            const lastBrace = cleaned.lastIndexOf("}");
+            if (lastBrace > 0) {
+              try {
+                const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
+                recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
+                allDeals.push(...recovered);
+                parsedOk = true;
+                tileDeals = recovered.length;
+              } catch (e2) { console.error(`OCR page ${i+1} tile ${t+1} recovery parse error:`, e2.message); }
+            }
+          }
+          if (parsedOk) {
+            perPageOutcome.push({ page: i+1, tile: t+1, ok: true, deals: tileDeals });
+          } else {
+            parseFailCount++;
+            perPageOutcome.push({ page: i+1, tile: t+1, kind: "parse_fail" });
+          }
+          await new Promise(r => setTimeout(r, 500));
         }
-        if (parsedOk) {
-          perPageOutcome.push({ page: i+1, ok: true, deals: pageDeals });
-        } else {
-          parseFailCount++;
-          perPageOutcome.push({ page: i+1, kind: "parse_fail" });
-        }
-        if (i < maxPages - 1) await new Promise(r => setTimeout(r, 500));
       } catch (e) {
         console.error(`  Page ${i+1} error: ${e.message}`);
         perPageOutcome.push({ page: i+1, kind: "page_outer_error", err: e.message });

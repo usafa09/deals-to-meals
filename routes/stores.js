@@ -612,7 +612,7 @@ router.post("/api/extract-store", async (req, res) => {
                 { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
 
 Output shape per item:
-{"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+{"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","requiresCoupon":false,"category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
 
 salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
 - "$3.99" -> 3.99
@@ -622,6 +622,11 @@ salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
 - B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
 - B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
 - Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
+- "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
+- "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
+- "When You Buy N", "Must Buy N", "Limit N" are purchase conditions, not prices. Put them in notes; never use N or the bundle total as the per-unit salePrice.
+- requiresCoupon: set true when the price needs a digital coupon, store app, loyalty card, or membership (wording like "Digital Coupon", "with card", "for U", "mPerks", "Member Price"). Otherwise false.
+- Large featured price circles and bubbles are deals, often the best on the page. Always include them.
 - If you cannot determine a per-unit price, omit the row.
 
 regularPrice: the non-sale per-unit price. Compute from any of:
@@ -730,7 +735,7 @@ TEXT:
 ${textContent}
 
 Return ONLY a valid JSON array of deals. For each item with a price mentioned:
-{"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+{"name":"","brand":"","salePrice":"","unit":"","regularPrice":"","dealType":"sale/bogo/percent_off","requiresCoupon":false,"category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
 
 Rules:
 - Only include items that have a clear price
@@ -738,6 +743,11 @@ Rules:
 - For per-lb prices like "$3.99 lb", set unit to "/lb"
 - B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
 - Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
+- "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
+- "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
+- "When You Buy N", "Must Buy N", "Limit N" are purchase conditions, not prices. Put them in notes; never use N or the bundle total as the per-unit salePrice.
+- requiresCoupon: set true when the price needs a digital coupon, store app, loyalty card, or membership (wording like "Digital Coupon", "with card", "for U", "mPerks", "Member Price"). Otherwise false.
+- Large featured price circles and bubbles are deals, often the best on the page. Always include them.
 - No markdown backticks, return ONLY the JSON array
 - If no deals found, return []`
               }]

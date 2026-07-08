@@ -1635,7 +1635,30 @@ async function loadDealsAndShow() {
       if(state.krogerConnected){try{const{data:{session}}=await sb.auth.getSession();if(session?.access_token){const r=await fetch("/api/coupons",{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.ok){const d=await r.json();state.coupons=d.coupons||[];state.boostDeals=d.boostDeals||[];}}}catch(e){}}
     }
     const map=new Map();for(const d of allDeals){if(!map.has(d.id)||parseFloat(d.salePrice)<parseFloat(map.get(d.id).salePrice))map.set(d.id,d);}
-    state.deals=[...map.values()].sort((a,b)=>b.pctOff-a.pctOff);
+    // Dinner-anchor weighted ranking. Pure pctOff floated clearance candy/chips
+    // and holiday bakery above the meat and produce people actually plan meals
+    // around. Score = pctOff + a category boost: proteins/produce/dairy get a
+    // real head start, staples a small one, snacks/sweets none, and non-food a
+    // penalty that sinks it. Moderate by design — a big enough discount on
+    // anything can still climb (a 70%-off snack at 70 still beats a 30%-off
+    // steak at 55), but the anchor field now fills the top.
+    const dealRankScore = (d) => {
+      const cat = (d.category || "").toLowerCase();
+      const name = (d.name || "").toLowerCase();
+      const has = (arr) => arr.some(t => cat.includes(t));
+      let boost;
+      if (has(["meat","beef","pork","chicken","turkey","seafood","fish","poultry"])) boost = 25;
+      else if (has(["produce","fruit","vegetable"])) boost = 25;
+      else if (has(["dairy","egg"])) boost = 22;
+      else if (has(["pantry","frozen","pasta","grain","condiment","breakfast","deli","bakery & deli"])) boost = 12;
+      else if (has(["household","health","beauty","pet","baby","cosmetic","paper","cleaning"])) boost = -40;
+      else if (has(["snack","beverage","candy","soda","bakery","dessert"])) boost = 0;
+      else boost = 4; // unknown/"other" food sits just above pure snacks
+      // Extra demotion for obvious non-meal clearance the category field misses.
+      if (/\b(cooler|tote|bag|cup|plate|napkin|foil|charcoal|sunscreen|patriotic|decoration)\b/.test(name)) boost -= 30;
+      return (Number(d.pctOff) || 0) + boost;
+    };
+    state.deals=[...map.values()].sort((a,b)=>dealRankScore(b)-dealRankScore(a));
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
     // Check which selected stores have no deals
     const storesWithDeals = new Set(state.deals.map(d=>(d.storeName||d.source||"").toLowerCase()));

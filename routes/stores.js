@@ -446,9 +446,13 @@ async function fetchBestImage(url, headers) {
       return buf.length > 1000 ? buf : null;
     } catch { return null; }
   };
+  // 8MB ceiling on unscaled originals. Observed 15MB/168-megapixel originals
+  // on igroceryads; decoding those risks memory pressure for no OCR benefit.
+  const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
   if (/-scaled\.(jpe?g|png|webp)$/i.test(url)) {
     const orig = await tryFetch(url.replace(/-scaled(\.(?:jpe?g|png|webp))$/i, "$1"));
-    if (orig) return orig;
+    if (orig && orig.length <= MAX_ORIGINAL_BYTES) return orig;
+    if (orig) console.log(`fetchBestImage: original is ${(orig.length / 1048576).toFixed(1)}MB (> 8MB cap), using -scaled version`);
   }
   return tryFetch(url);
 }

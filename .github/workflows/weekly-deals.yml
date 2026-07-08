@@ -16,7 +16,7 @@ on:
 jobs:
   refresh-deals:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     if: github.repository == 'usafa09/deals-to-meals'
     env:
       INTERNAL_TOKEN: ${{ secrets.INTERNAL_API_TOKEN }}
@@ -148,28 +148,44 @@ jobs:
             "Ingles|28801"
           )
 
-          # ---- Pass 1: settle, then check every store. Queue non-ready ones. ----
-          echo "Waiting 6 minutes for extractions to settle..."
-          sleep 360
-
-          RETRY=()
-          for entry in "${STORES[@]}"; do
-            IFS='|' read -r store zip <<< "$entry"
-            ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
-            RESPONSE=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED")
-            STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
-            DEALS=$(echo "$RESPONSE" | grep -o '"deals":[0-9]*' | sed 's/.*://')
-            if [ "$STATUS" = "ready" ]; then
-              if [ "${DEALS:-0}" -lt 10 ]; then
-                echo "🟡 $store: ready with only $DEALS deals (low volume)"
-                echo "::warning::$store ready but only $DEALS deals (low)"
+          # ---- Pass 1: poll every 2 min until all stores ready or 36 min elapse ----
+          # Extractions now drain through a server-side semaphore (2 concurrent),
+          # so 20 stores take ~25 min. A fixed 6-min sleep would mark queued
+          # stores as failures and re-trigger them pointlessly.
+          PENDING=("${STORES[@]}")
+          POLL_INTERVAL=120
+          MAX_POLLS=18
+          for ((poll=1; poll<=MAX_POLLS; poll++)); do
+            sleep $POLL_INTERVAL
+            echo "Poll $poll/$MAX_POLLS — checking ${#PENDING[@]} pending store(s)..."
+            STILL_PENDING=()
+            for entry in "${PENDING[@]}"; do
+              IFS='|' read -r store zip <<< "$entry"
+              ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
+              RESPONSE=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED")
+              STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
+              DEALS=$(echo "$RESPONSE" | grep -o '"deals":[0-9]*' | sed 's/.*://')
+              if [ "$STATUS" = "ready" ]; then
+                if [ "${DEALS:-0}" -lt 10 ]; then
+                  echo "🟡 $store: ready with only $DEALS deals (low volume)"
+                  echo "::warning::$store ready but only $DEALS deals (low)"
+                else
+                  echo "🟢 $store: $DEALS deals"
+                fi
               else
-                echo "🟢 $store: $DEALS deals"
+                STILL_PENDING+=("$entry")
               fi
-            else
-              echo "🟠 $store: status=${STATUS:-none} on first pass, queuing one retry"
-              RETRY+=("$entry")
+            done
+            PENDING=("${STILL_PENDING[@]}")
+            if [ "${#PENDING[@]}" -eq 0 ]; then
+              echo "All stores ready after $poll poll(s)."
+              break
             fi
+          done
+          RETRY=("${PENDING[@]}")
+          for entry in "${RETRY[@]}"; do
+            IFS='|' read -r store zip <<< "$entry"
+            echo "🟠 $store: not ready after pass-1 polling, queuing one retry"
           done
 
           # ---- Single retry pass: re-trigger ONLY the non-ready stores ----
@@ -185,8 +201,19 @@ jobs:
                 -d "{\"storeName\":\"$store\",\"zip\":\"$zip\"}" > /dev/null
               sleep 30
             done
-            echo "Waiting 4 minutes for retried extractions to settle..."
-            sleep 240
+            # Poll retried stores every 2 min, up to 12 min.
+            for ((rpoll=1; rpoll<=6; rpoll++)); do
+              sleep 120
+              REMAINING=0
+              for entry in "${RETRY[@]}"; do
+                IFS='|' read -r store zip <<< "$entry"
+                ENCODED=$(echo "$store" | sed 's/ /%20/g; s/&/%26/g')
+                S=$(curl -s --max-time 30 "$BASE/extract-status?store=$ENCODED" | grep -o '"status":"[^"]*"' | sed 's/.*:"//;s/"//')
+                if [ "$S" != "ready" ]; then REMAINING=$((REMAINING + 1)); fi
+              done
+              echo "Retry poll $rpoll/6 — $REMAINING store(s) still pending"
+              if [ "$REMAINING" -eq 0 ]; then break; fi
+            done
           fi
 
           # ---- Final verdict: re-check ONLY the retried stores. ----

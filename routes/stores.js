@@ -410,6 +410,30 @@ router.get("/api/deals/regional", async (req, res) => {
 
 // ══ ON-DEMAND AD EXTRACTION ═══════════════════════════════════════════════════
 
+// Global cap on concurrent OCR extractions. The per-store extractingStores
+// guard prevents duplicate work on one store but nothing bounded the total.
+// On 2026-07-08 the Wednesday cron ran 5-8 extractions concurrently (full-res
+// buffers + sharp working memory each) and OOM-killed the Render instance
+// repeatedly. Limit 2 drains 20 stores in ~25 min without approaching the
+// memory ceiling. Queued stores still report status "extracting", which is
+// truthful: queued means work is committed, just not started.
+const EXTRACT_CONCURRENCY = 2;
+let extractSlotsInUse = 0;
+const extractWaitQueue = [];
+function acquireExtractSlot(storeName) {
+  if (extractSlotsInUse < EXTRACT_CONCURRENCY) {
+    extractSlotsInUse++;
+    return Promise.resolve();
+  }
+  console.log(`Extract queue: ${storeName} waiting (${extractSlotsInUse} running, ${extractWaitQueue.length + 1} queued)`);
+  return new Promise((resolve) => extractWaitQueue.push(resolve));
+}
+function releaseExtractSlot() {
+  const next = extractWaitQueue.shift();
+  if (next) next();
+  else extractSlotsInUse = Math.max(0, extractSlotsInUse - 1);
+}
+
 async function fetchBestImage(url, headers) {
   // WordPress appends -scaled to large uploads; the original usually exists
   // at the same URL without the suffix. Verified June 11: 4.6-6.4x the pixels.
@@ -435,6 +459,10 @@ async function tileImage(buffer) {
   // cap. Width is bounded to 1600px first. Short pages pass through whole.
   // Overlap duplicates are collapsed later by the existing name+price dedup.
   const sharp = (await import("sharp")).default;
+  // Batch image work on a memory-constrained instance: disable sharp's
+  // decoded-pixel cache and its internal thread pool fan-out.
+  sharp.cache(false);
+  sharp.concurrency(1);
   let img = sharp(buffer);
   let meta = await img.metadata();
   if (!meta.width || !meta.height) return [buffer];
@@ -487,9 +515,12 @@ router.post("/api/extract-store", async (req, res) => {
   extractingStores.add(storeId);
   res.json({ status: "extracting", message: `Found ${storeName} ad — extracting deals now. This takes about 2-3 minutes.` });
 
+  let slotAcquired = false;
   try {
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { extractingStores.delete(storeId); return; }
+    await acquireExtractSlot(storeName);
+    slotAcquired = true;
 
     const pageRes = await fetch(adUrl, {
       headers: {
@@ -872,6 +903,7 @@ Rules:
   } catch (err) {
     console.error(`On-demand extraction error for ${storeName}:`, err.message);
   } finally {
+    if (slotAcquired) releaseExtractSlot();
     extractingStores.delete(storeId);
   }
 });

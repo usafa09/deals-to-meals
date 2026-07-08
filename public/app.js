@@ -823,6 +823,7 @@ async function handleSubscribe(e) {
     const successEl = document.getElementById("subscribeSuccess");
     successEl.textContent = "\u2713 You're in! See you Wednesday.";
     successEl.style.display = "block";
+    try { localStorage.setItem("dc_nl_subscribed", "1"); } catch (e) {}
     const _evt = {
       source: 'landing_inline',
       zip_prefix: zip.slice(0, 3),
@@ -1985,7 +1986,7 @@ async function searchRecipes() {
     state.recipeOffset=5;
     localStorage.setItem("dishcount_flow_complete","true");
     clearSkeletonBanner();
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
+    renderRecipeGrid(); renderSavingsBanner(); renderNewsletterNudge(); renderNutritionBanner(); renderSharePlanButton();
     setTimeout(()=>{ showTooltip("recipes",".recipe-card-tile:first-child","Tap any recipe to see ingredients, instructions, and savings breakdown!","top:100%;left:0;margin-top:8px;"); showFeatureDiscovery("firstgen",'<strong style="color:#2d6a4f;">Did you know?</strong><p style="color:#666;font-size:13px;margin:4px 0 0;">You can plan your whole week with "Plan My Week", try freezer-friendly batch meals, or tell us about your leftovers.</p>'); },800);
     if (data.badges) handleBadgeResponse(data.badges);
     saveUserSelections();
@@ -2069,6 +2070,58 @@ function renderSavingsBanner() {
     '<div><div style="font-size:28px;font-weight:800;color:#fbbf24;">$' + s.totalSavings.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">You save (' + s.savingsPercent + '%)</div></div>' +
     '<div><div style="font-size:28px;font-weight:800;color:#52b788;">$' + s.costPerServing.toFixed(2) + '</div><div style="font-size:12px;opacity:0.8;">Per serving</div></div>' +
     '</div>' + budgetLine + '</div>';
+}
+
+window.submitMealsNewsletter = async function() {
+  const emailEl = document.getElementById("nlNudgeEmail");
+  const zipEl = document.getElementById("nlNudgeZip");
+  const email = (emailEl?.value || "").trim();
+  const zip = state.zip || (zipEl?.value || "").trim();
+  if (!SUBSCRIBE_EMAIL_RE.test(email) || email.length > 254) { showToast("Please enter a valid email address"); emailEl?.focus(); return; }
+  if (!/^\d{5}$/.test(zip)) { showToast("Please enter a 5-digit zip code"); zipEl?.focus(); return; }
+  const btn = document.getElementById("nlNudgeBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending..."; }
+  try {
+    const res = await fetch("/api/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, zip }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Something went wrong");
+    try { localStorage.setItem("dc_nl_subscribed", "1"); } catch (e) {}
+    const card = document.getElementById("newsletterNudge");
+    if (card) card.innerHTML = '<div style="text-align:center;padding:16px;color:var(--green-dark);font-weight:600;">✓ You\'re in! See you Wednesday.</div>';
+    const _evt = { source: "meals_screen", zip_prefix: zip.slice(0, 3), is_authenticated: !!state.session };
+    if (typeof gtag === "function") gtag("event", "newsletter_signup", _evt);
+    if (window.posthog) window.posthog.capture("newsletter_signup", _evt);
+    if (typeof fbq === "function") fbq("track", "Subscribe", _evt);
+  } catch (err) { showToast(err.message); if (btn) { btn.disabled = false; btn.textContent = "Get it Wednesdays"; } }
+};
+
+window.dismissNewsletterNudge = function() {
+  try { localStorage.setItem("dc_nl_dismissed_at", String(Date.now())); } catch (e) {}
+  document.getElementById("newsletterNudge")?.remove();
+};
+
+function renderNewsletterNudge() {
+  const anchor = document.getElementById("savingsBanner");
+  if (!anchor) return;
+  document.getElementById("newsletterNudge")?.remove();
+  try {
+    if (localStorage.getItem("dc_nl_subscribed")) return;
+    const dis = parseInt(localStorage.getItem("dc_nl_dismissed_at") || "0", 10);
+    if (dis && Date.now() - dis < 14 * 86400000) return;
+  } catch (e) { /* storage unavailable; show the nudge */ }
+  const s = state.lastSavings;
+  const savingsLine = s && s.totalSavings > 0 ? "This plan saves you $" + s.totalSavings.toFixed(2) + ". " : "";
+  const zipField = state.zip ? "" : '<input type="text" id="nlNudgeZip" placeholder="Zip code" maxlength="5" inputmode="numeric" style="width:90px;padding:10px;border:2px solid var(--sand);border-radius:10px;font-size:14px;" />';
+  const html = '<div id="newsletterNudge" style="background:#fffdf7;border:2px solid var(--sand);border-radius:14px;padding:18px;margin-bottom:20px;text-align:center;position:relative;">' +
+    '<button type="button" aria-label="Dismiss" onclick="dismissNewsletterNudge()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#999;cursor:pointer;font-size:16px;">✕</button>' +
+    '<div style="font-weight:700;color:var(--green-dark);font-size:16px;margin-bottom:4px;">Want next Wednesday\'s version?</div>' +
+    '<div style="color:var(--muted);font-size:13px;margin-bottom:12px;">' + savingsLine + 'New deals drop every Wednesday. I send 5 dinner ideas built from them. One email a week, unsubscribe anytime.</div>' +
+    '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+    '<input type="email" id="nlNudgeEmail" placeholder="Your email" style="flex:1;min-width:180px;max-width:260px;padding:10px;border:2px solid var(--sand);border-radius:10px;font-size:14px;" />' +
+    zipField +
+    '<button type="button" id="nlNudgeBtn" onclick="submitMealsNewsletter()" style="padding:10px 18px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Get it Wednesdays</button>' +
+    '</div></div>';
+  anchor.insertAdjacentHTML("afterend", html);
 }
 
 function renderNutritionBanner() {
@@ -2158,7 +2211,7 @@ async function generateFreezerMeals() {
     state._isFreezerPlan = true; state._isWeeklyPlan = false;
     state.recipeOffset = 0;
     clearSkeletonBanner();
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
+    renderRecipeGrid(); renderSavingsBanner(); renderNewsletterNudge(); renderNutritionBanner(); renderSharePlanButton();
     document.getElementById("recipesTitle").textContent = "❄️ Freezer Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " freezer-friendly recipes";
   } catch (err) {
@@ -2544,7 +2597,7 @@ async function generateWeeklyPlan() {
     state.recipeOffset = 0;
     state._isWeeklyPlan = true; state._isFreezerPlan = false;
     clearSkeletonBanner();
-    renderRecipeGrid(); renderSavingsBanner(); renderNutritionBanner(); renderSharePlanButton();
+    renderRecipeGrid(); renderSavingsBanner(); renderNewsletterNudge(); renderNutritionBanner(); renderSharePlanButton();
     document.getElementById("recipesTitle").textContent = "📅 Your Weekly Meal Plan";
     document.getElementById("resultsCount").textContent = state.recipes.length + " dinners planned for the week";
   } catch (err) {

@@ -700,13 +700,45 @@ window.addEventListener("offline", () => showToast("You appear to be offline. So
 window.addEventListener("online", () => showToast("You're back online!", "success"));
 
 // ── Welcome Back for Returning Users ────────────────────────────────────────
+window.dismissWelcomeBack = function() {
+  document.getElementById("welcomeBackCard")?.remove();
+};
+window.resumeLastSession = function() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("dishcount-last-session") || "null");
+    if (!saved?.zip || !saved.selectedBrands?.length) { dismissWelcomeBack(); return; }
+    state.zip = saved.zip;
+    state.selectedBrands = saved.selectedBrands;
+    state.selectedKrogerId = saved.selectedKrogerId || null;
+    const zi = document.getElementById("zipInput"); if (zi) zi.value = saved.zip;
+    dismissWelcomeBack();
+    loadDealsAndShow();
+  } catch (e) { dismissWelcomeBack(); }
+};
 (function() {
-  const lastVisit = localStorage.getItem("dishcount_last_visit");
   const today = new Date().toDateString();
-  if (lastVisit && lastVisit !== today) {
-    setTimeout(() => showToast("Welcome back! This week's deals are fresh.", "success"), 1500);
-  }
   localStorage.setItem("dishcount_last_visit", today);
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem("dishcount-last-session") || "null"); } catch (e) { saved = null; }
+  // Only offer resume if we have a usable session under 14 days old.
+  if (!saved?.zip || !saved.selectedBrands?.length) return;
+  if (saved.savedAt && Date.now() - saved.savedAt > 14 * 86400000) return;
+  const storeLabel = saved.selectedBrands.length === 1
+    ? saved.selectedBrands[0] + (saved.locAddr ? " on " + saved.locAddr.split(",")[0].replace(/^\d+\s+/, "") : "")
+    : saved.selectedBrands.length + " stores";
+  function mount() {
+    const anchor = document.querySelector(".landing-search");
+    if (!anchor || document.getElementById("welcomeBackCard")) return;
+    const html = '<div id="welcomeBackCard" style="background:#fffdf7;border:2px solid var(--sand);border-radius:14px;padding:16px;margin:12px auto 0;max-width:420px;text-align:center;">' +
+      '<div style="font-weight:700;color:var(--green-dark);font-size:15px;margin-bottom:10px;">Welcome back. See this week\'s deals at ' + escapeHtml(storeLabel) + '?</div>' +
+      '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+      '<button type="button" onclick="resumeLastSession()" style="padding:10px 20px;background:var(--green-dark);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">Show my deals</button>' +
+      '<button type="button" onclick="dismissWelcomeBack()" style="padding:10px 20px;background:none;color:var(--muted);border:1px solid var(--sand);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">Start fresh</button>' +
+      '</div></div>';
+    anchor.insertAdjacentHTML("afterend", html);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
+  else mount();
 })();
 
 // ── Recipe Preview Modal (landing page) ─────────────────────────────────────
@@ -1595,6 +1627,20 @@ async function loadDealsAndShow() {
     const params = new URLSearchParams({ zip: state.zip, limit: "300" });
     if (state.selectedKrogerId) params.set("locationId", state.selectedKrogerId);
     if (state.selectedBrands?.length) params.set("brands", state.selectedBrands.join(","));
+  // Persist a compact record of this session so a returning visitor can skip
+  // the wizard. Store brand wasn't saved before — only zip and location were.
+  try {
+    if (state.zip && state.selectedBrands?.length) {
+      const locAddr = (state.krogerLocations || []).find(l => l.id === state.selectedKrogerId)?.address || "";
+      localStorage.setItem("dishcount-last-session", JSON.stringify({
+        zip: state.zip,
+        selectedBrands: state.selectedBrands,
+        selectedKrogerId: state.selectedKrogerId || null,
+        locAddr,
+        savedAt: Date.now(),
+      }));
+    }
+  } catch (e) {}
     const res = await fetch(`/api/deals/regional?${params}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to fetch deals");

@@ -2386,7 +2386,7 @@ function renderModal(r){
         const label=isOnSale?"ON SALE":isOnHand?"ON HAND":isAdditional?"TO BUY":"PANTRY";
         const bg=isOnSale?"var(--green-light)":isOnHand?"#E8F0F8":isAdditional?"#FFF8E8":"#F5F0E8";
         const color=isOnSale?"var(--green-dark)":isOnHand?"#2D4A6A":isAdditional?"#8B6914":"#5A4A30";
-        const priceTag=ing.matchedDeal?` · ${ing.matchedDeal.isPerLb?"≈ ":""}$${ing.matchedDeal.actualCost||String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")}${ing.matchedDeal.isPerLb?" ("+String(ing.matchedDeal.salePrice).replace(/[^0-9.]/g,"")+"/lb)":""}${ing.matchedDeal.regularPrice&&ing.matchedDeal.regularPrice!=="—"&&!ing.matchedDeal.isPerLb?` <s style="opacity:0.5;font-size:9px">$${String(ing.matchedDeal.regularPrice).replace(/[^0-9.]/g,"")}</s>`:""}`:"";
+        const priceTag=(()=>{if(!ing.matchedDeal)return "";const md=ing.matchedDeal;const mdSaleUnit=parseFloat(String(md.salePrice||"").replace(/[^0-9.]/g,""))||0;const mdActual=parseFloat(String(md.actualCost||"").replace(/[^0-9.]/g,""))||mdSaleUnit;const mdQty=mdSaleUnit>0?mdActual/mdSaleUnit:1;const mdRegUnit=parseFloat(String(md.regularPrice||"").replace(/[^0-9.]/g,""))||0;const mdRegScaled=mdRegUnit*mdQty;const strike=(!md.isPerLb&&mdRegScaled>mdActual+0.009)?` <s style="opacity:0.5;font-size:9px">$${mdRegScaled.toFixed(2)}</s>`:"";return ` · ${md.isPerLb?"≈ ":""}$${mdActual.toFixed(2)}${md.isPerLb?" ("+mdSaleUnit.toFixed(2)+"/lb)":""}${strike}`;})();
         // Parse leading amount for scaling
         const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
         const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;

@@ -712,7 +712,14 @@ window.resumeLastSession = function() {
     state.selectedKrogerId = saved.selectedKrogerId || null;
     const zi = document.getElementById("zipInput"); if (zi) zi.value = saved.zip;
     dismissWelcomeBack();
-    loadDealsAndShow();
+    // Defer like the Kroger-OAuth restore path: let app init settle, ensure the
+    // app screens exist, and advance to the deals step before the fetch renders
+    // into it. Without the goTo(4) the deals load into a screen still hidden
+    // behind the landing page.
+    setTimeout(async () => {
+      await goTo(4);
+      loadDealsAndShow();
+    }, 300);
   } catch (e) { dismissWelcomeBack(); }
 };
 (function() {

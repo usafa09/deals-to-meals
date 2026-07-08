@@ -1745,6 +1745,22 @@ function findMatchingCoupon(dealName) {
   });
 }
 
+// Maps a deal category to a tint class for the typographic (photoless) card
+// used on OCR-extracted deals. Keeps the grid visually varied by category
+// without leaning on repeating stock photos.
+function dealTintClass(cat) {
+  const c = (cat || "").toLowerCase();
+  if (/chicken|beef|pork|steak|salmon|shrimp|turkey|sausage|bacon|fish|meat|ham|ribs|seafood/i.test(c)) return "tint-meat";
+  if (/apple|banana|lettuce|tomato|onion|pepper|broccoli|carrot|potato|avocado|fruit|vegetable|produce|berr|grape|corn|mango|peach/i.test(c)) return "tint-produce";
+  if (/milk|cheese|butter|yogurt|cream|egg|dairy/i.test(c)) return "tint-dairy";
+  if (/bread|bagel|muffin|croissant|bakery|tortilla|bun|roll|cake|cookie|dessert|donut/i.test(c)) return "tint-bakery";
+  if (/frozen|ice cream/i.test(c)) return "tint-frozen";
+  if (/pasta|rice|bean|can|soup|sauce|broth|oil|pantry|cereal|flour|sugar/i.test(c)) return "tint-pantry";
+  if (/juice|coffee|tea|soda|water|beverage|drink/i.test(c)) return "tint-beverage";
+  if (/chip|cracker|snack|candy|pretzel|popcorn|nut/i.test(c)) return "tint-snack";
+  return "tint-other";
+}
+
 function dealCatIcon(cat) {
   const c = (cat || "").toLowerCase();
   if (/chicken|beef|pork|steak|salmon|shrimp|turkey|sausage|bacon|fish|meat|ham|ribs/i.test(c)) return "🥩";
@@ -1878,7 +1894,7 @@ async function renderSaleItems() {
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
       ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
-      ${typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-img-ph" style="display:none">${dealCatIcon(d.category||d.name||"")}</div>`:`<div class="sale-card-img-ph">${dealCatIcon(d.category||d.name||"")}</div>`}
+      ${d.source==="kroger"&&typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}" style="display:none"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`:`<div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
         <div class="sale-card-price">${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}</div>

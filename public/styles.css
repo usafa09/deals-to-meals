@@ -371,6 +371,17 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .sale-card.exclude .sale-card-badge { background: var(--red); color: white; }
 .sale-card-img { width: 100%; height: 110px; object-fit: contain; background: #FAFAF5; display: block; padding: 6px; }
 .sale-card-img-ph { width: 100%; height: 110px; background: linear-gradient(135deg, #f5f0e8, #e8e0d0); display: flex; align-items: center; justify-content: center; font-size: 48px; border-radius: 12px 12px 0 0; }
+.sale-card-tile { width: 100%; height: 110px; display: flex; align-items: center; justify-content: center; border-radius: 12px 12px 0 0; position: relative; }
+.sale-card-tile-icon { font-size: 40px; opacity: 0.55; filter: saturate(0.85); }
+.tint-meat    { background: linear-gradient(135deg, #f6e2df, #efd0cb); }
+.tint-produce { background: linear-gradient(135deg, #e3efd9, #d3e6c4); }
+.tint-dairy   { background: linear-gradient(135deg, #fdf3d9, #f6e9bf); }
+.tint-bakery  { background: linear-gradient(135deg, #f5e9db, #ecdac2); }
+.tint-frozen  { background: linear-gradient(135deg, #dfedf2, #c8e0ea); }
+.tint-pantry  { background: linear-gradient(135deg, #eee7dc, #e0d4c0); }
+.tint-beverage{ background: linear-gradient(135deg, #e6eaf0, #d2dae6); }
+.tint-snack   { background: linear-gradient(135deg, #f3ecdc, #e8dcc0); }
+.tint-other   { background: linear-gradient(135deg, #f5f0e8, #e8e0d0); }
 .sale-card-body { padding: 10px; }
 .sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; }
 .sale-card-price { display: flex; align-items: baseline; gap: 6px; }

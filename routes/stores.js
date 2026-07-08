@@ -587,7 +587,8 @@ router.post("/api/extract-store", async (req, res) => {
       }
     } else if (isLadySavings) {
       const looksLikeChallenge = html.length < 50000 && /Just a moment|cf-chl-bypass|cloudflare/i.test(html);
-      console.log(`[ladysavings fetch] ${storeName} page 1: status=${pageRes.status} bytes=${html.length}${looksLikeChallenge ? ' CHALLENGE' : ''}`);
+      const suspectSmall = html.length < 50000 && !looksLikeChallenge;
+      console.log(`[ladysavings fetch] ${storeName} page 1: status=${pageRes.status} bytes=${html.length}${looksLikeChallenge ? ' CHALLENGE' : ''}${suspectSmall ? ' SUSPECT-SMALL' : ''}`);
       const hcwRegex = /https:\/\/www\.hotcouponworld\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:jpg|jpeg|png|webp)/gi;
       const firstPageImages = (html.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
       if (firstPageImages.length > 0) images.push(firstPageImages[0]);
@@ -609,7 +610,8 @@ router.post("/api/extract-store", async (req, res) => {
           });
           const pHtml = await pRes.text();
           const pLooksLikeChallenge = pHtml.length < 50000 && /Just a moment|cf-chl-bypass|cloudflare/i.test(pHtml);
-          console.log(`[ladysavings fetch] ${storeName} page ${p}: status=${pRes.status} bytes=${pHtml.length}${pLooksLikeChallenge ? ' CHALLENGE' : ''}`);
+          const pSuspectSmall = pHtml.length < 50000 && !pLooksLikeChallenge;
+          console.log(`[ladysavings fetch] ${storeName} page ${p}: status=${pRes.status} bytes=${pHtml.length}${pLooksLikeChallenge ? ' CHALLENGE' : ''}${pSuspectSmall ? ' SUSPECT-SMALL' : ''}`);
           const pImages = (pHtml.match(hcwRegex) || []).filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("_header"));
           if (pImages.length > 0) images.push(pImages[0]);
         } catch (e) { console.error(`LadySavings page ${p} fetch error:`, e.message); }
@@ -649,6 +651,15 @@ router.post("/api/extract-store", async (req, res) => {
     }
 
     console.log(`On-demand extraction for ${storeName}: ${images.length} pages found`);
+
+    if (images.length === 0) {
+      // 0 discovered images means the source page fetch failed or was blocked
+      // (observed: ladysavings serving a 12KB stub with HTTP 200 to Render's IP
+      // on 2026-07-08). This is a fetch failure, not an empty ad — leave any
+      // existing cache untouched so users keep last week's real data.
+      console.warn(`On-demand: ${storeName} — SOURCE FETCH FAILURE: 0 ad images discovered (page bytes=${html.length}). Cache left untouched. Body starts: ${String(html).substring(0, 200).replace(/\s+/g, " ")}`);
+      return;
+    }
 
     const allDeals = [];
     const maxPages = Math.min(images.length, 20);

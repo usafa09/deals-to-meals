@@ -34,19 +34,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
    (rare in 2026) parse the first and use the JPG. Modern browsers parse both
    and the second one wins, choosing WebP when supported, JPG otherwise. */
 .landing-hero {
-  background: url('/images/og-hero.jpg') center/cover no-repeat;
-  background: image-set(
-    url('/images/og-hero.webp') type('image/webp'),
-    url('/images/og-hero.jpg') type('image/jpeg')
-  ) center/cover no-repeat;
+  background: linear-gradient(165deg, #1a2e1f 0%, #24402c 55%, #2d6a4f 140%);
   position: relative;
   min-height: 600px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 120px 24px 80px;
+  padding: 90px 24px 64px;
 }
-.landing-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(26,46,31,0.9) 0%, rgba(26,46,31,0.8) 50%, rgba(26,46,31,0.92) 100%); pointer-events: none; }
+.landing-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(217,119,6,0.10) 0%, transparent 60%); pointer-events: none; }
 .landing-hero-content { position: relative; z-index: 1; text-align: center; max-width: 720px; }
 .landing-badge { display: inline-block; padding: 8px 20px; border-radius: 24px; background: #A85D05; border: 1px solid #A85D05; color: #FFFFFF; font-size: 14px; font-weight: 700; margin-bottom: 24px; }
 .landing-headline { font-family: 'Outfit', sans-serif; font-size: 56px; font-weight: 800; color: white; line-height: 1.1; margin-bottom: 20px; }
@@ -62,12 +58,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .landing-distance label { font-size: 13px; color: #FFFFFF; font-weight: 600; }
 .landing-distance select { padding: 6px 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; background: rgba(0,0,0,0.3); color: #FFFFFF; cursor: pointer; }
 .landing-hint { font-size: 13px; color: #E8E8E8; }
+.landing-proof { display: inline-flex; align-items: baseline; gap: 8px; margin: 4px auto 20px; padding: 8px 18px; background: rgba(82,183,136,0.14); border: 1px solid rgba(82,183,136,0.35); border-radius: 30px; }
+.landing-proof-amount { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #52b788; }
+.landing-proof-text { font-size: 14px; color: #E8F0EA; }
 
 /* Homepage deal-preview grid — static PNG proof, no JS. Mobile-first: 2 cols
    (phones), 3 cols (≥768px). Sits below the zip CTA so the form stays above
    the fold; the grid is the "scroll-down" reinforcement. */
 .landing-preview { max-width: 480px; margin: 20px auto; }
-.landing-preview-caption { margin: 0 0 10px; font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500; letter-spacing: 0.02em; }
+.landing-preview-caption { margin: 0 0 12px; font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .landing-preview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .landing-preview-grid img { width: 100%; height: auto; display: block; border-radius: 12px; }
 @media (min-width: 768px) {

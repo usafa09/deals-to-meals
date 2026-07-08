@@ -2232,6 +2232,7 @@ function renderRecipeGrid(){
       <div class="recipe-card-body">${r.day?`<div style="display:inline-block;background:#A85D05;color:white;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-bottom:4px;">${escapeHtml(r.day)}</div>`:""}<div class="recipe-card-title">${escapeHtml(r.title)}</div>${r.reasoning?`<p style="font-size:12px;color:#595959;font-style:italic;margin:2px 0 6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(r.reasoning)}</p>`:""}<div class="recipe-card-meta">
         ${r.time!=="N/A"?`<span class="meta-chip meta-time">⏱ ${escapeHtml(r.time)}</span>`:""}
         ${r.estimatedCost>0?`<span class="meta-chip meta-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}${r.servings?` · $${(r.estimatedCost/r.servings).toFixed(2)}/serving`:""}</span>`:""}
+        ${Number(r.totalSavings)>0?`<span class="meta-chip" style="background:#1a2e1f;color:#fbbf24;font-weight:700">💚 You save $${Number(r.totalSavings).toFixed(2)}</span>`:""}
         ${(()=>{const all=r.allIngredients||r.ingredients||[];const counts={sale:0,onHand:0,pantry:0,additional:0};all.forEach(i=>{const t=(i.type||"").toUpperCase();if(t==="SALE"&&i.onSale)counts.sale++;else if(t==="ON_HAND")counts.onHand++;else if(t==="PANTRY")counts.pantry++;else if(t==="ADDITIONAL")counts.additional++;});const parts=[];if(counts.onHand)parts.push(counts.onHand+" have");if(counts.sale)parts.push(counts.sale+" on sale");if(counts.pantry)parts.push(counts.pantry+" pantry");if(counts.additional)parts.push(counts.additional+" to buy");return parts.length?`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${parts.join(" · ")}</span>`:`<span class="meta-chip" style="background:var(--green-light);color:var(--green-dark)">🏷️ ${r.usedSaleItems?.length||0} on sale</span>`;})()}
         ${r.couponsToClip?.length?`<span class="meta-chip meta-coupon">🎟️ ${r.couponsToClip.length} coupon${r.couponsToClip.length>1?"s":""}</span>`:""}
         ${(()=>{const steps=r.instructions?.length||r.steps?.length||0;return steps>0?`<span class="meta-chip" style="background:#F0EBF8;color:#5B21B6">${steps<=5?"Easy":steps<=10?"Medium":"Involved"}</span>`:""})()}
@@ -2347,14 +2348,23 @@ function renderModal(r){
         ${r.estimatedCost>0?`<span class="stat-pill stat-cost">💰 ${r.usedSaleItems?.some(i=>i.isPerLb)?"≈ ":""}$${r.estimatedCost.toFixed(2)}</span>`:""}
         ${r.estimatedCost>0&&r.servings?`<span class="stat-pill" style="background:#E8F0F8;color:#2D4A6A">👤 $${(r.estimatedCost/r.servings).toFixed(2)}/serving</span>`:""}
         ${r.estimatedCost>0?`<span class="stat-pill" style="background:#FEF3C7;color:#92400E" id="scaledCostDisplay">💰 $${r.estimatedCost.toFixed(2)} total</span>`:""}
+        ${Number(r.totalSavings)>0?`<span class="stat-pill" style="background:#1a2e1f;color:#fbbf24">💚 Save $${Number(r.totalSavings).toFixed(2)}</span>`:""}
       </div>
       ${r.usedSaleItems?.length?`<div class="modal-section"><div class="modal-section-title">🏷️ On Sale — What You'll Pay</div><div class="ing-list">${r.usedSaleItems.map(ing=>{
-        const costNum=ing.actualCost||String(ing.salePrice).replace(/[^0-9.]/g,"");
-        const cost=ing.isPerLb?`≈ $${costNum}`:`$${costNum}`;
+        // actualCost is quantity-scaled (4 ears × $2.50 = $10.00). The regular
+        // price must be scaled by the same quantity before it can appear as a
+        // strikethrough next to it, or the row reads "$10.00, was $3.99".
+        const saleUnit=parseFloat(String(ing.salePrice||"").replace(/[^0-9.]/g,""))||0;
+        const actualNum=parseFloat(String(ing.actualCost||"").replace(/[^0-9.]/g,""))||saleUnit;
+        const qty=saleUnit>0?actualNum/saleUnit:1;
+        const cost=ing.isPerLb?`≈ $${actualNum.toFixed(2)}`:`$${actualNum.toFixed(2)}`;
         const pkgNote=ing.packageNote?`<div style="font-size:10px;color:#666">${escapeHtml(ing.packageNote)}</div>`:"";
+        const qtyNote=(!ing.isPerLb&&qty>1.05)?`<div style="font-size:10px;color:#666">${Math.round(qty)} × $${saleUnit.toFixed(2)}</div>`:"";
         const perLbLine=ing.isPerLb?`<div style="font-size:10px;color:#999">${escapeHtml(ing.salePrice)} <s style="opacity:0.5">${escapeHtml(ing.regularPrice)}</s></div>`:"";
-        const regPrice=!ing.isPerLb&&ing.regularPrice&&ing.regularPrice!=="—"?`<span class="ing-reg-price">$${String(ing.regularPrice).replace(/[^0-9.]/g,"")}</span>`:"";
-        return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${pkgNote}</div></div>`;
+        const regUnit=parseFloat(String(ing.regularPrice||"").replace(/[^0-9.]/g,""))||0;
+        const regScaled=regUnit*qty;
+        const regPrice=(!ing.isPerLb&&regScaled>actualNum+0.009)?`<span class="ing-reg-price">$${regScaled.toFixed(2)}</span>`:"";
+        return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${qtyNote}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
       ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">🎟️ Digital Coupons</div><div style="display:flex;flex-direction:column;gap:8px">${r.couponsToClip.map(c=>`<div class="coupon-card"><div><span style="font-size:13px">${c.clipped?"✅":"🎟️"} ${escapeHtml(c.description)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${c.clipped?"Already clipped":"Clip in Kroger app to save"}</div></div>`).join("")}</div></div>`:""}
       <div class="modal-section">

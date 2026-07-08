@@ -75,6 +75,36 @@ router.delete("/api/recipes/saved/:id", async (req, res) => {
 
 // ══ CLAUDE AI RECIPE GENERATION ══════════════════════════════════════════════
 
+// Plan-level savings summary. Uses quantity-scaled actualCost (a recipe may use
+// 4 ears of corn at $2.50/ea) and scales the regular price by the same
+// quantity so sale and regular totals are in the same units. Extracted to a
+// function because the cached response path needs it too — before this,
+// cache-hit responses omitted savings entirely and the frontend banner
+// silently hid for most users.
+function computeSavingsSummary(recipes) {
+  let totalSalePrice = 0, totalRegularPrice = 0, totalServings = 0;
+  (recipes || []).forEach(r => {
+    totalServings += (r.servings || 4);
+    (r.usedSaleItems || []).forEach(item => {
+      const saleUnit = parseFloat(String(item.salePrice || "0").replace(/[^0-9.]/g, "")) || 0;
+      const actual = parseFloat(String(item.actualCost || "").replace(/[^0-9.]/g, "")) || saleUnit;
+      const qty = saleUnit > 0 ? actual / saleUnit : 1;
+      const regUnit = parseFloat(String(item.regularPrice || "0").replace(/[^0-9.]/g, "")) || 0;
+      const regScaled = regUnit * qty;
+      totalSalePrice += actual;
+      totalRegularPrice += regScaled > actual ? regScaled : actual;
+    });
+  });
+  return {
+    totalSalePrice: Math.round(totalSalePrice * 100) / 100,
+    totalRegularPrice: Math.round(totalRegularPrice * 100) / 100,
+    totalSavings: Math.round((totalRegularPrice - totalSalePrice) * 100) / 100,
+    savingsPercent: totalRegularPrice > 0 ? Math.round(((totalRegularPrice - totalSalePrice) / totalRegularPrice) * 100) : 0,
+    costPerServing: totalServings > 0 ? Math.round((totalSalePrice / totalServings) * 100) / 100 : 0,
+    servings: totalServings,
+  };
+}
+
 router.post("/api/recipes/ai", async (req, res, next) => {
   // Apply stricter rate limit for anonymous users
   const user = await getUser(req);
@@ -401,7 +431,7 @@ async function handleRecipeGeneration(req, res) {
     const cached = aiRecipeCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < 1800000) {
       console.log("Serving cached AI recipes");
-      return res.json({ recipes: cached.recipes, cached: true });
+      return res.json({ recipes: cached.recipes, savings: computeSavingsSummary(cached.recipes), cached: true });
     }
 
     const mustInclude = ingredients.filter(i => i.mustInclude).map(i => i.name);
@@ -1111,25 +1141,8 @@ IMPORTANT ingredient type rules:
     const totalIngredients = (req.body.ingredients || []).length;
     const dealHunterScore = totalIngredients > 0 ? { used: usedDealNames.size, total: totalIngredients, percent: Math.round((usedDealNames.size / totalIngredients) * 100) } : null;
 
-    // Calculate savings summary across all recipes
-    let totalSalePrice = 0, totalRegularPrice = 0, totalServings = 0;
-    recipes.forEach(r => {
-      totalServings += (r.servings || 4);
-      (r.usedSaleItems || []).forEach(item => {
-        const sale = parseFloat(String(item.salePrice || item.actualCost || "0").replace(/[^0-9.]/g, "")) || 0;
-        const reg = parseFloat(String(item.regularPrice || "0").replace(/[^0-9.]/g, "")) || 0;
-        totalSalePrice += sale;
-        totalRegularPrice += reg > sale ? reg : sale;
-      });
-    });
-    const savingsSummary = {
-      totalSalePrice: Math.round(totalSalePrice * 100) / 100,
-      totalRegularPrice: Math.round(totalRegularPrice * 100) / 100,
-      totalSavings: Math.round((totalRegularPrice - totalSalePrice) * 100) / 100,
-      savingsPercent: totalRegularPrice > 0 ? Math.round(((totalRegularPrice - totalSalePrice) / totalRegularPrice) * 100) : 0,
-      costPerServing: totalServings > 0 ? Math.round((totalSalePrice / totalServings) * 100) / 100 : 0,
-      servings: totalServings,
-    };
+    // Savings summary (see computeSavingsSummary above)
+    const savingsSummary = computeSavingsSummary(recipes);
 
     console.log(`[recipes/ai] TOTAL_ms=${Date.now() - _t0} breakdown: prompt=${_tPromptBuilt - _t0}ms claude=${_tClaudeDone - _tClaude}ms parse=${_tPostProcess - _tClaudeDone}ms post=${Date.now() - _tPostProcess}ms`);
 

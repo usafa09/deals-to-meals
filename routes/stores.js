@@ -1011,4 +1011,109 @@ router.post("/api/store-requests", async (req, res) => {
   }
 });
 
+// ══ HOMEPAGE PREVIEW ═════════════════════════════════════════════════════════
+// Six real, current deals for the pre-zip landing grid. Walmart national cache
+// only: it's nationwide (no zip needed), refreshed weekly, and carries real
+// product image URLs (i5.walmartimages.com) plus regular prices. Curated to a
+// balanced mix (protein / produce / dairy / pantry) so the grid reads like a
+// week's groceries, not six of the same thing. Cache-miss → empty array; the
+// homepage hides the grid rather than showing placeholders.
+router.get("/api/deals/preview", async (req, res) => {
+  try {
+    const raw = await getCachedDeals("walmart:national");
+    if (!raw || !raw.length) {
+      return res.json({ deals: [], count: 0 });
+    }
+
+    // Keep only deals with a real image, a sale price, a regular price higher
+    // than sale, and a usable name. Compute pctOff where missing.
+    const clean = raw
+      .map(d => {
+        const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+        const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
+        const pct = Number(d.pctOff) > 0
+          ? Number(d.pctOff)
+          : (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r
+              ? Math.round(((r - s) / r) * 100) : 0);
+        return { ...d, _sale: s, _reg: r, _pct: pct };
+      })
+      .filter(d =>
+        d.image && String(d.image).startsWith("http") &&
+        d.name && d.name.trim() &&
+        Number.isFinite(d._sale) && d._sale > 0 &&
+        Number.isFinite(d._reg) && d._reg > d._sale &&
+        d._pct > 0
+      );
+
+    // Category buckets for a balanced grid. Each visitor-facing slot draws the
+    // highest-pctOff item from its bucket. Buckets ordered by desired slot.
+    const bucketOf = (d) => {
+      const c = (d.category || "").toLowerCase();
+      const n = (d.name || "").toLowerCase();
+      if (/beef|steak|ground/.test(c) || /beef|steak/.test(n)) return "beef";
+      if (/chicken|pork|turkey|poultry/.test(c) || /chicken|pork/.test(n)) return "poultry_pork";
+      if (/seafood|fish|shrimp/.test(c)) return "seafood";
+      if (/fruit|produce/.test(c)) return "fruit";
+      if (/vegetable/.test(c)) return "vegetable";
+      if (/dairy|egg|milk|cheese|yogurt/.test(c) || /milk|cheese|yogurt|egg/.test(n)) return "dairy";
+      if (/pasta|grain|pantry|bread|breakfast|condiment/.test(c)) return "pantry";
+      return "other";
+    };
+
+    const byBucket = {};
+    for (const d of clean) {
+      const b = bucketOf(d);
+      (byBucket[b] = byBucket[b] || []).push(d);
+    }
+    for (const b in byBucket) byBucket[b].sort((a, z) => z._pct - a._pct);
+
+    // Desired slot order for a balanced 6-card grid. Falls back through
+    // alternates when a bucket is empty, then to any remaining high-pct deal.
+    const slotPlan = ["beef", "poultry_pork", "fruit", "vegetable", "dairy", "pantry"];
+    const picked = [];
+    const usedNames = new Set();
+    const takeFrom = (bucket) => {
+      const list = byBucket[bucket] || [];
+      for (const d of list) {
+        const key = (d.name || "").toLowerCase().slice(0, 30);
+        if (!usedNames.has(key)) { usedNames.add(key); return d; }
+      }
+      return null;
+    };
+    for (const slot of slotPlan) {
+      let d = takeFrom(slot);
+      if (!d && slot === "beef") d = takeFrom("seafood") || takeFrom("poultry_pork");
+      if (!d && slot === "fruit") d = takeFrom("vegetable");
+      if (!d && slot === "vegetable") d = takeFrom("fruit");
+      if (d) picked.push(d);
+    }
+    // Backfill to 6 from any remaining deals, highest pctOff first.
+    if (picked.length < 6) {
+      const rest = clean
+        .filter(d => !usedNames.has((d.name || "").toLowerCase().slice(0, 30)))
+        .sort((a, z) => z._pct - a._pct);
+      for (const d of rest) {
+        if (picked.length >= 6) break;
+        usedNames.add((d.name || "").toLowerCase().slice(0, 30));
+        picked.push(d);
+      }
+    }
+
+    const out = picked.slice(0, 6).map(d => ({
+      name: d.name,
+      salePrice: d._sale,
+      regularPrice: d._reg,
+      pctOff: d._pct,
+      storeName: "Walmart",
+      image: d.image,
+      category: d.category || "",
+    }));
+
+    res.json({ deals: out, count: out.length });
+  } catch (err) {
+    console.error("Preview deals error:", err.message);
+    res.json({ deals: [], count: 0 });
+  }
+});
+
 export default router;

@@ -734,3 +734,10 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 .deals-sticky-cta .btn-gradient { width: calc(100% - 32px); margin: 0 16px; min-height: 52px; font-size: 16px; }
 
 #screen4 { padding-bottom: 8px; }
+
+/* Compact filter accordion on deals screen (keeps filters one tap away, off the fold) */
+.deals-filters { margin: 4px 0 12px; }
+.deals-filters > summary { list-style: none; cursor: pointer; display: inline-block; padding: 6px 14px; border: 2px solid var(--sand); border-radius: 20px; font-size: 13px; font-weight: 700; color: var(--green-dark); user-select: none; }
+.deals-filters > summary::-webkit-details-marker { display: none; }
+.deals-filters[open] > summary { margin-bottom: 8px; }
+.deals-filters-body { animation: none; }

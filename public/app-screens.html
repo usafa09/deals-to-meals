@@ -32,17 +32,22 @@
     <button class="dismiss" onclick="this.parentElement.style.display='none'">&times;</button>
   </div>
 
-  <div class="sale-summary" id="saleSummary" style="margin-top:12px"></div>
-  <fieldset class="sale-filter-group">
-    <legend class="sr-only">Filter by store</legend>
-    <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
-    <div class="sale-filters" id="saleStoreFilters"></div>
-  </fieldset>
-  <fieldset class="sale-filter-group">
-    <legend class="sr-only">Filter by category</legend>
-    <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
-    <div class="sale-filters" id="saleCategoryFilters"></div>
-  </fieldset>
+  <div class="sale-summary" id="saleSummary" style="margin-top:8px"></div>
+  <details class="deals-filters">
+    <summary>&#128269; Filter &amp; sort</summary>
+    <div class="deals-filters-body">
+      <fieldset class="sale-filter-group">
+        <legend class="sr-only">Filter by store</legend>
+        <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
+        <div class="sale-filters" id="saleStoreFilters"></div>
+      </fieldset>
+      <fieldset class="sale-filter-group">
+        <legend class="sr-only">Filter by category</legend>
+        <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
+        <div class="sale-filters" id="saleCategoryFilters"></div>
+      </fieldset>
+    </div>
+  </details>
 
   <div class="sale-grid" id="saleGrid"></div>
   <div style="text-align:center;margin-top:12px"><button id="dealsShowMore" class="btn btn-outline" onclick="showMoreDeals()" style="display:none">Show More Deals</button></div>

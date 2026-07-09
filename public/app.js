@@ -1872,7 +1872,7 @@ async function renderSaleItems() {
     if (showBanner) {
       const p = krogerBanner.querySelector("p");
       const a = krogerBanner.querySelector("a");
-      if (p) p.innerHTML = `🔗 Connect your ${escapeHtml(krogerBrandName)} account to unlock digital coupons and save even more!`;
+      if (p) p.innerHTML = `🔗 Connect ${escapeHtml(krogerBrandName)} for digital coupons`;
       if (a) a.textContent = `Connect ${krogerBrandName}`;
     }
   }

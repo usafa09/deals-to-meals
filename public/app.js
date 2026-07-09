@@ -1999,7 +1999,7 @@ async function renderSaleItems() {
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
-      ${d.pctOff>=40?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;z-index:1;">STOCK UP</div>`:""}
+      ${d.pctOff>=40&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.source==="kroger"&&typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}" style="display:none"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`:`<div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`}
       <div class="sale-card-body">
         <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>

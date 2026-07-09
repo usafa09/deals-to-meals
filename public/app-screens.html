@@ -26,30 +26,13 @@
   <p id="dealsShowing" style="font-size:12px;color:var(--muted);margin:0 0 8px 0"></p>
   <p class="screen-sub">Tap items: green &#10003; = must include, red &#10005; = exclude</p>
 
-  <div class="kroger-connect-banner" id="krogerConnectBanner">
-    <p>&#128279; Connect your Kroger account to unlock digital coupons and save even more!</p>
-    <a href="/profile.html#kroger" onclick="event.preventDefault();connectKrogerFromList()">Connect Kroger</a>
+  <div class="kroger-connect-banner kroger-connect-slim" id="krogerConnectBanner">
+    <p>&#128279; Connect Kroger for digital coupons</p>
+    <a href="/profile.html#kroger" onclick="event.preventDefault();connectKrogerFromList()">Connect</a>
     <button class="dismiss" onclick="this.parentElement.style.display='none'">&times;</button>
   </div>
 
-  <div class="section-title" style="margin-top:8px">&#128722; Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
-  <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-  <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy</p>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
-    <div class="section-title" style="margin:0">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
-    <button type="button" onclick="scanPantry()" style="background:#2d6a4f;color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap;"><span class="mobile-only">&#128247; Scan Pantry</span><span class="desktop-only">&#128247; Upload Pantry Photo</span> <span class="beta-badge">BETA</span></button>
-  </div>
-  <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
-  <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have &mdash; or snap a photo</p>
-
-  <div style="margin:16px 0;">
-    <label style="font-weight:600;color:#2d6a4f;font-size:15px;">&#9851;&#65039; Any leftovers to use up? <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></label>
-    <p style="color:#595959;font-size:13px;margin:4px 0 8px;">Leftovers will be prioritized first so nothing goes to waste</p>
-    <textarea id="leftoversInput" placeholder="e.g. leftover roasted chicken, half a bag of rice, extra bell peppers, cooked ground beef" style="width:100%;height:60px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>
-  </div>
-
-  <div class="sale-summary" id="saleSummary" style="margin-top:16px"></div>
+  <div class="sale-summary" id="saleSummary" style="margin-top:12px"></div>
   <fieldset class="sale-filter-group">
     <legend class="sr-only">Filter by store</legend>
     <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Store</div>
@@ -60,11 +43,37 @@
     <div aria-hidden="true" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Category</div>
     <div class="sale-filters" id="saleCategoryFilters"></div>
   </fieldset>
+
   <div class="sale-grid" id="saleGrid"></div>
   <div style="text-align:center;margin-top:12px"><button id="dealsShowMore" class="btn btn-outline" onclick="showMoreDeals()" style="display:none">Show More Deals</button></div>
 
+  <details class="deals-finetune">
+    <summary>&#9881;&#65039; Fine-tune: pantry, extras, leftovers <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></summary>
+    <div class="deals-finetune-body">
+      <div class="section-title" style="margin-top:8px">&#128722; Additional Items to Buy <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+      <textarea id="wantItems" placeholder="e.g. tortillas, sour cream, taco seasoning..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+      <p style="font-size:11px;color:#999;margin-top:4px">Items not on sale that you want to buy</p>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+        <div class="section-title" style="margin:0">&#127968; Items You Already Have <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></div>
+        <button type="button" onclick="scanPantry()" style="background:#2d6a4f;color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap;"><span class="mobile-only">&#128247; Scan Pantry</span><span class="desktop-only">&#128247; Upload Pantry Photo</span> <span class="beta-badge">BETA</span></button>
+      </div>
+      <textarea id="haveItems" placeholder="e.g. rice, garlic, olive oil, canned tomatoes, onions..." style="width:100%;min-height:50px;padding:12px;border:2px solid #D0C5A0;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical;background:var(--cream);color:var(--text);outline:none;box-sizing:border-box"></textarea>
+      <p style="font-size:11px;color:#999;margin-top:4px">Pantry staples or fridge items you already have &mdash; or snap a photo</p>
+
+      <div style="margin:16px 0 0;">
+        <label style="font-weight:600;color:#2d6a4f;font-size:15px;">&#9851;&#65039; Any leftovers to use up? <span style="font-size:12px;color:#AAA;font-weight:400">(optional)</span></label>
+        <p style="color:#595959;font-size:13px;margin:4px 0 8px;">Leftovers will be prioritized first so nothing goes to waste</p>
+        <textarea id="leftoversInput" placeholder="e.g. leftover roasted chicken, half a bag of rice, extra bell peppers, cooked ground beef" style="width:100%;height:60px;padding:12px;border:2px solid #d0c5a0;border-radius:10px;font-size:15px;box-sizing:border-box;resize:none;font-family:inherit;"></textarea>
+      </div>
+    </div>
+  </details>
+
   <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px"><a href="mailto:support@dishcount.co?subject=Deal%20Issue&amp;body=Store:%20%0AItem:%20%0AIssue:%20" style="color:var(--muted);text-decoration:underline">See a wrong price? Let us know &#8594;</a></p>
-  <button class="btn btn-gradient" id="findRecipesBtn" onclick="goTo(5)">Find Recipes &#8594;</button>
+
+  <div class="deals-sticky-cta">
+    <button class="btn btn-gradient" id="findRecipesBtn" onclick="goTo(5)">Find Recipes &#8594;</button>
+  </div>
 </div>
 
 <!-- SCREEN 5: RECIPE STYLE + FILTERS -->

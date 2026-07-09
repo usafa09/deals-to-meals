@@ -1879,10 +1879,20 @@ async function renderSaleItems() {
 
   const ic=Object.values(state.dealStates).filter(v=>v==="include").length;
   const ec=Object.values(state.dealStates).filter(v=>v==="exclude").length;
+  // Only show include/exclude chips once the user has actually picked something;
+  // on first load just show the total so the summary doesn't eat the fold.
+  const pickChips = (ic>0||ec>0)
+    ? `<span style="background:var(--green-light);color:var(--green-dark)">✓ ${ic} must-include</span>
+       <span style="background:#FFF0F0;color:var(--red)">✕ ${ec} excluded</span>`
+    : "";
   document.getElementById("saleSummary").innerHTML=`
-    <span style="background:var(--green-light);color:var(--green-dark)">✓ ${ic} must-include</span>
-    <span style="background:#FFF0F0;color:var(--red)">✕ ${ec} excluded</span>
+    ${pickChips}
     <span style="background:#F5F0E8;color:#5A4A30">${deals.length} total</span>`;
+  // Mirror the pick count into the sticky Find Recipes button.
+  const frBtn=document.getElementById("findRecipesBtn");
+  if(frBtn){
+    frBtn.innerHTML = ic>0 ? `Find Recipes &#8594; · ${ic} picked` : `Find Recipes &#8594;`;
+  }
 
   const storeNames=[...new Set(state.deals.map(d=>d.storeName||d.source||"Other"))].sort();
   document.getElementById("saleStoreFilters").innerHTML=`

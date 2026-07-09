@@ -313,6 +313,7 @@ const _PANTRY_STAPLE_PATTERNS = [
   /\bbaking (powder|soda)\b/i,
   /\byeast\b/i,
   /\bcornstarch\b/i,
+  /\bbutter\b/i,   // shared staple: bought once, not billed to a single recipe
 ];
 function isPantryStaple(...names) {
   return names.filter(Boolean).some(name =>

@@ -314,8 +314,12 @@ router.get("/api/deals/regional", async (req, res) => {
     const beforeDedup = allDeals.length;
     const seen = new Map();
     allDeals = allDeals.filter(d => {
-      const key = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
-      if (!key) return false; // filter empty names
+      // Scope dedupe to the same store: cross-store name matches are the
+      // cross-chain comparison, not duplicates. Longer slice + trailing-s
+      // strip catches near-identical names ("...Chops Bone In"/"...Chop Bone").
+      const nameKey = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").replace(/s$/, "").slice(0, 40);
+      if (!nameKey) return false; // filter empty names
+      const key = `${(d.storeName || d.source || "").toLowerCase()}::${nameKey}`;
       if (seen.has(key)) {
         const existing = seen.get(key);
         // Keep existing if it has better price data
@@ -338,6 +342,20 @@ router.get("/api/deals/regional", async (req, res) => {
     });
     const removed = beforeDedup - allDeals.length;
     if (removed > 0) console.log(`  Cleaned: ${beforeDedup - beforeFilter} dupes, ${beforeFilter - allDeals.length} bad prices removed`);
+
+    // pctOff backfill: OCR-extracted deals carry both prices but no pctOff,
+    // which sinks them in the client's discount-weighted ranking. Compute it
+    // wherever both prices exist. Cap at 90 to keep OCR price errors from
+    // fabricating absurd discounts.
+    allDeals = allDeals.map(d => {
+      if (Number(d.pctOff) > 0) return d;
+      const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+      const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
+      if (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r) {
+        return { ...d, pctOff: Math.min(90, Math.round(((r - s) / r) * 100)) };
+      }
+      return d;
+    });
 
     // Sanitize images — remove unreliable external URLs, set null so frontend uses emoji fallback
     allDeals = allDeals.map(d => {
@@ -387,7 +405,28 @@ router.get("/api/deals/regional", async (req, res) => {
     const total = allDeals.length;
     const limit = Math.min(parseInt(req.query.limit) || total, total);
     const offset = Math.min(parseInt(req.query.offset) || 0, total);
-    const paged = limit < total ? allDeals.slice(offset, offset + limit) : allDeals;
+    let paged;
+    if (limit < total && offset === 0) {
+      // Store-fair slice: round-robin across stores (each store's deals kept in
+      // their original order) so the limit can't amputate an entire store.
+      const byStore = new Map();
+      for (const d of allDeals) {
+        const s = (d.storeName || d.source || "other").toLowerCase();
+        if (!byStore.has(s)) byStore.set(s, []);
+        byStore.get(s).push(d);
+      }
+      const queues = [...byStore.values()];
+      paged = [];
+      let qi = 0, emptied = 0;
+      while (paged.length < limit && emptied < queues.length) {
+        const q = queues[qi % queues.length];
+        if (q.length) paged.push(q.shift());
+        qi++;
+        emptied = queues.filter(q2 => q2.length === 0).length;
+      }
+    } else {
+      paged = limit < total ? allDeals.slice(offset, offset + limit) : allDeals;
+    }
     if (total > 1000) console.warn(`⚠️ Large deals pool: ${total} deals (${Math.round(JSON.stringify(allDeals).length / 1024)}KB)`);
     console.log(`  Serving: ${paged.length} of ${total} deals (${Math.round(JSON.stringify(paged).length / 1024)}KB) [limit=${limit} offset=${offset}]`);
 

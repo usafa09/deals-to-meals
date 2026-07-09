@@ -1711,7 +1711,29 @@ async function loadDealsAndShow() {
       if (/\b(cooler|tote|bag|cup|plate|napkin|foil|charcoal|sunscreen|patriotic|decoration)\b/.test(name)) boost -= 30;
       return (Number(d.pctOff) || 0) + boost;
     };
-    state.deals=[...map.values()].sort((a,b)=>dealRankScore(b)-dealRankScore(a));
+    // Rank within each store, then round-robin the first 30 positions across
+    // the user's selected stores so every store the user picked is visibly
+    // represented up top (ALDI-style ad data often has no regular price, so
+    // no pctOff heuristic can rank it fairly against API chains). After the
+    // interleaved head, fall back to pure score order.
+    const ranked=[...map.values()].sort((a,b)=>dealRankScore(b)-dealRankScore(a));
+    const storeKeyOf=d=>(d.storeName||d.source||"other").toLowerCase();
+    const storeKeys=[...new Set(ranked.map(storeKeyOf))];
+    if(storeKeys.length>1){
+      const perStore=new Map(storeKeys.map(k=>[k,ranked.filter(d=>storeKeyOf(d)===k)]));
+      const INTERLEAVE_N=30;
+      const head=[];
+      let idx=0;
+      while(head.length<Math.min(INTERLEAVE_N,ranked.length)){
+        const q=perStore.get(storeKeys[idx%storeKeys.length]);
+        if(q.length)head.push(q.shift());
+        idx++;
+        if(idx>INTERLEAVE_N*storeKeys.length*2)break; // safety
+      }
+      state.deals=[...head,...ranked.filter(d=>!head.includes(d))];
+    } else {
+      state.deals=ranked;
+    }
     state.dealStates={}; state.saleStoreFilter="all"; state.saleCategoryFilter="all";
     // Check which selected stores have no deals
     const storesWithDeals = new Set(state.deals.map(d=>(d.storeName||d.source||"").toLowerCase()));
@@ -1860,7 +1882,7 @@ async function renderSaleItems() {
   document.getElementById("saleSummary").innerHTML=`
     <span style="background:var(--green-light);color:var(--green-dark)">✓ ${ic} must-include</span>
     <span style="background:#FFF0F0;color:var(--red)">✕ ${ec} excluded</span>
-    <span style="background:#F5F0E8;color:#5A4A30">${state.deals.length} total</span>`;
+    <span style="background:#F5F0E8;color:#5A4A30">${deals.length} total</span>`;
 
   const storeNames=[...new Set(state.deals.map(d=>d.storeName||d.source||"Other"))].sort();
   document.getElementById("saleStoreFilters").innerHTML=`

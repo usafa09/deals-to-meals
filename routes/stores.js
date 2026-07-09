@@ -1202,6 +1202,23 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
       });
     }
 
+    // Fetch a Pexels food photo for the recipe (same source as /api/recipe-image).
+    let recipeImage = recipe.image || null;
+    try {
+      const pexelsKey = process.env.PEXELS_API_KEY;
+      if (pexelsKey && recipe.title) {
+        const q = recipe.title.replace(/[^\w\s]/g, "").trim();
+        const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q + " food")}&per_page=1&orientation=landscape`, {
+          headers: { Authorization: pexelsKey },
+        });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          const photo = pData.photos?.[0];
+          recipeImage = photo?.src?.medium || photo?.src?.small || recipeImage;
+        }
+      }
+    } catch (e) { console.error("Preview: Pexels image fetch failed:", e.message); }
+
     const bundle = {
       recipe: {
         title: recipe.title,
@@ -1211,7 +1228,7 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
         totalSavings: recipe.totalSavings || 0,
         costPerServing: recipe.servings ? Math.round((recipe.estimatedCost / recipe.servings) * 100) / 100 : 0,
         usedCount: cards.filter(c => c.inRecipe).length,
-        image: recipe.image || null,
+        image: recipeImage,
         ingredients: (recipe.allIngredients || recipe.ingredients || []).map(i => i.name || i).slice(0, 12),
         instructions: (recipe.instructions || []).slice(0, 8),
       },

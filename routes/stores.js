@@ -1042,7 +1042,13 @@ router.get("/api/deals/preview", async (req, res) => {
         d.name && d.name.trim() &&
         Number.isFinite(d._sale) && d._sale > 0 &&
         Number.isFinite(d._reg) && d._reg > d._sale &&
-        d._pct > 0
+        d._pct > 0 &&
+        // Plausibility guard: a regular price >2.5x the sale price is almost
+        // always a multipack/case price mismatched to a single-unit sale
+        // (e.g. "$16.35 → $5.37" Cheez-It). Drop it — a showcase deal that
+        // looks fake is worse than one fewer card.
+        d._reg <= d._sale * 2.5 &&
+        d._pct <= 60
       );
 
     // Category buckets for a balanced grid. Each visitor-facing slot draws the

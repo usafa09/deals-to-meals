@@ -271,16 +271,22 @@
       <div class="landing-preview" id="landingPreview" style="display:none">
         <p class="landing-preview-caption">Tonight's dinner from this week's Kroger deals</p>
         <div class="landing-preview-grid" id="landingPreviewGrid"></div>
-        <div class="landing-recipe" id="landingRecipe" style="display:none">
+        <div class="landing-recipe" id="landingRecipe" style="display:none" role="button" tabindex="0">
+          <img class="landing-recipe-img" id="landingRecipeImg" alt="" loading="lazy" style="display:none" />
           <div class="landing-recipe-head">
             <div>
               <div class="landing-recipe-title" id="landingRecipeTitle"></div>
               <div class="landing-recipe-meta" id="landingRecipeMeta"></div>
             </div>
-            <button class="landing-recipe-save" id="landingRecipeSave" type="button">&#9825; Save this recipe</button>
+            <button class="landing-recipe-save" id="landingRecipeSave" type="button">&#9825; Save</button>
           </div>
           <div class="landing-recipe-uses" id="landingRecipeUses"></div>
+          <div class="landing-recipe-tapcue">Tap to see the full recipe &#8594;</div>
         </div>
+      </div>
+
+      <div class="lr-modal-overlay" id="lrModalOverlay">
+        <div class="lr-modal" id="lrModal"></div>
       </div>
     </div>
   </section>
@@ -462,6 +468,7 @@ document.addEventListener("click",function(e){
       .then(function (data) {
         var deals = (data && data.deals) || [];
         if (!deals.length) return; // leave hidden
+        window.__previewCards = deals;
         grid.innerHTML = deals.map(function (d) {
           var sale = "$" + Number(d.salePrice).toFixed(2);
           var reg = d.regularPrice ? "$" + Number(d.regularPrice).toFixed(2) : "";
@@ -487,6 +494,10 @@ document.addEventListener("click",function(e){
         var rec = data && data.recipe;
         if (!rec || !rec.title) return;
         var box = document.getElementById("landingRecipe");
+        if (rec.image) {
+          var im = document.getElementById("landingRecipeImg");
+          im.src = rec.image; im.style.display = "";
+        }
         document.getElementById("landingRecipeTitle").textContent = rec.title;
         var meta = [];
         if (rec.time) meta.push(rec.time);
@@ -499,7 +510,57 @@ document.addEventListener("click",function(e){
         }
         box.style.display = "";
 
-        document.getElementById("landingRecipeSave").addEventListener("click", function () {
+        // Build the SALE/PANTRY ingredient tagging by matching ingredient text
+        // against the deal card names shown above.
+        function renderModal() {
+          var saleNames = ((window.__previewCards) || []).map(function (c) { return (c.name || "").toLowerCase(); });
+          function isSale(ing) {
+            var t = ing.toLowerCase();
+            return saleNames.some(function (n) {
+              var w = n.split(/[^a-z]+/).filter(function (x) { return x.length > 3; });
+              return w.some(function (word) { return t.indexOf(word) !== -1; });
+            });
+          }
+          var ingRows = (rec.ingredients || []).map(function (ing) {
+            var sale = isSale(ing);
+            return '<div class="ing-row ' + (sale ? 'on-sale' : 'pantry') + '">' +
+              '<span>' + (sale ? '\uD83C\uDFF7\uFE0F ' : '\uD83E\uDED9 ') + esc(ing) + '</span>' +
+              '<span style="font-size:10px;font-weight:700">' + (sale ? 'SALE' : 'PANTRY') + '</span></div>';
+          }).join("");
+          var stepRows = (rec.instructions || []).map(function (s, i) {
+            return '<div class="step-row"><div class="step-num">' + (i + 1) + '</div><div class="step-text">' + esc(s) + '</div></div>';
+          }).join("");
+          var stats = [];
+          if (rec.time) stats.push('<span class="stat-pill" style="background:var(--cream)">\u23F1 ' + esc(rec.time) + '</span>');
+          if (rec.servings) stats.push('<span class="stat-pill" style="background:var(--cream)">\uD83C\uDF7D\uFE0F ' + rec.servings + ' servings</span>');
+          if (rec.costPerServing) stats.push('<span class="stat-pill" style="background:var(--green-light);color:var(--green-dark)">$' + Number(rec.costPerServing).toFixed(2) + '/serving</span>');
+          if (rec.totalSavings) stats.push('<span class="stat-pill" style="background:#FFF3E0;color:#B15A00">saves $' + Number(rec.totalSavings).toFixed(2) + '</span>');
+          document.getElementById("lrModal").innerHTML =
+            (rec.image ? '<img class="modal-img" src="' + esc(rec.image) + '" alt="" />' : '') +
+            '<div class="modal-body">' +
+              '<div class="modal-header"><div class="modal-title">' + esc(rec.title) + '</div>' +
+                '<button class="modal-close" id="lrModalClose">\u2715</button></div>' +
+              '<div class="modal-stats">' + stats.join("") + '</div>' +
+              '<div class="modal-section"><div class="modal-section-title">Ingredients</div><div class="ing-list">' + ingRows + '</div></div>' +
+              '<div class="modal-section"><div class="modal-section-title">Instructions</div><div class="steps-list">' + stepRows + '</div></div>' +
+              '<div style="text-align:center;padding-top:12px;border-top:2px solid #F5EFE0">' +
+                '<button class="landing-recipe-save" id="lrModalSave" style="width:100%;padding:14px;font-size:15px">\u2661 Save this recipe</button></div>' +
+            '</div>';
+          document.getElementById("lrModalOverlay").classList.add("show");
+          document.getElementById("lrModalClose").addEventListener("click", closeModal);
+          document.getElementById("lrModalSave").addEventListener("click", doSave);
+        }
+        function closeModal() { document.getElementById("lrModalOverlay").classList.remove("show"); }
+        document.getElementById("lrModalOverlay").addEventListener("click", function (e) {
+          if (e.target.id === "lrModalOverlay") closeModal();
+        });
+        box.addEventListener("click", function (e) {
+          if (e.target.id === "landingRecipeSave") return; // save button handled separately
+          renderModal();
+        });
+        box.addEventListener("keydown", function (e) { if (e.key === "Enter") renderModal(); });
+
+        function doSave() {
           // Stash in the app's pending-state shape so post-signup restore auto-saves.
           // saveRecipe reads allIngredients[].name, so shape ingredients as objects.
           var stashRecipe = {
@@ -528,7 +589,8 @@ document.addEventListener("click",function(e){
           // Send to the real signup page. After account creation, the preview-save
           // handler in app.js saves it and redirects home with a confirmation.
           window.location.href = "/profile.html";
-        });
+        }
+        document.getElementById("landingRecipeSave").addEventListener("click", doSave);
       })
       .catch(function () { /* no recipe card on error */ });
   })();

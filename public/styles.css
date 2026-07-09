@@ -751,3 +751,12 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 .preview-reg { font-size: 11px; color: #999; text-decoration: line-through; margin-left: 3px; }
 .preview-pct { position: absolute; top: 6px; left: 6px; background: var(--orange); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; z-index: 1; }
 @media (min-width: 640px) { .preview-card-img { height: 120px; max-height: 120px; min-height: 120px; } }
+
+/* Homepage recipe card (the meal built from the highlighted deals) */
+.landing-recipe { margin-top: 14px; background: white; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); text-align: left; }
+.landing-recipe-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.landing-recipe-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--green-dark); line-height: 1.2; }
+.landing-recipe-meta { font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 600; }
+.landing-recipe-uses { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.landing-recipe-save { flex-shrink: 0; background: var(--orange); color: white; border: none; border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.landing-recipe-save:hover { filter: brightness(1.05); }

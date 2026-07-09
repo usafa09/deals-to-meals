@@ -269,8 +269,18 @@
         <span class="landing-proof-text">saved on a week of dinners, built from what's on sale</span>
       </div>
       <div class="landing-preview" id="landingPreview" style="display:none">
-        <p class="landing-preview-caption">This week at Kroger &mdash; enter your zip for deals near you</p>
+        <p class="landing-preview-caption">Tonight's dinner from this week's Kroger deals</p>
         <div class="landing-preview-grid" id="landingPreviewGrid"></div>
+        <div class="landing-recipe" id="landingRecipe" style="display:none">
+          <div class="landing-recipe-head">
+            <div>
+              <div class="landing-recipe-title" id="landingRecipeTitle"></div>
+              <div class="landing-recipe-meta" id="landingRecipeMeta"></div>
+            </div>
+            <button class="landing-recipe-save" id="landingRecipeSave" type="button">&#9825; Save this recipe</button>
+          </div>
+          <div class="landing-recipe-uses" id="landingRecipeUses"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -469,6 +479,54 @@ document.addEventListener("click",function(e){
         wrap.style.display = "";
       })
       .catch(function () { /* leave hidden on error */ });
+
+    // Recipe card: fetch the cached preview recipe and wire the save handoff.
+    fetch("/api/deals/preview-recipe")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var rec = data && data.recipe;
+        if (!rec || !rec.title) return;
+        var box = document.getElementById("landingRecipe");
+        document.getElementById("landingRecipeTitle").textContent = rec.title;
+        var meta = [];
+        if (rec.time) meta.push(rec.time);
+        if (rec.costPerServing) meta.push("$" + Number(rec.costPerServing).toFixed(2) + "/serving");
+        if (rec.totalSavings) meta.push("saves $" + Number(rec.totalSavings).toFixed(2));
+        document.getElementById("landingRecipeMeta").textContent = meta.join("  ·  ");
+        if (rec.usedCount) {
+          document.getElementById("landingRecipeUses").textContent =
+            "Built from " + rec.usedCount + " of the deals above, plus a few pantry basics.";
+        }
+        box.style.display = "";
+
+        document.getElementById("landingRecipeSave").addEventListener("click", function () {
+          // Stash in the app's pending-state shape so post-signup restore auto-saves.
+          // saveRecipe reads allIngredients[].name, so shape ingredients as objects.
+          var stashRecipe = {
+            title: rec.title,
+            time: rec.time || "",
+            servings: rec.servings || 4,
+            image: rec.image || "",
+            allIngredients: (rec.ingredients || []).map(function (n) { return { name: n }; }),
+            instructions: rec.instructions || [],
+            totalSavings: rec.totalSavings || 0,
+            estimatedCost: rec.estimatedCost || 0,
+          };
+          try {
+            localStorage.setItem("dishcount_pending_state_v1", JSON.stringify({
+              _ts: Date.now(),
+              recipes: [stashRecipe],
+              currentRecipeIndex: 0,
+              pendingAction: "save_recipe",
+              selectedBrands: ["Kroger"],
+            }));
+          } catch (e) {}
+          // Route into the app; restorePendingState fires on load, prompts signup,
+          // and auto-saves after the account is created.
+          window.location.href = "/?restore=1";
+        });
+      })
+      .catch(function () { /* no recipe card on error */ });
   })();
   </script>
 </body>

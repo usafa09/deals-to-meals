@@ -106,6 +106,12 @@ function computeSavingsSummary(recipes) {
 }
 
 router.post("/api/recipes/ai", async (req, res, next) => {
+  // Internal jobs (weekly preview-bundle generation) carry the shared secret and
+  // bypass all anonymous caps — generate directly.
+  const internalToken = req.headers["x-internal-token"];
+  if (internalToken && process.env.INTERNAL_API_TOKEN && internalToken === process.env.INTERNAL_API_TOKEN) {
+    return handleRecipeGeneration(req, res);
+  }
   // Apply stricter rate limit for anonymous users
   const user = await getUser(req);
   if (!user) {

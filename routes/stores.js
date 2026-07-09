@@ -1096,17 +1096,37 @@ function curateFreshDeals(raw, limit) {
 
 router.get("/api/deals/preview", async (req, res) => {
   try {
+    // Prefer the weekly bundle's cards (kept in sync with the recipe). Fall back
+    // to live curation if the bundle hasn't been generated yet.
+    const bundle = await getCachedDeals("preview:bundle");
+    if (bundle && Array.isArray(bundle.cards) && bundle.cards.length) {
+      return res.json({ deals: bundle.cards, count: bundle.cards.length });
+    }
     const raw = await getCachedDeals(`kroger:${PREVIEW_KROGER_LOCATION}`);
     const picked = curateFreshDeals(raw, 6);
     if (!picked.length) return res.json({ deals: [], count: 0 });
     const out = picked.map(d => ({
       name: d.name, salePrice: d._sale, regularPrice: d._reg,
-      pctOff: d._pct, storeName: "Kroger", image: d.image, category: d.category || "",
+      pctOff: d._pct, storeName: "Kroger", image: d.image, category: d.category || "", inRecipe: false,
     }));
     res.json({ deals: out, count: out.length });
   } catch (err) {
     console.error("Preview deals error:", err.message);
     res.json({ deals: [], count: 0 });
+  }
+});
+
+// Serve the cached preview recipe (generated weekly alongside the cards).
+router.get("/api/deals/preview-recipe", async (req, res) => {
+  try {
+    const bundle = await getCachedDeals("preview:bundle");
+    if (bundle && bundle.recipe && bundle.recipe.title) {
+      return res.json({ recipe: bundle.recipe, generatedAt: bundle.generatedAt || null });
+    }
+    res.json({ recipe: null });
+  } catch (err) {
+    console.error("Preview recipe error:", err.message);
+    res.json({ recipe: null });
   }
 });
 

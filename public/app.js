@@ -643,6 +643,33 @@ sb.auth.onAuthStateChange((event, session) => {
       fetch("/api/stats/track", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ event: "recipe_generated", data: { count: anonCount, source: "anonymous_transfer" } }) }).catch(() => {});
       localStorage.removeItem("dishcount_anon_recipe_count");
     }
+    // Dedicated homepage preview-recipe save: if the visitor tapped "Save this
+    // recipe" on the landing page before creating an account, save it now.
+    try {
+      const ppRaw = localStorage.getItem("dishcount_pending_preview_recipe");
+      if (ppRaw && session.access_token) {
+        const pp = JSON.parse(ppRaw);
+        localStorage.removeItem("dishcount_pending_preview_recipe");
+        // Freshness guard: ignore stashes older than 1 hour.
+        if (pp && pp.title && pp._ts && (Date.now() - pp._ts) < 3600000) {
+          fetch("/api/recipes/saved", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+            body: JSON.stringify({
+              title: pp.title, emoji: "\u{1F37D}\uFE0F", time: pp.time || "",
+              servings: String(pp.servings || 4), difficulty: "",
+              ingredients: pp.ingredients || [], steps: pp.steps || [],
+              store_name: "Kroger", image: pp.image || "",
+            }),
+          }).then(function (r) {
+            if (r.ok) {
+              try { localStorage.setItem("dishcount_preview_saved_toast", pp.title); } catch (e) {}
+            }
+          }).catch(function () {});
+        }
+      }
+    } catch (e) {}
+
     const pending = restorePendingState();
     if (pending) {
       console.log("Restoring pending state:", pending.pendingAction);
@@ -681,6 +708,14 @@ sb.auth.getSession().then(({ data }) => {
   state.session = data?.session || null;
   updateAuthUI(data?.session);
   if (data?.session) {
+    // Confirm a homepage preview recipe that was just saved on sign-in.
+    try {
+      const savedTitle = localStorage.getItem("dishcount_preview_saved_toast");
+      if (savedTitle) {
+        localStorage.removeItem("dishcount_preview_saved_toast");
+        setTimeout(() => showToast('Saved "' + savedTitle + '" to your recipes!', "success"), 800);
+      }
+    } catch (e) {}
     loadUserPreferences().then(() => {
       // Show survey if: redirected from profile "Edit Preferences" button
       if (localStorage.getItem("dishcount_show_survey")) {

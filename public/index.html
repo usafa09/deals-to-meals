@@ -512,18 +512,22 @@ document.addEventListener("click",function(e){
             totalSavings: rec.totalSavings || 0,
             estimatedCost: rec.estimatedCost || 0,
           };
+          // Dedicated preview-save stash (distinct from the app's in-app save flow,
+          // which assumes recipe-view state that doesn't exist for a homepage recipe).
           try {
-            localStorage.setItem("dishcount_pending_state_v1", JSON.stringify({
+            localStorage.setItem("dishcount_pending_preview_recipe", JSON.stringify({
               _ts: Date.now(),
-              recipes: [stashRecipe],
-              currentRecipeIndex: 0,
-              pendingAction: "save_recipe",
-              selectedBrands: ["Kroger"],
+              title: stashRecipe.title,
+              time: stashRecipe.time,
+              servings: stashRecipe.servings,
+              image: stashRecipe.image,
+              ingredients: (stashRecipe.allIngredients || []).map(function (o) { return o.name; }),
+              steps: stashRecipe.instructions || [],
             }));
           } catch (e) {}
-          // Route into the app; restorePendingState fires on load, prompts signup,
-          // and auto-saves after the account is created.
-          window.location.href = "/?restore=1";
+          // Send to the real signup page. After account creation, the preview-save
+          // handler in app.js saves it and redirects home with a confirmation.
+          window.location.href = "/profile.html";
         });
       })
       .catch(function () { /* no recipe card on error */ });

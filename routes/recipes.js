@@ -209,6 +209,11 @@ function _normalizeUnit(u) {
   return _UNIT_NORM[s] || "";
 }
 const _COUNT_UNITS = ["each","can","jar","box","package","piece","bunch","head","clove"];
+// Container units mean "buy N of the deal item" — honor the multiplier.
+// Item units count pieces WITHIN a package (8 hot dogs = 1 package), so for
+// non-produce per-each deals they must NOT multiply the package price.
+const _CONTAINER_UNITS = ["can", "jar", "box", "package"];
+const _PRODUCE_CATEGORY_RE = /produce|fruit|vegetable/i;
 
 function aiQtyToLbs(quantity, unit, ingredientHint) {
   const q = Number(quantity);
@@ -1013,7 +1018,18 @@ IMPORTANT ingredient type rules:
             else { qty = hardcodedQtyForDeal(matchedDeal); qtySource = "fallback"; }
           } else {
             const aiCnt = aiQtyToCount(ing && ing.quantity, ing && ing.unit);
-            if (aiCnt != null && aiCnt > 0) { qty = aiCnt; qtySource = "ai"; }
+            const normUnit = _normalizeUnit(ing && ing.unit);
+            const isContainerUnit = _CONTAINER_UNITS.includes(normUnit);
+            const isProduce = _PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""));
+            if (aiCnt != null && aiCnt > 0) {
+              if (isContainerUnit || isProduce) {
+                qty = aiCnt; qtySource = "ai";
+              } else {
+                // Item-count unit on a packaged good: one package covers the recipe.
+                qty = 1; qtySource = "ai-clamped";
+                console.warn(`qty-clamp: "${ing && ing.item}" matched "${matchedDeal.name}" — AI count ${aiCnt} ${normUnit || "?"} clamped to 1 package`);
+              }
+            }
             else { qty = 1; qtySource = "fallback"; }
           }
           if (qtySource === "ai") aiQtyCount++; else fbQtyCount++;
@@ -1023,6 +1039,16 @@ IMPORTANT ingredient type rules:
           // deal still appears in usedSaleItems with full identity (price, store, upc)
           // so the Kroger cart-add path keeps working; only the cost roll-up is zeroed.
           const isStaple = isPantryStaple(ing && ing.item, ing && ing.matchName, matchedDeal.name);
+          // Validation gate: per-each non-produce ingredient charging >4 packages
+          // or >$20 is a units error, not a real basket. Clamp and log.
+          if (!isPerLb && qty > 4 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
+            console.warn(`qty-gate: "${matchedDeal.name}" qty ${qty} exceeds gate, clamped to 1`);
+            qty = 1;
+          }
+          if (!isPerLb && sale * qty > 20 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
+            console.warn(`qty-gate: "${matchedDeal.name}" cost $${(sale * qty).toFixed(2)} exceeds $20 gate, clamped to 1 package`);
+            qty = 1;
+          }
           const itemSaleCost_raw = sale * qty;
           const itemRegCost_raw = reg * qty;
           const itemSaleCost = isStaple ? 0 : itemSaleCost_raw;
@@ -1033,10 +1059,15 @@ IMPORTANT ingredient type rules:
 
           usedSaleItems.push({
             name: matchedDeal.name,
+            category: matchedDeal.category || "",
             salePrice: isPerLb ? `$${sale.toFixed(2)}/lb` : (matchedDeal.salePrice || ""),
             regularPrice: isPerLb ? `$${reg.toFixed(2)}/lb` : (matchedDeal.regularPrice || "—"),
             actualCost: itemActualCost,
-            packageNote: isPerLb ? `~${qty} lb pkg ≈ $${itemSaleCost.toFixed(2)}` : "",
+            packageNote: isPerLb
+              ? `~${qty} lb pkg ≈ $${itemSaleCost.toFixed(2)}`
+              : (["tbsp","tsp","cup","oz","fl_oz","ml","g"].includes(_normalizeUnit(ing && ing.unit)) && !isStaple
+                  ? "full package — you'll use the rest"
+                  : ""),
             savings: savings > 0 ? savings.toFixed(2) : "",
             storeName: matchedDeal.storeName || "",
             isPerLb,
@@ -1123,7 +1154,23 @@ IMPORTANT ingredient type rules:
     }
     if (beforeFilter !== recipes.length) console.log(`Meal type filter: removed ${beforeFilter - recipes.length} inappropriate recipes for ${effectiveMealType}`);
 
-    recipes.sort((a, b) => b.totalSavings - a.totalSavings);
+    // Savings-first sort with a modest dinner-anchor blend, mirroring the
+    // deal-ranking philosophy in app.js: fresh protein and produce get a
+    // dollar-scale head start so the #1 card is a meal, not whatever
+    // processed item discounted deepest this week.
+    const FRESH_PROTEIN_RE = /chicken|beef|pork(?!.*(hot dog|frank))|steak|salmon|tilapia|cod|shrimp|scallop|turkey breast|roast|chop|tenderloin|ground (beef|turkey|pork)/i;
+    const PROCESSED_RE = /hot dog|frank|bologna|spam|corn dog|lunchable/i;
+    const PRODUCE_RE = /produce|fruit|vegetable/i;
+    const recipeAnchorScore = (r) => {
+      const names = (r.usedSaleItems || []).map(i => i.name || "").join(" | ");
+      const cats = (r.usedSaleItems || []).map(i => i.category || "").join(" | ");
+      let boost = 0;
+      if (FRESH_PROTEIN_RE.test(names)) boost += 5;
+      if (PRODUCE_RE.test(cats)) boost += 2;
+      if (PROCESSED_RE.test(names) && !FRESH_PROTEIN_RE.test(names)) boost -= 4;
+      return (r.totalSavings || 0) + boost;
+    };
+    recipes.sort((a, b) => recipeAnchorScore(b) - recipeAnchorScore(a));
 
     aiRecipeCache.set(cacheKey, { recipes, timestamp: Date.now() });
     for (const [key, val] of aiRecipeCache.entries()) {

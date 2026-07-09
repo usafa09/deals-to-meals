@@ -1012,21 +1012,20 @@ router.post("/api/store-requests", async (req, res) => {
 });
 
 // ══ HOMEPAGE PREVIEW ═════════════════════════════════════════════════════════
-// Six real, current deals for the pre-zip landing grid. Walmart national cache
-// only: it's nationwide (no zip needed), refreshed weekly, and carries real
-// product image URLs (i5.walmartimages.com) plus regular prices. Curated to a
-// balanced mix (protein / produce / dairy / pantry) so the grid reads like a
-// week's groceries, not six of the same thing. Cache-miss → empty array; the
-// homepage hides the grid rather than showing placeholders.
+// Six real, current fresh deals for the pre-zip landing grid, from Kroger.
+// Pinned to a Dayton store (Kroger pricing is divisional, so this represents
+// the Ohio/heartland wedge — "this week at Kroger"). Kroger deals carry real
+// product image URLs and regular prices. Curated to fresh categories only
+// (protein, produce, dairy) — packaged goods have multipack/case regular-price
+// errors that read as fake. Cache-miss → empty array; the homepage hides the grid.
+const PREVIEW_KROGER_LOCATION = "01400705"; // Kroger, 1555 Wayne Ave, Dayton OH
 router.get("/api/deals/preview", async (req, res) => {
   try {
-    const raw = await getCachedDeals("walmart:national");
+    const raw = await getCachedDeals(`kroger:${PREVIEW_KROGER_LOCATION}`);
     if (!raw || !raw.length) {
       return res.json({ deals: [], count: 0 });
     }
 
-    // Keep only deals with a real image, a sale price, a regular price higher
-    // than sale, and a usable name. Compute pctOff where missing.
     const clean = raw
       .map(d => {
         const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
@@ -1042,66 +1041,59 @@ router.get("/api/deals/preview", async (req, res) => {
         d.name && d.name.trim() &&
         Number.isFinite(d._sale) && d._sale > 0 &&
         Number.isFinite(d._reg) && d._reg > d._sale &&
-        d._pct > 0 &&
-        // Plausibility guard: a regular price >2.5x the sale price is almost
-        // always a multipack/case price mismatched to a single-unit sale
-        // (e.g. "$16.35 → $5.37" Cheez-It). Drop it — a showcase deal that
-        // looks fake is worse than one fewer card.
-        d._reg <= d._sale * 2.5 &&
-        d._pct <= 60
+        d._pct > 0 && d._pct <= 60 &&
+        d._reg <= d._sale * 2.5
       );
 
-    // Category buckets for a balanced grid. Each visitor-facing slot draws the
-    // highest-pctOff item from its bucket. Buckets ordered by desired slot.
-    const bucketOf = (d) => {
+    // Fresh-only buckets. Explicit non-fresh exclusions first (cup noodles,
+    // frozen pizza, canned, boxed) so a mis-tagged packaged item can't sneak
+    // into a fresh slot.
+    const isPackaged = (n) => /noodle|cup noodle|ramen|frozen|pizza|canned|boxed|snack|chip|cracker|cereal|soda|candy|cookie|sauce jar/i.test(n);
+    const freshBucket = (d) => {
       const c = (d.category || "").toLowerCase();
       const n = (d.name || "").toLowerCase();
-      if (/beef|steak|ground/.test(c) || /beef|steak/.test(n)) return "beef";
-      if (/chicken|pork|turkey|poultry/.test(c) || /chicken|pork/.test(n)) return "poultry_pork";
-      if (/seafood|fish|shrimp/.test(c)) return "seafood";
-      if (/fruit|produce/.test(c)) return "fruit";
-      if (/vegetable/.test(c)) return "vegetable";
-      if (/dairy|egg|milk|cheese|yogurt/.test(c) || /milk|cheese|yogurt|egg/.test(n)) return "dairy";
-      if (/pasta|grain|pantry|bread|breakfast|condiment/.test(c)) return "pantry";
-      return "other";
+      if (isPackaged(n)) return "skip";
+      if (/beef|steak/.test(c) || /\b(beef|steak|sirloin|ground beef|brisket)\b/.test(n)) return "beef";
+      if (/pork|chicken|turkey|poultry/.test(c) || /\b(pork|chicken|turkey|sausage|bacon|ham|chop|tenderloin)\b/.test(n)) return "poultry_pork";
+      if (/seafood|fish/.test(c) || /\b(shrimp|salmon|cod|tilapia|scallop|crab|fish fillet|flounder)\b/.test(n)) return "seafood";
+      if (/fruit|produce/.test(c) || /\b(grape|peach|nectarine|mango|berry|berries|apple|melon|plum|strawberr)\b/.test(n)) return "fruit";
+      if (/vegetable/.test(c) || /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|greens|lettuce)\b/.test(n)) return "vegetable";
+      if (/dairy|egg/.test(c) || /\b(milk|cheese|yogurt|egg|butter)\b/.test(n)) return "dairy";
+      return "skip";
     };
 
     const byBucket = {};
     for (const d of clean) {
-      const b = bucketOf(d);
+      const b = freshBucket(d);
+      if (b === "skip") continue;
       (byBucket[b] = byBucket[b] || []).push(d);
     }
     for (const b in byBucket) byBucket[b].sort((a, z) => z._pct - a._pct);
 
-    // Desired slot order for a balanced 6-card grid. Falls back through
-    // alternates when a bucket is empty, then to any remaining high-pct deal.
-    const slotPlan = ["beef", "poultry_pork", "fruit", "vegetable", "dairy", "pantry"];
+    const slotPlan = ["beef", "poultry_pork", "seafood", "fruit", "vegetable", "dairy"];
     const picked = [];
     const usedNames = new Set();
     const takeFrom = (bucket) => {
-      const list = byBucket[bucket] || [];
-      for (const d of list) {
+      for (const d of (byBucket[bucket] || [])) {
         const key = (d.name || "").toLowerCase().slice(0, 30);
         if (!usedNames.has(key)) { usedNames.add(key); return d; }
       }
       return null;
     };
     for (const slot of slotPlan) {
-      let d = takeFrom(slot);
-      if (!d && slot === "beef") d = takeFrom("seafood") || takeFrom("poultry_pork");
-      if (!d && slot === "fruit") d = takeFrom("vegetable");
-      if (!d && slot === "vegetable") d = takeFrom("fruit");
+      const d = takeFrom(slot);
       if (d) picked.push(d);
     }
-    // Backfill to 6 from any remaining deals, highest pctOff first.
+    // Backfill to 6 from any remaining FRESH deals (still no packaged goods),
+    // highest pctOff first, so a thin week still fills the grid with real fresh items.
     if (picked.length < 6) {
-      const rest = clean
-        .filter(d => !usedNames.has((d.name || "").toLowerCase().slice(0, 30)))
-        .sort((a, z) => z._pct - a._pct);
+      const rest = [];
+      for (const b in byBucket) for (const d of byBucket[b]) rest.push(d);
+      rest.sort((a, z) => z._pct - a._pct);
       for (const d of rest) {
         if (picked.length >= 6) break;
-        usedNames.add((d.name || "").toLowerCase().slice(0, 30));
-        picked.push(d);
+        const key = (d.name || "").toLowerCase().slice(0, 30);
+        if (!usedNames.has(key)) { usedNames.add(key); picked.push(d); }
       }
     }
 
@@ -1110,7 +1102,7 @@ router.get("/api/deals/preview", async (req, res) => {
       salePrice: d._sale,
       regularPrice: d._reg,
       pctOff: d._pct,
-      storeName: "Walmart",
+      storeName: "Kroger",
       image: d.image,
       category: d.category || "",
     }));

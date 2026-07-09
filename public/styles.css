@@ -114,7 +114,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
 .recipe-preview-card:hover { border-color: var(--green-mid); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
 .rp-img-ph { height: 140px; background: linear-gradient(135deg, var(--green-light), #f5f0e8); display: flex; align-items: center; justify-content: center; font-size: 56px; }
 .rp-body { padding: 16px; }
-.rp-title { font-family: 'Trebuchet MS', sans-serif; font-size: 16px; font-weight: 700; color: var(--green-dark); margin-bottom: 10px; line-height: 1.3; }
+.rp-title { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: var(--green-dark); margin-bottom: 10px; line-height: 1.3; }
 .rp-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .rp-chip { font-size: 12px; padding: 4px 10px; border-radius: var(--r-sm); font-weight: 600; }
 .rp-time { background: #f5f0e8; color: #5a4a30; }
@@ -214,7 +214,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
 .back:hover { color: var(--green-dark); }
-.screen-title { font-family: 'Trebuchet MS', sans-serif; font-size: 26px; color: var(--green-dark); margin-bottom: 4px; }
+.screen-title { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: var(--green-dark); margin-bottom: 4px; }
 .screen-sub   { font-size: 15px; color: var(--muted); margin-bottom: 22px; }
 
 .btn { width: 100%; padding: 15px; border: none; border-radius: var(--r-md); font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
@@ -242,7 +242,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .has-selection .selection-hint[data-shown-when="empty"] { display: none; }
 
 /* ── Screen 3: Meal + Filters ── */
-.section-title { font-family: 'Trebuchet MS', sans-serif; font-size: 18px; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
+.section-title { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--green-dark); margin-bottom: 12px; margin-top: 24px; }
 .meal-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 8px; }
 .meal-card { background: white; border: 2px solid var(--sand); border-radius: var(--r-md); padding: 16px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
 .meal-card:hover { border-color: var(--green-mid); }
@@ -288,7 +288,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .recipe-card-img { width: 100%; height: 140px; object-fit: cover; background: #F5F0E8; display: block; }
 .recipe-card-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 40px; }
 .recipe-card-body { padding: 12px; }
-.recipe-card-title { font-family: 'Trebuchet MS', sans-serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
+.recipe-card-title { font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; line-height: 1.3; }
 .recipe-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-chip { font-size: 11px; padding: 3px 7px; border-radius: var(--r-sm); font-weight: 600; }
 .meta-time     { background: #F5F0E8; color: #5A4A30; }
@@ -306,7 +306,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
 .modal-body { padding: 24px; }
 .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.modal-title { font-family: 'Trebuchet MS', sans-serif; font-size: 22px; color: var(--green-dark); line-height: 1.3; }
+.modal-title { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700; color: var(--green-dark); line-height: 1.3; }
 .modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--sand); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
 .modal-close:hover { background: #F5F0E8; }
 .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -726,7 +726,7 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 
 /* Fine-tune accordion on the deals screen */
 .deals-finetune { border: 2px solid var(--sand); border-radius: var(--r-md); margin-top: 20px; background: var(--cream); }
-.deals-finetune > summary { list-style: none; cursor: pointer; padding: 14px 16px; font-family: 'Trebuchet MS', sans-serif; font-size: 15px; font-weight: 700; color: var(--green-dark); user-select: none; }
+.deals-finetune > summary { list-style: none; cursor: pointer; padding: 14px 16px; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; color: var(--green-dark); user-select: none; }
 .deals-finetune > summary::-webkit-details-marker { display: none; }
 .deals-finetune > summary::after { content: "\25BC"; float: right; font-size: 11px; color: var(--muted); transition: transform 0.2s; }
 .deals-finetune[open] > summary::after { transform: rotate(180deg); }

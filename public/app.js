@@ -1568,8 +1568,13 @@ async function onStoresPicked() {
 
 // ── Screen 3: Kroger Location ─────────────────────────────────────────────────
 function renderKrogerLocations() {
-  // Reset prior selection so the freshly rendered screen starts in the empty state.
-  state.selectedKrogerId=null;
+  // Pre-select the first returned store so Continue is immediately actionable.
+  // Kroger pricing is divisional (deals are identical across these locations),
+  // so a default is safe; a user who shops a specific store can still tap another.
+  state.selectedKrogerId = state.krogerLocations[0]?.id || null;
+  if (state.selectedKrogerId) {
+    try { localStorage.setItem("dishcount-kroger-location", state.selectedKrogerId); localStorage.setItem("dishcount-kroger-zip", state.zip); } catch(e) {}
+  }
   document.getElementById("krogerLocationsList").innerHTML=state.krogerLocations.map(s=>{
     const info=getBanner(s.name);
     return `<div class="card clickable" id="kloc-${escapeHtml(s.id)}" onclick="pickKrogerLocation('${escapeHtml(s.id)}')">
@@ -1579,6 +1584,11 @@ function renderKrogerLocations() {
       </div>
     </div>`;}).join("");
   updateKrogerBtnState();
+  // Visually mark the pre-selected first store.
+  if (state.selectedKrogerId) {
+    const pre = document.getElementById(`kloc-${state.selectedKrogerId}`);
+    if (pre) pre.classList.add("selected");
+  }
 }
 function updateKrogerBtnState() {
   const btn=document.getElementById("krogerBtn");

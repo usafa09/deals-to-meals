@@ -1019,98 +1019,191 @@ router.post("/api/store-requests", async (req, res) => {
 // (protein, produce, dairy) — packaged goods have multipack/case regular-price
 // errors that read as fake. Cache-miss → empty array; the homepage hides the grid.
 const PREVIEW_KROGER_LOCATION = "01400705"; // Kroger, 1555 Wayne Ave, Dayton OH
+
+// Shared fresh-deal curation: takes a raw Kroger deal array, returns up to
+// `limit` balanced fresh deals (image + real prices + plausible discount),
+// each annotated with _sale/_reg/_pct. Used by both the preview grid endpoint
+// and the weekly bundle generator.
+function curateFreshDeals(raw, limit) {
+  if (!raw || !raw.length) return [];
+  const clean = raw
+    .map(d => {
+      const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+      const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
+      const pct = Number(d.pctOff) > 0
+        ? Number(d.pctOff)
+        : (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r
+            ? Math.round(((r - s) / r) * 100) : 0);
+      return { ...d, _sale: s, _reg: r, _pct: pct };
+    })
+    .filter(d =>
+      d.image && String(d.image).startsWith("http") &&
+      d.name && d.name.trim() &&
+      Number.isFinite(d._sale) && d._sale > 0 &&
+      Number.isFinite(d._reg) && d._reg > d._sale &&
+      d._pct > 0 && d._pct <= 60 &&
+      d._reg <= d._sale * 2.5
+    );
+
+  const isPackaged = (n) => /noodle|cup noodle|ramen|frozen|pizza|canned|boxed|snack|chip|cracker|cereal|soda|candy|cookie|sauce jar/i.test(n);
+  const freshBucket = (d) => {
+    const c = (d.category || "").toLowerCase();
+    const n = (d.name || "").toLowerCase();
+    if (isPackaged(n)) return "skip";
+    if (/beef|steak/.test(c) || /\b(beef|steak|sirloin|ground beef|brisket)\b/.test(n)) return "beef";
+    if (/pork|chicken|turkey|poultry/.test(c) || /\b(pork|chicken|turkey|sausage|bacon|ham|chop|tenderloin)\b/.test(n)) return "poultry_pork";
+    if (/seafood|fish/.test(c) || /\b(shrimp|salmon|cod|tilapia|scallop|crab|fish fillet|flounder)\b/.test(n)) return "seafood";
+    if (/fruit|produce/.test(c) || /\b(grape|peach|nectarine|mango|berry|berries|apple|melon|plum|strawberr)\b/.test(n)) return "fruit";
+    if (/vegetable/.test(c) || /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|greens|lettuce)\b/.test(n)) return "vegetable";
+    if (/dairy|egg/.test(c) || /\b(milk|cheese|yogurt|egg|butter)\b/.test(n)) return "dairy";
+    return "skip";
+  };
+
+  const byBucket = {};
+  for (const d of clean) {
+    const b = freshBucket(d);
+    if (b === "skip") continue;
+    (byBucket[b] = byBucket[b] || []).push(d);
+  }
+  for (const b in byBucket) byBucket[b].sort((a, z) => z._pct - a._pct);
+
+  const slotPlan = ["beef", "poultry_pork", "seafood", "fruit", "vegetable", "dairy"];
+  const picked = [];
+  const usedNames = new Set();
+  const takeFrom = (bucket) => {
+    for (const d of (byBucket[bucket] || [])) {
+      const key = (d.name || "").toLowerCase().slice(0, 30);
+      if (!usedNames.has(key)) { usedNames.add(key); return d; }
+    }
+    return null;
+  };
+  for (const slot of slotPlan) {
+    const d = takeFrom(slot);
+    if (d) picked.push(d);
+  }
+  if (picked.length < limit) {
+    const rest = [];
+    for (const b in byBucket) for (const d of byBucket[b]) rest.push(d);
+    rest.sort((a, z) => z._pct - a._pct);
+    for (const d of rest) {
+      if (picked.length >= limit) break;
+      const key = (d.name || "").toLowerCase().slice(0, 30);
+      if (!usedNames.has(key)) { usedNames.add(key); picked.push(d); }
+    }
+  }
+  return picked.slice(0, limit);
+}
+
 router.get("/api/deals/preview", async (req, res) => {
   try {
     const raw = await getCachedDeals(`kroger:${PREVIEW_KROGER_LOCATION}`);
-    if (!raw || !raw.length) {
-      return res.json({ deals: [], count: 0 });
-    }
-
-    const clean = raw
-      .map(d => {
-        const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
-        const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
-        const pct = Number(d.pctOff) > 0
-          ? Number(d.pctOff)
-          : (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r
-              ? Math.round(((r - s) / r) * 100) : 0);
-        return { ...d, _sale: s, _reg: r, _pct: pct };
-      })
-      .filter(d =>
-        d.image && String(d.image).startsWith("http") &&
-        d.name && d.name.trim() &&
-        Number.isFinite(d._sale) && d._sale > 0 &&
-        Number.isFinite(d._reg) && d._reg > d._sale &&
-        d._pct > 0 && d._pct <= 60 &&
-        d._reg <= d._sale * 2.5
-      );
-
-    // Fresh-only buckets. Explicit non-fresh exclusions first (cup noodles,
-    // frozen pizza, canned, boxed) so a mis-tagged packaged item can't sneak
-    // into a fresh slot.
-    const isPackaged = (n) => /noodle|cup noodle|ramen|frozen|pizza|canned|boxed|snack|chip|cracker|cereal|soda|candy|cookie|sauce jar/i.test(n);
-    const freshBucket = (d) => {
-      const c = (d.category || "").toLowerCase();
-      const n = (d.name || "").toLowerCase();
-      if (isPackaged(n)) return "skip";
-      if (/beef|steak/.test(c) || /\b(beef|steak|sirloin|ground beef|brisket)\b/.test(n)) return "beef";
-      if (/pork|chicken|turkey|poultry/.test(c) || /\b(pork|chicken|turkey|sausage|bacon|ham|chop|tenderloin)\b/.test(n)) return "poultry_pork";
-      if (/seafood|fish/.test(c) || /\b(shrimp|salmon|cod|tilapia|scallop|crab|fish fillet|flounder)\b/.test(n)) return "seafood";
-      if (/fruit|produce/.test(c) || /\b(grape|peach|nectarine|mango|berry|berries|apple|melon|plum|strawberr)\b/.test(n)) return "fruit";
-      if (/vegetable/.test(c) || /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|greens|lettuce)\b/.test(n)) return "vegetable";
-      if (/dairy|egg/.test(c) || /\b(milk|cheese|yogurt|egg|butter)\b/.test(n)) return "dairy";
-      return "skip";
-    };
-
-    const byBucket = {};
-    for (const d of clean) {
-      const b = freshBucket(d);
-      if (b === "skip") continue;
-      (byBucket[b] = byBucket[b] || []).push(d);
-    }
-    for (const b in byBucket) byBucket[b].sort((a, z) => z._pct - a._pct);
-
-    const slotPlan = ["beef", "poultry_pork", "seafood", "fruit", "vegetable", "dairy"];
-    const picked = [];
-    const usedNames = new Set();
-    const takeFrom = (bucket) => {
-      for (const d of (byBucket[bucket] || [])) {
-        const key = (d.name || "").toLowerCase().slice(0, 30);
-        if (!usedNames.has(key)) { usedNames.add(key); return d; }
-      }
-      return null;
-    };
-    for (const slot of slotPlan) {
-      const d = takeFrom(slot);
-      if (d) picked.push(d);
-    }
-    // Backfill to 6 from any remaining FRESH deals (still no packaged goods),
-    // highest pctOff first, so a thin week still fills the grid with real fresh items.
-    if (picked.length < 6) {
-      const rest = [];
-      for (const b in byBucket) for (const d of byBucket[b]) rest.push(d);
-      rest.sort((a, z) => z._pct - a._pct);
-      for (const d of rest) {
-        if (picked.length >= 6) break;
-        const key = (d.name || "").toLowerCase().slice(0, 30);
-        if (!usedNames.has(key)) { usedNames.add(key); picked.push(d); }
-      }
-    }
-
-    const out = picked.slice(0, 6).map(d => ({
-      name: d.name,
-      salePrice: d._sale,
-      regularPrice: d._reg,
-      pctOff: d._pct,
-      storeName: "Kroger",
-      image: d.image,
-      category: d.category || "",
+    const picked = curateFreshDeals(raw, 6);
+    if (!picked.length) return res.json({ deals: [], count: 0 });
+    const out = picked.map(d => ({
+      name: d.name, salePrice: d._sale, regularPrice: d._reg,
+      pctOff: d._pct, storeName: "Kroger", image: d.image, category: d.category || "",
     }));
-
     res.json({ deals: out, count: out.length });
   } catch (err) {
     console.error("Preview deals error:", err.message);
     res.json({ deals: [], count: 0 });
+  }
+});
+
+// Weekly: refresh the pinned Kroger store's deals, generate one recipe from the
+// fresh pool, map its used sale-items back to cards, backfill to 6, cache the
+// {recipe, cards} bundle. Called by the Wednesday cron (x-internal-token gated).
+router.post("/api/cron/refresh-preview", async (req, res) => {
+  const token = req.headers["x-internal-token"];
+  if (!token || token !== process.env.INTERNAL_API_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    // 1. Refresh the pinned Kroger store's deal cache (fetch + store).
+    let raw = await getCachedDeals(`kroger:${PREVIEW_KROGER_LOCATION}`);
+    if (!raw || !raw.length) {
+      try {
+        raw = await fetchKrogerDeals(PREVIEW_KROGER_LOCATION, "Kroger");
+        await setCachedDeals(`kroger:${PREVIEW_KROGER_LOCATION}`, raw);
+      } catch (e) { console.error("Preview: Kroger refresh failed:", e.message); }
+    }
+    // 2. Curate a generous fresh pool (up to 12) to give the recipe good options.
+    const pool = curateFreshDeals(raw, 12);
+    if (!pool.length) return res.json({ ok: false, reason: "no fresh deals" });
+
+    // 3. Generate one dinner recipe from the pool via the internal recipe path.
+    const base = process.env.PUBLIC_BASE_URL || "https://dishcount.co";
+    let recipe = null;
+    try {
+      const rr = await fetch(`${base}/api/recipes/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-token": process.env.INTERNAL_API_TOKEN },
+        body: JSON.stringify({
+          ingredients: pool.map(d => ({
+            name: d.name, category: d.category, salePrice: d.salePrice,
+            regularPrice: d.regularPrice, savings: "", storeName: "Kroger",
+            isPerLb: !!d.isPerLb, priceUnit: d.priceUnit || "",
+          })),
+          style: "Dinner", mealType: "Dinner", diets: [],
+          mealRequest: "A simple, appealing dinner that uses several of these sale items together.",
+        }),
+      });
+      const rj = await rr.json();
+      recipe = (rj.recipes && rj.recipes[0]) || null;
+    } catch (e) { console.error("Preview: recipe gen failed:", e.message); }
+
+    if (!recipe) return res.json({ ok: false, reason: "recipe generation failed" });
+
+    // 4. Map the recipe's used sale items back to full cards (image + pctOff)
+    //    from the pool, matching by name.
+    const poolByName = new Map(pool.map(d => [(d.name || "").toLowerCase(), d]));
+    const usedNames = new Set();
+    const cards = [];
+    for (const it of (recipe.usedSaleItems || [])) {
+      const match = poolByName.get((it.name || "").toLowerCase());
+      if (match && !usedNames.has(match.name.toLowerCase())) {
+        usedNames.add(match.name.toLowerCase());
+        cards.push({
+          name: match.name, salePrice: match._sale, regularPrice: match._reg,
+          pctOff: match._pct, storeName: "Kroger", image: match.image,
+          category: match.category || "", inRecipe: true,
+        });
+      }
+    }
+    // 5. Backfill to 6 with next-best fresh deals not already used.
+    for (const d of pool) {
+      if (cards.length >= 6) break;
+      if (usedNames.has((d.name || "").toLowerCase())) continue;
+      usedNames.add((d.name || "").toLowerCase());
+      cards.push({
+        name: d.name, salePrice: d._sale, regularPrice: d._reg,
+        pctOff: d._pct, storeName: "Kroger", image: d.image,
+        category: d.category || "", inRecipe: false,
+      });
+    }
+
+    const bundle = {
+      recipe: {
+        title: recipe.title,
+        time: recipe.time || (recipe.readyInMinutes ? `${recipe.readyInMinutes} min` : ""),
+        servings: recipe.servings || 4,
+        estimatedCost: recipe.estimatedCost || 0,
+        totalSavings: recipe.totalSavings || 0,
+        costPerServing: recipe.servings ? Math.round((recipe.estimatedCost / recipe.servings) * 100) / 100 : 0,
+        usedCount: cards.filter(c => c.inRecipe).length,
+        image: recipe.image || null,
+        ingredients: (recipe.allIngredients || recipe.ingredients || []).map(i => i.name || i).slice(0, 12),
+        instructions: (recipe.instructions || []).slice(0, 8),
+      },
+      cards: cards.slice(0, 6),
+      generatedAt: new Date().toISOString(),
+    };
+    await setCachedDeals("preview:bundle", bundle);
+    console.log(`Preview bundle refreshed: "${bundle.recipe.title}", ${bundle.cards.length} cards, ${bundle.recipe.usedCount} in recipe`);
+    res.json({ ok: true, title: bundle.recipe.title, cards: bundle.cards.length, usedInRecipe: bundle.recipe.usedCount });
+  } catch (err) {
+    console.error("refresh-preview error:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

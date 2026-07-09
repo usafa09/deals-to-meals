@@ -2175,7 +2175,7 @@ async function loadMoreRecipes() {
   // Track current recipes as skipped (user wants different ones)
   state.recipes.forEach(r => { if (!state.savedRecipeIds.has(r.title)) trackInteraction(r.title, "skipped", getRecipeTags(r)); });
   const btn=document.getElementById("moreRecipesBtn");
-  btn.disabled=true; btn.textContent="🤖 Generating…";
+  btn.disabled=true; btn.textContent="Generating…";
   // Append 5 skeleton cards to the existing grid; the savings banner is left
   // alone since we're adding to (not replacing) the current results. The
   // renderRecipeGrid() in finally below cleans up the appended skeletons in
@@ -2213,7 +2213,7 @@ async function loadMoreRecipes() {
     clearTimeout(timeout);
     clearSkeletonBanner();
     renderRecipeGrid();
-    btn.disabled=false; btn.textContent="🤖 Generate 5 More Recipes";
+    btn.disabled=false; btn.textContent="Generate 5 More Recipes";
   }
 }
 function sortRecipes(by){ensureAppScreens();document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));document.getElementById(`sort-${by}`).classList.add("active");if(by==="time")state.recipes.sort((a,b)=>a.readyInMinutes-b.readyInMinutes);if(by==="ingredients")state.recipes.sort((a,b)=>b.usedIngredientCount-a.usedIngredientCount);renderRecipeGrid();}
@@ -2305,7 +2305,7 @@ function renderNutritionBanner() {
   if (pro < 20) warnings += '<p style="color:#A85D05;font-size:13px;margin-top:10px;">&#9888;&#65039; Your plan is low on protein. Consider swapping a meal for a higher-protein option.</p>';
   if (fib < 5) warnings += '<p style="color:#A85D05;font-size:13px;margin-top:6px;">&#9888;&#65039; Your plan could use more vegetables for fiber. Try adding a side salad.</p>';
   el.innerHTML = '<div style="background:#f9f9f0;border-radius:16px;padding:20px;margin-bottom:20px;">' +
-    '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span class="beta-badge">BETA</span> <span style="color:#999;font-size:11px;font-weight:normal;">Estimates — not verified nutritional data</span></h3>' +
+    '<h3 style="color:#2d6a4f;margin:0 0 12px;font-size:16px;">&#128202; Nutrition Overview <span style="color:#999;font-size:11px;font-weight:normal;">Estimates — not verified nutritional data</span></h3>' +
     '<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;">' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#2d6a4f;">' + cal + '</div><div style="font-size:11px;color:#595959;">Calories</div></div>' +
     '<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#A85D05;">' + pro + 'g</div><div style="font-size:11px;color:#595959;">Protein</div></div>' +
@@ -2613,7 +2613,7 @@ function renderModal(r){
         const amtMatch = ing.name.match(/^([\d.\/]+)\s/);
         const origAmt = amtMatch ? parseFraction(amtMatch[1]) : 0;
         const rest = amtMatch ? ing.name.slice(amtMatch[0].length) : ing.name;
-        const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap <span class="beta-badge">BETA</span></button>` : "";
+        const swapBtn = type!=="PANTRY" ? ` <button onclick="event.stopPropagation();swapIngredient(${idx},'${escapeHtml(rest).replace(/'/g,"&#039;")}')" style="background:none;border:none;color:#52b788;cursor:pointer;font-size:11px;padding:2px 4px;white-space:nowrap" title="Find a substitute">swap</button>` : "";
         // Price comparison: find if other stores have this item
         let bestPriceBadge = "";
         if (isOnSale && ing.matchedDeal) {

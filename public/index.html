@@ -268,34 +268,9 @@
         <span class="landing-proof-amount">$30&ndash;$50</span>
         <span class="landing-proof-text">saved on a week of dinners, built from what's on sale</span>
       </div>
-      <div class="landing-preview">
-        <p class="landing-preview-caption">Real deals near you this week</p>
-        <div class="landing-preview-grid">
-          <picture>
-            <source srcset="/images/sample-deals/deal-01-bananas-aldi.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-01-bananas-aldi.png" width="480" height="388" loading="lazy" alt="Bananas, $0.59/lb at ALDI &mdash; 30% off" />
-          </picture>
-          <picture>
-            <source srcset="/images/sample-deals/deal-02-ground-beef-kroger.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-02-ground-beef-kroger.png" width="480" height="390" loading="lazy" alt="Ground Beef 80/20, 1 lb at Kroger &mdash; $4.99, 25% off" />
-          </picture>
-          <picture>
-            <source srcset="/images/sample-deals/deal-03-chicken-walmart.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-03-chicken-walmart.png" width="480" height="388" loading="lazy" alt="Chicken Breast, 2.5 lb pack at Walmart &mdash; $7.49" />
-          </picture>
-          <picture>
-            <source srcset="/images/sample-deals/deal-04-eggs-kroger.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-04-eggs-kroger.png" width="480" height="390" loading="lazy" alt="Large Eggs, Dozen at Kroger &mdash; $1.99" />
-          </picture>
-          <picture>
-            <source srcset="/images/sample-deals/deal-05-yogurt-publix.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-05-yogurt-publix.png" width="480" height="388" loading="lazy" alt="Lancewood Yogurt, 6 oz at Publix &mdash; $2.49 with coupon" />
-          </picture>
-          <picture>
-            <source srcset="/images/sample-deals/deal-06-pasta-sauce-walmart.webp" type="image/webp">
-            <img src="/images/sample-deals/deal-06-pasta-sauce-walmart.png" width="480" height="390" loading="lazy" alt="Marinara Sauce, 24 oz at Walmart &mdash; $9.99, 50% off, stock up" />
-          </picture>
-        </div>
+      <div class="landing-preview" id="landingPreview" style="display:none">
+        <p class="landing-preview-caption">This week at Kroger &mdash; enter your zip for deals near you</p>
+        <div class="landing-preview-grid" id="landingPreviewGrid"></div>
       </div>
     </div>
   </section>
@@ -465,5 +440,36 @@ document.addEventListener("click",function(e){
   });
 });
 </script>
+
+  <script>
+  (function () {
+    var grid = document.getElementById("landingPreviewGrid");
+    var wrap = document.getElementById("landingPreview");
+    if (!grid || !wrap) return;
+    function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+    fetch("/api/deals/preview")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var deals = (data && data.deals) || [];
+        if (!deals.length) return; // leave hidden
+        grid.innerHTML = deals.map(function (d) {
+          var sale = "$" + Number(d.salePrice).toFixed(2);
+          var reg = d.regularPrice ? "$" + Number(d.regularPrice).toFixed(2) : "";
+          var pct = d.pctOff ? d.pctOff + "% off" : "";
+          return '<div class="preview-card">' +
+              (d.pctOff ? '<span class="preview-pct">' + esc(String(d.pctOff)) + '% off</span>' : '') +
+              '<img class="preview-card-img" src="' + esc(d.image) + '" alt="' + esc(d.name) + '" loading="lazy" onerror="this.style.display=\'none\'" />' +
+              '<div class="preview-card-body">' +
+                '<div class="preview-card-name">' + esc(d.name) + '</div>' +
+                '<div class="preview-card-price"><span class="preview-sale">' + sale + '</span>' +
+                  (reg ? ' <span class="preview-reg">' + reg + '</span>' : '') + '</div>' +
+              '</div>' +
+            '</div>';
+        }).join("");
+        wrap.style.display = "";
+      })
+      .catch(function () { /* leave hidden on error */ });
+  })();
+  </script>
 </body>
 </html>

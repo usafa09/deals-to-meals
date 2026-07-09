@@ -241,7 +241,7 @@ function showOnboardingSurvey() {
     '<div style="text-align:center;padding:20px 0;">' +
     '<div style="margin-bottom:16px;">' + logoSvg + '</div>' +
     '<h2 style="color:#2d6a4f;margin-bottom:12px;font-size:24px;">Welcome to Dishcount!</h2>' +
-    '<p style="color:#555;font-size:16px;line-height:1.6;max-width:400px;margin:0 auto 24px;">We\'d love to learn a little about you so we can tailor your recipe recommendations. Your answers help our AI suggest meals that match your family\'s size, tastes, dietary needs, and schedule.</p>' +
+    '<p style="color:#555;font-size:16px;line-height:1.6;max-width:400px;margin:0 auto 24px;">We\'d love to learn a little about you so we can tailor your recipe recommendations. Your answers help suggest meals that match your family\'s size, tastes, dietary needs, and schedule.</p>' +
     '<p style="color:#595959;font-size:13px;max-width:400px;margin:0 auto 24px;">This takes about 30 seconds. You can update your answers anytime from your profile. Your information is only used to personalize your recipes — we never share it.</p>' +
     '<button onclick="surveyNext()" style="width:100%;max-width:300px;padding:14px;background:#2d6a4f;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">Let\'s Get Started</button>' +
     '<br><a onclick="skipOnboardingSurvey()" style="display:inline-block;margin-top:12px;color:#999;font-size:13px;cursor:pointer;text-decoration:underline;">Skip for now</a>' +

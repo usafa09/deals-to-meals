@@ -243,3 +243,18 @@ jobs:
             echo "::error::More than 5 chains failed extraction after retry, investigate immediately"
             exit 1
           fi
+
+      - name: Refresh homepage preview bundle (deals + recipe)
+        run: |
+          BASE="https://dishcount.co/api"
+          echo "Regenerating homepage preview bundle from fresh Kroger deals..."
+          RESP=$(curl -s --max-time 90 -X POST "$BASE/cron/refresh-preview" \
+            -H "x-internal-token: $INTERNAL_TOKEN")
+          echo "Response: $RESP"
+          OK=$(echo "$RESP" | grep -o '"ok":true' || true)
+          if [ -n "$OK" ]; then
+            TITLE=$(echo "$RESP" | grep -o '"title":"[^"]*"' | sed 's/.*:"//;s/"//')
+            echo "✅ Preview bundle refreshed: $TITLE"
+          else
+            echo "::warning::Preview bundle refresh did not return ok:true — homepage will serve the previous bundle. Response: $RESP"
+          fi

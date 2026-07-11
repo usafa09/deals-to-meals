@@ -1118,14 +1118,35 @@ function curateChainDeals(raw, limit) {
       !NON_FOOD.test(d.name) && !JUNK.test(d.name)
     );
 
-  // Prefer deals with a real discount, then anything else, capped at `limit`.
-  const withPct = clean.filter(d => d._pct > 0).sort((a, z) => z._pct - a._pct);
-  const rest = clean.filter(d => d._pct === 0);
+  // Rank by COOKABILITY, not discount depth. Sorting purely by pctOff floats
+  // deep-discount junk food to the top (Walmart's best discounts are Frito-Lay,
+  // Ritz, Goldfish), leaving the recipe generator with chips and no protein.
+  // Proteins anchor dinners; produce supports them; snacks are dead weight.
+  const cookScore = (d) => {
+    const c = (d.category || "").toLowerCase();
+    const n = (d.name || "").toLowerCase();
+    let s = (d._pct || 0) * 0.5; // discount still matters, but only as a tiebreaker
+    if (/beef|pork|chicken|turkey|meat|poultry|seafood|fish/.test(c) ||
+        /\b(beef|pork|chicken|turkey|sausage|bacon|steak|shrimp|salmon|chop|brisket|ribeye|wing|ground)\b/.test(n)) s += 60;
+    else if (/vegetable|produce|fruit/.test(c)) s += 30;
+    else if (/dairy|egg|cheese|milk|butter|yogurt/.test(c) || /\b(egg|cheese|milk|butter|yogurt)\b/.test(n)) s += 25;
+    else if (/pasta|rice|grain|bean|pantry|bread|potato/.test(c) || /\b(pasta|rice|beans|tortilla|potato)\b/.test(n)) s += 20;
+    if (/snack|candy|cookie|chip|cracker|soda|beverage|dessert/.test(c)) s -= 50;
+    if (/chips?|crackers?|cookie|candy|soda|little debbie|frito|ritz|goldfish|doritos|oreo/i.test(n)) s -= 50;
+    return s;
+  };
+
+  const ranked = clean.slice().sort((a, z) => cookScore(z) - cookScore(a));
   const out = [];
   const seen = new Set();
-  for (const d of [...withPct, ...rest]) {
+  let snackCount = 0;
+  for (const d of ranked) {
     const k = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
     if (!k || seen.has(k)) continue;
+    // Hard cap: at most 2 snack-ish items in the pool, so they can't crowd out food.
+    const isSnack = cookScore(d) < 0;
+    if (isSnack && snackCount >= 2) continue;
+    if (isSnack) snackCount++;
     seen.add(k);
     out.push(d);
     if (out.length >= limit) break;

@@ -1148,8 +1148,12 @@ function curateChainDeals(raw, limit) {
         /chips?|crackers?|cookie|candy|soda|little debbie|frito|ritz|goldfish|doritos|oreo/.test(n)) return "snack";
     if (/beef|pork|chicken|turkey|meat|poultry|seafood|fish|lamb|bison/.test(c) ||
         /\b(beef|pork|chicken|turkey|sausage|bacon|steak|shrimp|salmon|chop|brisket|ribeye|wing|ground|scallop|tilapia|cod)\b/.test(n)) return "protein";
-    if (/vegetable|produce|fruit/.test(c) ||
-        /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|lettuce|grape|apple|melon|berry|berries|peach|plum|nectarine|avocado|cucumber|mango)\b/.test(n)) return "produce";
+    // Fruit is shown on the page but kept OUT of the dinner recipes (see the
+    // recipe pool filter in buildChainBundle). Vegetables are dinner ingredients.
+    if (/fruit/.test(c) ||
+        /\b(grape|apple|melon|watermelon|berry|berries|blueberr|strawberr|peach|plum|nectarine|mango|pineapple|mandarin|orange|banana|pear|cherry|cherries)\b/.test(n)) return "fruit";
+    if (/vegetable|produce/.test(c) ||
+        /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|lettuce|cucumber|greens|spinach|cabbage|celery|mushroom|asparagus|green bean)\b/.test(n)) return "vegetable";
     if (/dairy|egg|cheese|milk|butter|yogurt/.test(c) ||
         /\b(egg|cheese|milk|butter|yogurt|cream)\b/.test(n)) return "dairy";
     if (/pasta|rice|grain|bean|pantry|bread|condiment|sauce|canned/.test(c) ||
@@ -1161,10 +1165,11 @@ function curateChainDeals(raw, limit) {
   // supports, dairy/pantry round it out. Snacks get nothing unless we'd
   // otherwise come up short.
   const budget = {
-    protein: Math.max(1, Math.round(limit * 0.47)),  // 7 of 15
-    produce: Math.max(1, Math.round(limit * 0.27)),  // 4 of 15
-    dairy:   Math.max(1, Math.round(limit * 0.13)),  // 2 of 15
-    pantry:  Math.max(1, Math.round(limit * 0.13)),  // 2 of 15
+    protein:   Math.max(1, Math.round(limit * 0.40)),  // 6 of 15 — anchors the dinners
+    vegetable: Math.max(1, Math.round(limit * 0.27)),  // 4 of 15 — real dinner ingredients
+    dairy:     Math.max(1, Math.round(limit * 0.13)),  // 2 of 15
+    pantry:    Math.max(1, Math.round(limit * 0.07)),  // 1 of 15
+    fruit:     Math.max(1, Math.round(limit * 0.13)),  // 2 of 15 — shown, not cooked
   };
 
   const byBucket = {};
@@ -1185,7 +1190,7 @@ function curateChainDeals(raw, limit) {
   };
 
   // 1) Fill each category up to its slot budget.
-  for (const b of ["protein", "produce", "dairy", "pantry"]) {
+  for (const b of ["protein", "vegetable", "dairy", "pantry", "fruit"]) {
     let taken = 0;
     for (const d of (byBucket[b] || [])) {
       if (taken >= budget[b] || out.length >= limit) break;
@@ -1195,7 +1200,7 @@ function curateChainDeals(raw, limit) {
   // 2) Backfill any unused slots from real food (never snacks), best-scoring first.
   if (out.length < limit) {
     const rest = [];
-    for (const b of ["protein", "produce", "dairy", "pantry", "other"]) {
+    for (const b of ["protein", "vegetable", "dairy", "pantry", "fruit", "other"]) {
       for (const d of (byBucket[b] || [])) rest.push(d);
     }
     rest.sort((a, z) => cookScore(z) - cookScore(a));
@@ -1290,9 +1295,20 @@ async function buildChainBundle(slug) {
   }
   if (!raw || !raw.length) { console.log(`SSR ${slug}: no data in any cache`); return null; }
 
-  // Deals shown on the page: up to 15 curated fresh items.
+  // Deals shown on the page: up to 15 curated items (includes fruit — real deals
+  // people want to see on a weekly-ad page).
   const deals = curateChainDeals(raw, 15);
   if (!deals.length) return null;
+
+  // Recipe pool: the SAVORY subset. Fruit is excluded — when a chain's produce
+  // allocation is all fruit (Kroger and ALDI both were), handing it to the
+  // generator produces "Pulled Pork Sandwiches with Bacon & Grapes". Fruit is
+  // for the page, not the dinner.
+  const FRUIT_RE = /\b(grape|apple|melon|watermelon|berry|berries|blueberr|strawberr|peach|plum|nectarine|mango|pineapple|mandarin|orange|banana|pear|cherry|cherries)\b/i;
+  const recipePool = deals.filter(d =>
+    !/fruit/i.test(String(d.category || "")) && !FRUIT_RE.test(String(d.name || ""))
+  );
+  const genPool = recipePool.length >= 4 ? recipePool : deals; // safety: never send an empty pool
 
   // Recipe pool: the same curated set (generation picks from it).
   const base = process.env.PUBLIC_BASE_URL || "https://dishcount.co";
@@ -1302,7 +1318,7 @@ async function buildChainBundle(slug) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-token": process.env.INTERNAL_API_TOKEN },
       body: JSON.stringify({
-        ingredients: deals.map(d => ({
+        ingredients: genPool.map(d => ({
           name: d.name, category: d.category, salePrice: d.salePrice,
           regularPrice: d.regularPrice, savings: "", storeName: cfg.label,
           isPerLb: !!d.isPerLb, priceUnit: d.priceUnit || "",

@@ -1674,7 +1674,9 @@ function renderChainPage(bundle) {
   <link rel="stylesheet" href="/styles.min.css">
   ${schemaBlocks}
   <style>
-    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; line-height: 1.6; }
+    /* The site header (.landing-nav) is position:fixed at ~66-70px tall. Without
+       this padding the top of the page renders underneath it. */
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
     .cp-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
     .cp-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
     .cp-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
@@ -1881,7 +1883,9 @@ router.get("/deals", async (req, res, next) => {
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.min.css">
   <style>
-    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; line-height: 1.6; }
+    /* The site header (.landing-nav) is position:fixed at ~66-70px tall. Without
+       this padding the top of the page renders underneath it. */
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
     .hb-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px; text-align: center; }
     .hb-hero h1 { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 8px; }
     .hb-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }

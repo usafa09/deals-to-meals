@@ -1185,7 +1185,11 @@ function curateChainDeals(raw, limit) {
     const k = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
     if (!k || seen.has(k)) return false;
     seen.add(k);
-    out.push(d);
+    // Tag the bucket so downstream consumers (the recipe pool) can filter on the
+    // SAME classification instead of re-running a raw regex — bucketOfDeal checks
+    // protein/vegetable before fruit, so "Bacon Applewood" and "Grape Tomatoes"
+    // classify correctly.
+    out.push({ ...d, _bucket: bucketOfDeal(d) });
     return true;
   };
 
@@ -1304,10 +1308,10 @@ async function buildChainBundle(slug) {
   // allocation is all fruit (Kroger and ALDI both were), handing it to the
   // generator produces "Pulled Pork Sandwiches with Bacon & Grapes". Fruit is
   // for the page, not the dinner.
-  const FRUIT_RE = /\b(grape|apple|melon|watermelon|berry|berries|blueberr|strawberr|peach|plum|nectarine|mango|pineapple|mandarin|orange|banana|pear|cherry|cherries)\b/i;
-  const recipePool = deals.filter(d =>
-    !/fruit/i.test(String(d.category || "")) && !FRUIT_RE.test(String(d.name || ""))
-  );
+  // Filter on the bucket assigned during curation, NOT a raw name regex. A raw
+  // regex matched "apple" inside "Bacon Applewood Smoked" and "grape" inside
+  // "Grape Tomatoes", silently dropping a protein and a vegetable from the pool.
+  const recipePool = deals.filter(d => d._bucket !== "fruit");
   const genPool = recipePool.length >= 4 ? recipePool : deals; // safety: never send an empty pool
 
   // Recipe pool: the same curated set (generation picks from it).

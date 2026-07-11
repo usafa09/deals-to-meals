@@ -1406,8 +1406,21 @@ router.post("/api/cron/refresh-ssr", async (req, res) => {
   if (!token || token !== process.env.INTERNAL_API_TOKEN) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+  // One chain per request. Generating all 3 in a single request (each = a Haiku
+  // recipe call + 3 Pexels fetches) exceeded the ~100s gateway timeout: the
+  // connection was cut mid-run and the last chain never regenerated. The cron
+  // calls this once per chain instead.
+  const requested = String(req.query.chain || "").toLowerCase();
+  const slugs = requested
+    ? (SSR_CHAINS[requested] ? [requested] : null)
+    : Object.keys(SSR_CHAINS);
+  if (!slugs) return res.status(400).json({ ok: false, error: `Unknown chain "${requested}". Valid: ${Object.keys(SSR_CHAINS).join(", ")}` });
+  if (!requested) {
+    console.warn("refresh-ssr called with no ?chain= param — running all chains may exceed the gateway timeout. Prefer one chain per request.");
+  }
+
   const results = {};
-  for (const slug of Object.keys(SSR_CHAINS)) {
+  for (const slug of slugs) {
     try {
       const bundle = await buildChainBundle(slug);
       if (bundle) {

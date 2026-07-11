@@ -1660,6 +1660,22 @@ function renderChainPage(bundle) {
     .cp-foot { text-align: center; font-size: 12px; color: var(--muted, #6b6b6b); padding: 20px; }
     .cp-foot a { color: var(--muted, #6b6b6b); }
     @media (max-width: 520px) { .cr-card { flex-direction: column; } .cr-img { width: 100%; height: 150px; } }
+    .cr-hint { font-size: 13px; color: var(--muted, #6b6b6b); margin: 4px 0 0; }
+    .cr-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 900; align-items: center; justify-content: center; padding: 20px; }
+    .cr-modal-overlay.show { display: flex; }
+    .cr-modal { background: #fffdf7; border-radius: 18px; max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .crm-img { width: 100%; height: 170px; object-fit: cover; border-radius: 18px 18px 0 0; display: block; }
+    .crm-body { padding: 18px 20px 22px; }
+    .crm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .crm-title { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0; }
+    .crm-close { background: none; border: none; font-size: 26px; line-height: 1; cursor: pointer; color: #999; }
+    .crm-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+    .crm-pill { background: #F5EFE0; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+    .crm-pill-green { background: #E3F0E6; color: var(--green-dark, #1a2e1f); }
+    .crm-h { font-family: 'Outfit', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted, #6b6b6b); margin: 16px 0 6px; }
+    .crm-list { margin: 0; padding-left: 20px; font-size: 14px; }
+    .crm-list li { margin-bottom: 6px; }
+    .crm-save { width: 100%; margin-top: 18px; background: var(--orange, #d97706); color: #fff; border: none; border-radius: 999px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -1684,6 +1700,7 @@ ${dealCards}
       <div id="cr-list">
 ${recipeCards}
       </div>
+      <p class="cr-hint">Tap a dinner for the full recipe.</p>
     </section>
 
     ${note ? `<section class="cp-section">
@@ -1702,9 +1719,131 @@ ${recipeCards}
     Updated ${_esc(dateStr)} &middot; Prices from the current ${_esc(label)} ad and may vary by store.<br>
     <a href="/about.html">About Dishcount</a> &middot; <a href="/">Home</a>
   </footer>
+
+  <div class="cr-modal-overlay" id="crOverlay"><div class="cr-modal" id="crModal"></div></div>
+  <script type="application/json" id="cr-data">${JSON.stringify(bundle.recipes).replace(/</g, "\\u003c")}</script>
+  <script>
+  (function () {
+    var recipes = [];
+    try { recipes = JSON.parse(document.getElementById("cr-data").textContent); } catch (e) { return; }
+    var overlay = document.getElementById("crOverlay");
+    var modal = document.getElementById("crModal");
+    function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+    function close(){ overlay.classList.remove("show"); }
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+
+    function save(r) {
+      // Reuses the homepage preview-save path: stash, then the signed-in handler
+      // in app.js POSTs it to /api/recipes/saved after account creation.
+      try {
+        localStorage.setItem("dishcount_pending_preview_recipe", JSON.stringify({
+          _ts: Date.now(), title: r.title, time: r.time || "", servings: r.servings || 4,
+          image: r.image || "", ingredients: r.ingredients || [], steps: r.instructions || [],
+        }));
+      } catch (e) {}
+      window.location.href = "/profile.html";
+    }
+
+    function open(i) {
+      var r = recipes[i];
+      if (!r) return;
+      var stats = [];
+      if (r.time) stats.push('<span class="crm-pill">' + esc(r.time) + '</span>');
+      if (r.servings) stats.push('<span class="crm-pill">' + r.servings + ' servings</span>');
+      if (r.costPerServing) stats.push('<span class="crm-pill crm-pill-green">$' + Number(r.costPerServing).toFixed(2) + '/serving</span>');
+      var ings = (r.ingredients || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("");
+      var steps = (r.instructions || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("");
+      modal.innerHTML =
+        (r.image ? '<img class="crm-img" src="' + esc(r.image) + '" alt="" />' : '') +
+        '<div class="crm-body">' +
+          '<div class="crm-head"><h3 class="crm-title">' + esc(r.title) + '</h3>' +
+          '<button class="crm-close" id="crmClose" aria-label="Close">&times;</button></div>' +
+          '<div class="crm-stats">' + stats.join("") + '</div>' +
+          '<h4 class="crm-h">Ingredients</h4><ul class="crm-list">' + ings + '</ul>' +
+          '<h4 class="crm-h">Instructions</h4><ol class="crm-list">' + steps + '</ol>' +
+          '<button class="crm-save" id="crmSave">Save this recipe</button>' +
+        '</div>';
+      overlay.classList.add("show");
+      document.getElementById("crmClose").addEventListener("click", close);
+      document.getElementById("crmSave").addEventListener("click", function () { save(r); });
+    }
+
+    var cards = document.querySelectorAll(".cr-card");
+    for (var i = 0; i < cards.length; i++) {
+      (function (idx, el) {
+        el.style.cursor = "pointer";
+        el.setAttribute("role", "button");
+        el.setAttribute("tabindex", "0");
+        el.addEventListener("click", function () { open(idx); });
+        el.addEventListener("keydown", function (e) { if (e.key === "Enter") open(idx); });
+      })(i, cards[i]);
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
+
+// Hub page. Gives Google an internal link path to each chain page (that's how
+// it discovers and weights them) and gives the nav somewhere sensible to point.
+router.get("/deals", async (req, res, next) => {
+  try {
+    const cards = [];
+    for (const slug of Object.keys(SSR_CHAINS)) {
+      const b = await getCachedDeals(`ssr:bundle:${slug}`);
+      if (!b || !b.deals || !b.deals.length) continue;
+      const first = b.recipes && b.recipes[0];
+      cards.push(`<a class="hb-card" href="/deals/${_esc(slug)}">
+        <div class="hb-name">${_esc(b.label)}</div>
+        <div class="hb-meta">${b.deals.length} deals this week</div>
+        ${first ? `<div class="hb-rec">Tonight: ${_esc(first.title)}</div>` : ""}
+        <div class="hb-go">See the deals &rarr;</div>
+      </a>`);
+    }
+    if (!cards.length) { res.set("Retry-After", "3600"); return res.status(503).send("<!DOCTYPE html><html><body><p>Deals are refreshing. Check back shortly.</p></body></html>"); }
+
+    const title = "Grocery Weekly Ads and Dinner Ideas | Dishcount";
+    const desc = "This week's grocery deals from Kroger, ALDI, and Walmart, plus dinners you can build from them. Real prices, updated weekly. Free, no signup.";
+    res.set("Cache-Control", "public, max-age=1800");
+    res.type("html").send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${_esc(title)}</title>
+  <meta name="description" content="${_esc(desc)}">
+  <link rel="canonical" href="https://dishcount.co/deals">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.min.css">
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; line-height: 1.6; }
+    .hb-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px; text-align: center; }
+    .hb-hero h1 { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 8px; }
+    .hb-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
+    .hb-wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
+    .hb-card { display: block; background: #fff; border: 1px solid #EDE6D4; border-radius: 14px; padding: 18px 20px; margin-bottom: 12px; text-decoration: none; color: inherit; }
+    .hb-name { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); }
+    .hb-meta { font-size: 14px; color: var(--muted, #6b6b6b); margin-top: 2px; }
+    .hb-rec { font-size: 14px; color: var(--text, #2d2a24); margin-top: 8px; }
+    .hb-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 10px; }
+    .hb-cta { text-align: center; margin-top: 26px; font-size: 14px; color: var(--muted, #6b6b6b); }
+    .hb-cta a { color: var(--orange, #d97706); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header class="hb-hero">
+    <h1>This week's grocery ads</h1>
+    <p>Real deals from the stores below, and the dinners you can build from them.</p>
+  </header>
+  <main class="hb-wrap">
+    ${cards.join("\n")}
+    <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
+  </main>
+</body>
+</html>`);
+  } catch (err) { console.error("deals hub failed:", err.message); next(err); }
+});
 
 router.get("/deals/:slug", async (req, res, next) => {
   const slug = String(req.params.slug || "").toLowerCase();

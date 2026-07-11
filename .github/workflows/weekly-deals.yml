@@ -258,3 +258,20 @@ jobs:
           else
             echo "::warning::Preview bundle refresh did not return ok:true — homepage will serve the previous bundle. Response: $RESP"
           fi
+
+      - name: Refresh SSR chain-page bundles
+        run: |
+          BASE="https://dishcount.co/api"
+          # One chain per request. All three in one call exceeds the ~100s gateway
+          # timeout and the last chain silently never regenerates.
+          for CHAIN in kroger aldi walmart; do
+            echo "Refreshing SSR bundle: $CHAIN"
+            RESP=$(curl -s --max-time 120 -X POST "$BASE/cron/refresh-ssr?chain=$CHAIN" \
+              -H "x-internal-token: $INTERNAL_TOKEN")
+            echo "  Response: $RESP"
+            if echo "$RESP" | grep -q '"ok":true'; then
+              echo "  ✅ $CHAIN refreshed"
+            else
+              echo "::warning::SSR bundle refresh failed for $CHAIN. The page will serve last week's bundle. Response: $RESP"
+            fi
+          done

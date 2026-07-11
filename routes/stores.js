@@ -1535,4 +1535,183 @@ router.get("/api/deals/chain/:slug", async (req, res) => {
   }
 });
 
+// ══ SSR CHAIN PAGE ═══════════════════════════════════════════════════════════
+// Server-rendered weekly-deals page per chain. Crawlable HTML built from the
+// cached bundle — the deals and recipes are in the source, not fetched by JS,
+// which is the entire point (the SPA is invisible to search).
+const _esc = (s) => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+// One honest paragraph per chain, in Bill's voice. Only chains he actually shops.
+const CHAIN_NOTES = {
+  kroger: "Kroger's ad runs Wednesday to Tuesday, and the meat counter is where the real money is. Their weekly digital coupons stack on top of the sale price, so it's worth clipping them in the app before you go. Prices here are from the Dayton division. Kroger prices vary by region, so what you see is representative, not a promise for your store.",
+  aldi: "ALDI's ad turns over Wednesday and the produce deals are usually the best of it. Prices are the same nationally, so what you see here is what you'll pay. The catch is that ALDI's weekly specials are limited stock. If something good is in the ad, go early in the week.",
+  walmart: "Walmart doesn't run a traditional weekly ad. They do rollbacks, which change constantly and vary by store. The prices here are national rollbacks, so they're a solid guide, but check your store before you plan around a specific item.",
+};
+
+function renderChainPage(bundle) {
+  const label = bundle.label;
+  const slug = bundle.chain;
+  const when = new Date(bundle.generatedAt || Date.now());
+  const dateStr = when.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" });
+
+  const dealCards = bundle.deals.map(d => {
+    const reg = d.regularPrice && d.regularPrice > d.salePrice
+      ? `<span class="cd-reg">$${Number(d.regularPrice).toFixed(2)}</span>` : "";
+    const pct = d.pctOff ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
+    const unit = d.isPerLb ? " <span class=\"cd-unit\">/lb</span>" : "";
+    return `<div class="cd-card">
+      ${pct}
+      <div class="cd-name">${_esc(d.name)}</div>
+      <div class="cd-price">$${Number(d.salePrice).toFixed(2)}${unit} ${reg}</div>
+    </div>`;
+  }).join("\n");
+
+  const recipeCards = bundle.recipes.map((r, i) => {
+    const uses = (r.usedSaleItems || []).slice(0, 4).map(n => _esc(n.split(",")[0])).join(", ");
+    const img = r.image ? `<img class="cr-img" src="${_esc(r.image)}" alt="${_esc(r.title)}" loading="lazy" />` : "";
+    const meta = [r.time, r.servings ? `serves ${r.servings}` : "", r.costPerServing ? `$${Number(r.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
+    return `<article class="cr-card" data-recipe-index="${i}">
+      ${img}
+      <div class="cr-body">
+        <h3 class="cr-title">${_esc(r.title)}</h3>
+        <div class="cr-meta">${meta}</div>
+        ${uses ? `<div class="cr-uses">Uses ${uses} from this week's ad.</div>` : ""}
+      </div>
+    </article>`;
+  }).join("\n");
+
+  // schema.org Recipe for each dinner — eligible for Google recipe rich results.
+  const recipeSchema = bundle.recipes.map(r => ({
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    name: r.title,
+    ...(r.image ? { image: [r.image] } : {}),
+    author: { "@type": "Organization", name: "Dishcount" },
+    description: `A dinner built from this week's ${label} sale items.`,
+    recipeCategory: "Dinner",
+    ...(r.servings ? { recipeYield: `${r.servings} servings` } : {}),
+    recipeIngredient: (r.ingredients || []),
+    recipeInstructions: (r.instructions || []).map(s => ({ "@type": "HowToStep", text: s })),
+  }));
+  const schemaBlocks = recipeSchema
+    .map(s => `<script type="application/ld+json">${JSON.stringify(s)}</script>`)
+    .join("\n  ");
+
+  const note = CHAIN_NOTES[slug] || "";
+  const title = `${label} Weekly Ad Deals & Dinner Ideas — Week of ${dateStr} | Dishcount`;
+  const desc = `This week's ${label} deals plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${_esc(title)}</title>
+  <meta name="description" content="${_esc(desc)}">
+  <link rel="canonical" href="https://dishcount.co/deals/${_esc(slug)}">
+  <meta property="og:title" content="${_esc(title)}">
+  <meta property="og:description" content="${_esc(desc)}">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.min.css">
+  ${schemaBlocks}
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; line-height: 1.6; }
+    .cp-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
+    .cp-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+    .cp-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
+    .cp-hero h1 { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #fff; margin: 8px 0 6px; line-height: 1.2; }
+    .cp-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
+    .cp-section { padding: 28px 0 0; }
+    .cp-section h2 { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0 0 12px; }
+    .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+    .cd-card { position: relative; background: #fff; border: 1px solid #EDE6D4; border-radius: 12px; padding: 12px 12px 10px; }
+    .cd-pct { position: absolute; top: 8px; right: 8px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+    .cd-name { font-size: 13px; font-weight: 600; line-height: 1.3; padding-right: 44px; min-height: 34px; }
+    .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: var(--green-dark, #1a2e1f); }
+    .cd-reg { font-size: 12px; font-weight: 400; color: #999; text-decoration: line-through; margin-left: 4px; }
+    .cd-unit { font-size: 12px; font-weight: 600; color: #666; }
+    .cr-card { display: flex; gap: 14px; background: #fff; border: 1px solid #EDE6D4; border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
+    .cr-img { width: 120px; height: 110px; object-fit: cover; flex-shrink: 0; }
+    .cr-body { padding: 12px 14px; }
+    .cr-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0 0 4px; line-height: 1.25; }
+    .cr-meta { font-size: 13px; font-weight: 600; color: var(--text, #2d2a24); }
+    .cr-uses { font-size: 12px; color: var(--muted, #6b6b6b); margin-top: 6px; }
+    .cp-note { font-size: 15px; color: #4a463d; }
+    .cp-cta { background: #FAF6EE; border-radius: 14px; padding: 22px; text-align: center; margin: 28px 0; }
+    .cp-cta h2 { margin-bottom: 6px; }
+    .cp-cta p { font-size: 14px; color: #4a463d; margin: 0 0 14px; }
+    .cp-cta a { display: inline-block; background: var(--orange, #d97706); color: #fff; text-decoration: none; padding: 13px 26px; border-radius: 999px; font-weight: 700; }
+    .cp-foot { text-align: center; font-size: 12px; color: var(--muted, #6b6b6b); padding: 20px; }
+    .cp-foot a { color: var(--muted, #6b6b6b); }
+    @media (max-width: 520px) { .cr-card { flex-direction: column; } .cr-img { width: 100%; height: 150px; } }
+  </style>
+</head>
+<body>
+  <header class="cp-hero">
+    <div class="cp-wrap">
+      <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
+      <h1>${_esc(label)} weekly ad deals &mdash; week of ${_esc(dateStr)}</h1>
+      <p>${bundle.deals.length} items on sale this week, and ${bundle.recipes.length} dinners you can build from them.</p>
+    </div>
+  </header>
+
+  <main class="cp-wrap">
+    <section class="cp-section">
+      <h2>This week's ${_esc(label)} deals</h2>
+      <div class="cd-grid">
+${dealCards}
+      </div>
+    </section>
+
+    <section class="cp-section">
+      <h2>Dinners you can build from this week's ad</h2>
+      <div id="cr-list">
+${recipeCards}
+      </div>
+    </section>
+
+    ${note ? `<section class="cp-section">
+      <h2>How ${_esc(label)} deals work</h2>
+      <p class="cp-note">${_esc(note)}</p>
+    </section>` : ""}
+
+    <div class="cp-cta">
+      <h2>Want deals from your own stores?</h2>
+      <p>Enter your zip and Dishcount pulls the weekly ads from every grocery store near you, then builds dinners around what's on sale. Free, no signup.</p>
+      <a href="/">Find deals near me &rarr;</a>
+    </div>
+  </main>
+
+  <footer class="cp-foot">
+    Updated ${_esc(dateStr)} &middot; Prices from the current ${_esc(label)} ad and may vary by store.<br>
+    <a href="/about.html">About Dishcount</a> &middot; <a href="/">Home</a>
+  </footer>
+</body>
+</html>`;
+}
+
+router.get("/deals/:slug", async (req, res, next) => {
+  const slug = String(req.params.slug || "").toLowerCase();
+  if (!SSR_CHAINS[slug]) return next(); // unknown chain → fall through to 404
+  try {
+    const bundle = await getCachedDeals(`ssr:bundle:${slug}`);
+    if (!bundle || !bundle.deals || !bundle.deals.length) {
+      // Temporarily unavailable, not gone. 503 keeps the URL indexed; a 404 would
+      // deindex a page whose whole purpose is search.
+      res.set("Retry-After", "3600");
+      return res.status(503).send("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Deals refreshing</title></head><body style=\"font-family:sans-serif;padding:40px;text-align:center\"><p>This week's deals are being refreshed. Check back shortly.</p><p><a href=\"/\">Find deals near you &rarr;</a></p></body></html>");
+    }
+    res.set("Cache-Control", "public, max-age=1800");
+    res.type("html").send(renderChainPage(bundle));
+  } catch (err) {
+    console.error(`SSR page ${slug} failed:`, err.message);
+    next(err);
+  }
+});
+
 export default router;

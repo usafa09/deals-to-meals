@@ -1602,16 +1602,36 @@ function renderChainPage(bundle) {
     </div>`;
   }).join("\n");
 
-  const recipeCards = bundle.recipes.map((r, i) => {
-    const uses = (r.usedSaleItems || []).slice(0, 4).map(n => _esc(n.split(",")[0])).join(", ");
+  const _recipeMeta = (r) => [r.time, r.servings ? `serves ${r.servings}` : "", r.costPerServing ? `$${Number(r.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
+  const _recipeUses = (r) => (r.usedSaleItems || []).slice(0, 4).map(n => _esc(n.split(",")[0])).join(", ");
+
+  // Hero recipe: the lead. Deals are a commodity — every coupon site has them.
+  // The dinner built from them is the only thing here nobody else has, so it
+  // goes first. IMPORTANT: it carries .cr-card and is FIRST in document order,
+  // so the modal script's index (0) still maps to bundle.recipes[0].
+  const hero = bundle.recipes[0];
+  const heroCard = hero ? `<article class="cr-card cr-hero" data-recipe-index="0">
+      ${hero.image ? `<img class="crh-img" src="${_esc(hero.image)}" alt="${_esc(hero.title)}" />` : ""}
+      <div class="crh-body">
+        <div class="crh-eyebrow">Tonight's dinner from this week's ad</div>
+        <h2 class="crh-title">${_esc(hero.title)}</h2>
+        <div class="crh-meta">${_recipeMeta(hero)}</div>
+        ${_recipeUses(hero) ? `<div class="crh-uses">Built from ${_recipeUses(hero)}, all on sale this week.</div>` : ""}
+        <div class="crh-go">See the full recipe &rarr;</div>
+      </div>
+    </article>` : "";
+
+  // The remaining dinners, below the deals. Indexes continue from 1 so the
+  // modal script's document-order indexing stays correct.
+  const recipeCards = bundle.recipes.slice(1).map((r, idx) => {
+    const i = idx + 1;
     const img = r.image ? `<img class="cr-img" src="${_esc(r.image)}" alt="${_esc(r.title)}" loading="lazy" />` : "";
-    const meta = [r.time, r.servings ? `serves ${r.servings}` : "", r.costPerServing ? `$${Number(r.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
     return `<article class="cr-card" data-recipe-index="${i}">
       ${img}
       <div class="cr-body">
         <h3 class="cr-title">${_esc(r.title)}</h3>
-        <div class="cr-meta">${meta}</div>
-        ${uses ? `<div class="cr-uses">Uses ${uses} from this week's ad.</div>` : ""}
+        <div class="cr-meta">${_recipeMeta(r)}</div>
+        ${_recipeUses(r) ? `<div class="cr-uses">Uses ${_recipeUses(r)} from this week's ad.</div>` : ""}
       </div>
     </article>`;
   }).join("\n");
@@ -1634,7 +1654,7 @@ function renderChainPage(bundle) {
     .join("\n  ");
 
   const note = CHAIN_NOTES[slug] || "";
-  const title = `${label} Weekly Ad: Deals & Dinner Ideas for ${dateStr} | Dishcount`;
+  const title = `${label} Weekly Ad: Featured Deals & Dinner Ideas for ${dateStr} | Dishcount`;
   const desc = `This week's ${label} deals plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
 
   return `<!DOCTYPE html>
@@ -1684,6 +1704,15 @@ function renderChainPage(bundle) {
     .cp-foot { text-align: center; font-size: 12px; color: var(--muted, #6b6b6b); padding: 20px; }
     .cp-foot a { color: var(--muted, #6b6b6b); }
     @media (max-width: 520px) { .cr-card { flex-direction: column; } .cr-img { width: 100%; height: 150px; } }
+    .cr-hero { display: block; background: #fff; border: 2px solid var(--orange, #d97706); border-radius: 16px; overflow: hidden; margin: 26px 0 4px; cursor: pointer; }
+    .crh-img { width: 100%; height: 200px; object-fit: cover; display: block; }
+    .crh-body { padding: 18px 20px 20px; }
+    .crh-eyebrow { font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 700; color: var(--orange, #d97706); }
+    .crh-title { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 700; color: var(--green-dark, #2d6a4f); margin: 6px 0 6px; line-height: 1.2; }
+    .crh-meta { font-size: 14px; font-weight: 600; color: var(--text, #2d2a24); }
+    .crh-uses { font-size: 13px; color: var(--muted, #6b6b6b); margin-top: 8px; }
+    .crh-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 12px; }
+    @media (min-width: 720px) { .cr-hero { display: flex; } .crh-img { width: 300px; height: auto; min-height: 200px; flex-shrink: 0; } }
     .cr-hint { font-size: 13px; color: var(--muted, #6b6b6b); margin: 4px 0 0; }
     .cr-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 900; align-items: center; justify-content: center; padding: 20px; }
     .cr-modal-overlay.show { display: flex; }
@@ -1707,12 +1736,14 @@ function renderChainPage(bundle) {
   <header class="cp-hero">
     <div class="cp-wrap">
       <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
-      <h1>${_esc(label)} weekly ad deals, week of ${_esc(dateStr)}</h1>
-      <p>Featured deals from this week's ad, and ${bundle.recipes.length} dinners you can build from them. Enter your zip for the full list at your store.</p>
+      <h1>${_esc(label)}'s featured deals this week</h1>
+      <p>Week of ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them. Enter your zip for the full list at your store.</p>
     </div>
   </header>
 
   <main class="cp-wrap">
+    ${heroCard}
+
     <section class="cp-section">
       <h2>Featured ${_esc(label)} deals this week</h2>
       <div class="cd-grid">
@@ -1721,7 +1752,7 @@ ${dealCards}
     </section>
 
     <section class="cp-section">
-      <h2>Dinners you can build from this week's ad</h2>
+      <h2>More dinners from this week's ad</h2>
       <div id="cr-list">
 ${recipeCards}
       </div>
@@ -1859,7 +1890,7 @@ router.get("/deals", async (req, res, next) => {
 <body>
   ${SITE_HEADER}
   <header class="hb-hero">
-    <h1>This week's grocery ads</h1>
+    <h1>This week's featured deals</h1>
     <p>Real deals from the stores below, and the dinners you can build from them.</p>
   </header>
   <main class="hb-wrap">

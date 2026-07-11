@@ -1130,6 +1130,93 @@ router.get("/api/deals/preview-recipe", async (req, res) => {
   }
 });
 
+// ══ SSR CHAIN PAGES ══════════════════════════════════════════════════════════
+// One cached bundle per chain, powering the server-rendered /deals/:chain pages.
+// Each bundle = that chain's curated deals + 3 recipes built from them.
+const SSR_CHAINS = {
+  kroger: { label: "Kroger", cacheKey: () => `kroger:${PREVIEW_KROGER_LOCATION}` },
+  aldi:   { label: "ALDI",   cacheKey: () => "aldi:national" },
+  walmart:{ label: "Walmart",cacheKey: () => "walmart:national" },
+};
+
+// Fetch a Pexels photo for a recipe title. Returns null on any failure.
+async function fetchRecipePhoto(title) {
+  try {
+    const key = process.env.PEXELS_API_KEY;
+    if (!key || !title) return null;
+    const q = title.replace(/[^\w\s]/g, "").trim();
+    const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q + " food")}&per_page=1&orientation=landscape`, { headers: { Authorization: key } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const p = d.photos && d.photos[0];
+    return (p && (p.src.medium || p.src.small)) || null;
+  } catch (e) { return null; }
+}
+
+// Build one chain's SSR bundle: curate deals, generate 3 recipes, attach photos.
+async function buildChainBundle(slug) {
+  const cfg = SSR_CHAINS[slug];
+  if (!cfg) return null;
+  const raw = await getCachedDeals(cfg.cacheKey());
+  if (!raw || !raw.length) return null;
+
+  // Deals shown on the page: up to 15 curated fresh items.
+  const deals = curateFreshDeals(raw, 15);
+  if (!deals.length) return null;
+
+  // Recipe pool: the same curated set (generation picks from it).
+  const base = process.env.PUBLIC_BASE_URL || "https://dishcount.co";
+  let recipes = [];
+  try {
+    const rr = await fetch(`${base}/api/recipes/ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-token": process.env.INTERNAL_API_TOKEN },
+      body: JSON.stringify({
+        ingredients: deals.map(d => ({
+          name: d.name, category: d.category, salePrice: d.salePrice,
+          regularPrice: d.regularPrice, savings: "", storeName: cfg.label,
+          isPerLb: !!d.isPerLb, priceUnit: d.priceUnit || "",
+        })),
+        style: "Dinner", mealType: "Dinner", diets: [],
+        mealRequest: `Three different simple dinners, each using several of these ${cfg.label} sale items.`,
+      }),
+    });
+    const rj = await rr.json();
+    recipes = (rj.recipes || []).slice(0, 3);
+  } catch (e) { console.error(`SSR ${slug}: recipe gen failed:`, e.message); }
+
+  if (!recipes.length) return null;
+
+  const outRecipes = [];
+  for (const r of recipes) {
+    const photo = await fetchRecipePhoto(r.title);
+    outRecipes.push({
+      title: r.title,
+      time: r.time || (r.readyInMinutes ? `${r.readyInMinutes} min` : ""),
+      servings: r.servings || 4,
+      estimatedCost: r.estimatedCost || 0,
+      totalSavings: r.totalSavings || 0,
+      costPerServing: r.servings ? Math.round((r.estimatedCost / r.servings) * 100) / 100 : 0,
+      image: photo,
+      usedSaleItems: (r.usedSaleItems || []).map(i => i.name).filter(Boolean),
+      ingredients: (r.allIngredients || r.ingredients || []).map(i => i.name || i).slice(0, 14),
+      instructions: (r.instructions || []).slice(0, 10),
+    });
+  }
+
+  return {
+    chain: slug,
+    label: cfg.label,
+    deals: deals.map(d => ({
+      name: d.name, salePrice: d._sale, regularPrice: d._reg,
+      pctOff: d._pct, image: d.image || null, category: d.category || "",
+      isPerLb: !!d.isPerLb,
+    })),
+    recipes: outRecipes,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 // Weekly: refresh the pinned Kroger store's deals, generate one recipe from the
 // fresh pool, map its used sale-items back to cards, backfill to 6, cache the
 // {recipe, cards} bundle. Called by the Wednesday cron (x-internal-token gated).
@@ -1241,6 +1328,47 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
   } catch (err) {
     console.error("refresh-preview error:", err.message);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Weekly: rebuild the SSR bundle for each chain page. Independent of the
+// homepage preview bundle — a failure here can't break the homepage.
+router.post("/api/cron/refresh-ssr", async (req, res) => {
+  const token = req.headers["x-internal-token"];
+  if (!token || token !== process.env.INTERNAL_API_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const results = {};
+  for (const slug of Object.keys(SSR_CHAINS)) {
+    try {
+      const bundle = await buildChainBundle(slug);
+      if (bundle) {
+        await setCachedDeals(`ssr:bundle:${slug}`, bundle);
+        results[slug] = { ok: true, deals: bundle.deals.length, recipes: bundle.recipes.length, titles: bundle.recipes.map(r => r.title) };
+        console.log(`SSR bundle ${slug}: ${bundle.deals.length} deals, ${bundle.recipes.length} recipes`);
+      } else {
+        results[slug] = { ok: false, reason: "no bundle (empty cache or generation failed)" };
+      }
+    } catch (e) {
+      results[slug] = { ok: false, error: e.message };
+      console.error(`SSR bundle ${slug} failed:`, e.message);
+    }
+  }
+  res.json({ ok: true, results });
+});
+
+// Read a chain's SSR bundle (used by the page renderer in Session 2; also
+// handy for verification).
+router.get("/api/deals/chain/:slug", async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").toLowerCase();
+    if (!SSR_CHAINS[slug]) return res.status(404).json({ error: "Unknown chain" });
+    const bundle = await getCachedDeals(`ssr:bundle:${slug}`);
+    if (!bundle) return res.json({ bundle: null });
+    res.json({ bundle });
+  } catch (err) {
+    console.error("chain bundle error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

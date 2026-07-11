@@ -1136,20 +1136,82 @@ function curateChainDeals(raw, limit) {
     return s;
   };
 
-  const ranked = clean.slice().sort((a, z) => cookScore(z) - cookScore(a));
+  // Reserve slots per category. A pure cookScore sort floods the pool with
+  // protein on meat-heavy chains (Walmart came back 15/15 meat), which makes
+  // the page read like a butcher counter and leaves the recipe generator with
+  // no sale produce to cook with. Protein still anchors the dinners; produce,
+  // dairy, and pantry get guaranteed representation.
+  const bucketOfDeal = (d) => {
+    const c = (d.category || "").toLowerCase();
+    const n = (d.name || "").toLowerCase();
+    if (/snack|candy|cookie|chip|cracker|soda|beverage|dessert/.test(c) ||
+        /chips?|crackers?|cookie|candy|soda|little debbie|frito|ritz|goldfish|doritos|oreo/.test(n)) return "snack";
+    if (/beef|pork|chicken|turkey|meat|poultry|seafood|fish|lamb|bison/.test(c) ||
+        /\b(beef|pork|chicken|turkey|sausage|bacon|steak|shrimp|salmon|chop|brisket|ribeye|wing|ground|scallop|tilapia|cod)\b/.test(n)) return "protein";
+    if (/vegetable|produce|fruit/.test(c) ||
+        /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|lettuce|grape|apple|melon|berry|berries|peach|plum|nectarine|avocado|cucumber|mango)\b/.test(n)) return "produce";
+    if (/dairy|egg|cheese|milk|butter|yogurt/.test(c) ||
+        /\b(egg|cheese|milk|butter|yogurt|cream)\b/.test(n)) return "dairy";
+    if (/pasta|rice|grain|bean|pantry|bread|condiment|sauce|canned/.test(c) ||
+        /\b(pasta|rice|beans|tortilla|bread|broth|stock)\b/.test(n)) return "pantry";
+    return "other";
+  };
+
+  // Slot budget (sums to `limit` at the default 15): protein anchors, produce
+  // supports, dairy/pantry round it out. Snacks get nothing unless we'd
+  // otherwise come up short.
+  const budget = {
+    protein: Math.max(1, Math.round(limit * 0.47)),  // 7 of 15
+    produce: Math.max(1, Math.round(limit * 0.27)),  // 4 of 15
+    dairy:   Math.max(1, Math.round(limit * 0.13)),  // 2 of 15
+    pantry:  Math.max(1, Math.round(limit * 0.13)),  // 2 of 15
+  };
+
+  const byBucket = {};
+  for (const d of clean) {
+    const b = bucketOfDeal(d);
+    (byBucket[b] = byBucket[b] || []).push(d);
+  }
+  for (const b in byBucket) byBucket[b].sort((a, z) => cookScore(z) - cookScore(a));
+
   const out = [];
   const seen = new Set();
-  let snackCount = 0;
-  for (const d of ranked) {
+  const take = (d) => {
     const k = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
-    if (!k || seen.has(k)) continue;
-    // Hard cap: at most 2 snack-ish items in the pool, so they can't crowd out food.
-    const isSnack = cookScore(d) < 0;
-    if (isSnack && snackCount >= 2) continue;
-    if (isSnack) snackCount++;
+    if (!k || seen.has(k)) return false;
     seen.add(k);
     out.push(d);
-    if (out.length >= limit) break;
+    return true;
+  };
+
+  // 1) Fill each category up to its slot budget.
+  for (const b of ["protein", "produce", "dairy", "pantry"]) {
+    let taken = 0;
+    for (const d of (byBucket[b] || [])) {
+      if (taken >= budget[b] || out.length >= limit) break;
+      if (take(d)) taken++;
+    }
+  }
+  // 2) Backfill any unused slots from real food (never snacks), best-scoring first.
+  if (out.length < limit) {
+    const rest = [];
+    for (const b of ["protein", "produce", "dairy", "pantry", "other"]) {
+      for (const d of (byBucket[b] || [])) rest.push(d);
+    }
+    rest.sort((a, z) => cookScore(z) - cookScore(a));
+    for (const d of rest) {
+      if (out.length >= limit) break;
+      take(d);
+    }
+  }
+  // 3) Last resort only: if a chain is so thin we still can't fill the grid,
+  //    allow up to 2 snack items rather than render an empty-looking page.
+  if (out.length < limit) {
+    let snackCount = 0;
+    for (const d of (byBucket["snack"] || [])) {
+      if (out.length >= limit || snackCount >= 2) break;
+      if (take(d)) snackCount++;
+    }
   }
   return out;
 }

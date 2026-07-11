@@ -1550,6 +1550,12 @@ const CHAIN_NOTES = {
   walmart: "Walmart doesn't run a traditional weekly ad. They do rollbacks, which change constantly and vary by store. The prices here are national rollbacks, so they're a solid guide, but check your store before you plan around a specific item.",
 };
 
+// Only these hosts serve REAL product photos. ALDI's OCR pipeline attaches
+// Unsplash stock images, which are not the actual product — showing them as
+// product photos would be misleading, so those cards render text-only.
+const PRODUCT_IMAGE_HOSTS = /(^https:\/\/www\.kroger\.com\/product\/images\/)|(^https:\/\/i5\.walmartimages\.com\/)/i;
+const isProductPhoto = (url) => !!url && PRODUCT_IMAGE_HOSTS.test(String(url));
+
 function renderChainPage(bundle) {
   const label = bundle.label;
   const slug = bundle.chain;
@@ -1561,8 +1567,12 @@ function renderChainPage(bundle) {
       ? `<span class="cd-reg">$${Number(d.regularPrice).toFixed(2)}</span>` : "";
     const pct = d.pctOff ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
     const unit = d.isPerLb ? " <span class=\"cd-unit\">/lb</span>" : "";
-    return `<div class="cd-card">
+    const img = isProductPhoto(d.image)
+      ? `<img class="cd-img" src="${_esc(d.image)}" alt="${_esc(d.name)}" loading="lazy" onerror="this.style.display='none'" />`
+      : "";
+    return `<div class="cd-card${img ? " cd-card-img" : ""}">
       ${pct}
+      ${img}
       <div class="cd-name">${_esc(d.name)}</div>
       <div class="cd-price">$${Number(d.salePrice).toFixed(2)}${unit} ${reg}</div>
     </div>`;
@@ -1631,6 +1641,7 @@ function renderChainPage(bundle) {
     .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
     .cd-card { position: relative; background: #fff; border: 1px solid #EDE6D4; border-radius: 12px; padding: 12px 12px 10px; }
     .cd-pct { position: absolute; top: 8px; right: 8px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+    .cd-img { width: 100%; height: 88px; max-height: 88px; object-fit: contain; background: #fff; display: block; padding: 4px 0 6px; box-sizing: border-box; }
     .cd-name { font-size: 13px; font-weight: 600; line-height: 1.3; padding-right: 44px; min-height: 34px; }
     .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: var(--green-dark, #1a2e1f); }
     .cd-reg { font-size: 12px; font-weight: 400; color: #999; text-decoration: line-through; margin-left: 4px; }

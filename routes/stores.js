@@ -1094,6 +1094,45 @@ function curateFreshDeals(raw, limit) {
   return picked.slice(0, limit);
 }
 
+// Looser curation for the SSR chain pages. Unlike the homepage preview (which
+// needs product photos), these pages render text+price cards, so images and
+// regular prices are optional. OCR'd chains (ALDI and most others) have neither.
+// Requirements: a real name, a plausible sale price, and food (not household).
+function curateChainDeals(raw, limit) {
+  if (!raw || !raw.length) return [];
+  const NON_FOOD = /paper towel|toilet|detergent|bleach|napkin|foil|trash bag|cleaner|shampoo|soap|diaper|batteries|charcoal|propane|flower|greeting card/i;
+  const JUNK = /price drop|low price|extra savings|see store|weekly ad|assorted|varies/i;
+  const clean = raw
+    .map(d => {
+      const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
+      const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
+      const hasReg = Number.isFinite(r) && r > s && r > 0;
+      const pct = Number(d.pctOff) > 0
+        ? Number(d.pctOff)
+        : (hasReg ? Math.round(((r - s) / r) * 100) : 0);
+      return { ...d, _sale: s, _reg: hasReg ? r : null, _pct: (pct > 0 && pct <= 70) ? pct : 0 };
+    })
+    .filter(d =>
+      d.name && d.name.trim().length > 2 &&
+      Number.isFinite(d._sale) && d._sale > 0 && d._sale < 40 &&
+      !NON_FOOD.test(d.name) && !JUNK.test(d.name)
+    );
+
+  // Prefer deals with a real discount, then anything else, capped at `limit`.
+  const withPct = clean.filter(d => d._pct > 0).sort((a, z) => z._pct - a._pct);
+  const rest = clean.filter(d => d._pct === 0);
+  const out = [];
+  const seen = new Set();
+  for (const d of [...withPct, ...rest]) {
+    const k = (d.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(d);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 router.get("/api/deals/preview", async (req, res) => {
   try {
     // Prefer the weekly bundle's cards (kept in sync with the recipe). Fall back
@@ -1161,7 +1200,7 @@ async function buildChainBundle(slug) {
   if (!raw || !raw.length) return null;
 
   // Deals shown on the page: up to 15 curated fresh items.
-  const deals = curateFreshDeals(raw, 15);
+  const deals = curateChainDeals(raw, 15);
   if (!deals.length) return null;
 
   // Recipe pool: the same curated set (generation picks from it).
@@ -1178,7 +1217,7 @@ async function buildChainBundle(slug) {
           isPerLb: !!d.isPerLb, priceUnit: d.priceUnit || "",
         })),
         style: "Dinner", mealType: "Dinner", diets: [],
-        mealRequest: `Three different simple dinners, each using several of these ${cfg.label} sale items.`,
+        mealRequest: `Create three DIFFERENT, realistic weeknight dinners from these ${cfg.label} sale items. CRITICAL RULES: (1) Each recipe must be a coherent dish a real family would actually eat. (2) Only combine sale items that genuinely belong together in one dish. (3) Do NOT force unrelated items into a recipe just because they are on sale — for example, never put fruit like grapes into a meat skillet or a surf-and-turf. (4) It is fine for a recipe to use only 2 or 3 of the sale items plus common pantry staples. (5) Each dinner should center on one protein. Fresh produce that does not fit a dinner should simply be left out.`,
       }),
     });
     const rj = await rr.json();

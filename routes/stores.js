@@ -1600,7 +1600,7 @@ function renderChainPage(bundle) {
     .join("\n  ");
 
   const note = CHAIN_NOTES[slug] || "";
-  const title = `${label} Weekly Ad Deals & Dinner Ideas — Week of ${dateStr} | Dishcount`;
+  const title = `${label} Weekly Ad: Deals & Dinner Ideas for ${dateStr} | Dishcount`;
   const desc = `This week's ${label} deals plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
 
   return `<!DOCTYPE html>
@@ -1655,7 +1655,7 @@ function renderChainPage(bundle) {
   <header class="cp-hero">
     <div class="cp-wrap">
       <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
-      <h1>${_esc(label)} weekly ad deals &mdash; week of ${_esc(dateStr)}</h1>
+      <h1>${_esc(label)} weekly ad deals, week of ${_esc(dateStr)}</h1>
       <p>${bundle.deals.length} items on sale this week, and ${bundle.recipes.length} dinners you can build from them.</p>
     </div>
   </header>

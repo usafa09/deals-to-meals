@@ -10,6 +10,30 @@ import {
 import { fetchKrogerDeals } from "./kroger.js";
 import { fetchWalmartDeals } from "./walmart.js";
 import { notifyStoreRequest } from "../lib/email.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// The SSR pages inject the same header/footer as the rest of the site so they
+// don't read as orphaned pages from a different product.
+const __ssrDir = dirname(fileURLToPath(import.meta.url));
+const SITE_HEADER = (() => {
+  try { return readFileSync(join(__ssrDir, "..", "public", "header.html"), "utf8"); }
+  catch (e) { console.error("SSR: header.html unreadable:", e.message); return ""; }
+})();
+const SITE_FOOTER = `
+  <footer class="about-footer">
+    <div class="footer-brand">Dishcount &middot; Meals from Deals &middot; Built in Dayton, Ohio</div>
+    <div class="footer-links">
+      <a href="/deals">Weekly Ads</a>
+      <a href="/about.html">About</a>
+      <a href="/features.html">Features</a>
+      <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/privacy.html">Privacy</a>
+    </div>
+    <div class="footer-copy">&copy; 2026 Dishcount. All rights reserved.</div>
+  </footer>`;
 
 const router = Router();
 
@@ -1641,7 +1665,7 @@ function renderChainPage(bundle) {
     .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
     .cd-card { position: relative; background: #fff; border: 1px solid #EDE6D4; border-radius: 12px; padding: 12px 12px 10px; }
     .cd-pct { position: absolute; top: 8px; right: 8px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
-    .cd-img { width: 100%; height: 88px; max-height: 88px; object-fit: contain; background: #fff; display: block; padding: 4px 0 6px; box-sizing: border-box; }
+    .cd-img { width: 100%; height: 120px; max-height: 120px; object-fit: contain; background: #fff; display: block; padding: 6px 0 8px; box-sizing: border-box; }
     .cd-name { font-size: 13px; font-weight: 600; line-height: 1.3; padding-right: 44px; min-height: 34px; }
     .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: var(--green-dark, #1a2e1f); }
     .cd-reg { font-size: 12px; font-weight: 400; color: #999; text-decoration: line-through; margin-left: 4px; }
@@ -1679,17 +1703,18 @@ function renderChainPage(bundle) {
   </style>
 </head>
 <body>
+  ${SITE_HEADER}
   <header class="cp-hero">
     <div class="cp-wrap">
       <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
       <h1>${_esc(label)} weekly ad deals, week of ${_esc(dateStr)}</h1>
-      <p>${bundle.deals.length} items on sale this week, and ${bundle.recipes.length} dinners you can build from them.</p>
+      <p>Featured deals from this week's ad, and ${bundle.recipes.length} dinners you can build from them. Enter your zip for the full list at your store.</p>
     </div>
   </header>
 
   <main class="cp-wrap">
     <section class="cp-section">
-      <h2>This week's ${_esc(label)} deals</h2>
+      <h2>Featured ${_esc(label)} deals this week</h2>
       <div class="cd-grid">
 ${dealCards}
       </div>
@@ -1715,10 +1740,10 @@ ${recipeCards}
     </div>
   </main>
 
-  <footer class="cp-foot">
-    Updated ${_esc(dateStr)} &middot; Prices from the current ${_esc(label)} ad and may vary by store.<br>
-    <a href="/about.html">About Dishcount</a> &middot; <a href="/">Home</a>
-  </footer>
+  <div class="cp-foot">
+    Updated ${_esc(dateStr)}. Prices are from the current ${_esc(label)} ad and may vary by store.
+  </div>
+  ${SITE_FOOTER}
 
   <div class="cr-modal-overlay" id="crOverlay"><div class="cr-modal" id="crModal"></div></div>
   <script type="application/json" id="cr-data">${JSON.stringify(bundle.recipes).replace(/</g, "\\u003c")}</script>
@@ -1795,7 +1820,7 @@ router.get("/deals", async (req, res, next) => {
       const first = b.recipes && b.recipes[0];
       cards.push(`<a class="hb-card" href="/deals/${_esc(slug)}">
         <div class="hb-name">${_esc(b.label)}</div>
-        <div class="hb-meta">${b.deals.length} deals this week</div>
+        <div class="hb-meta">Featured deals this week</div>
         ${first ? `<div class="hb-rec">Tonight: ${_esc(first.title)}</div>` : ""}
         <div class="hb-go">See the deals &rarr;</div>
       </a>`);
@@ -1832,6 +1857,7 @@ router.get("/deals", async (req, res, next) => {
   </style>
 </head>
 <body>
+  ${SITE_HEADER}
   <header class="hb-hero">
     <h1>This week's grocery ads</h1>
     <p>Real deals from the stores below, and the dinners you can build from them.</p>
@@ -1840,6 +1866,7 @@ router.get("/deals", async (req, res, next) => {
     ${cards.join("\n")}
     <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
   </main>
+  ${SITE_FOOTER}
 </body>
 </html>`);
   } catch (err) { console.error("deals hub failed:", err.message); next(err); }

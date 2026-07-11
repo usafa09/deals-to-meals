@@ -1172,10 +1172,13 @@ router.get("/api/deals/preview-recipe", async (req, res) => {
 // ══ SSR CHAIN PAGES ══════════════════════════════════════════════════════════
 // One cached bundle per chain, powering the server-rendered /deals/:chain pages.
 // Each bundle = that chain's curated deals + 3 recipes built from them.
+// cacheKeys is an ordered fallback list — first non-empty cache wins. ALDI's
+// bespoke scraper was retired (May 2026); its deals now come from the OCR
+// pipeline under ad-extract:aldi, so aldi:national is empty in production.
 const SSR_CHAINS = {
-  kroger: { label: "Kroger", cacheKey: () => `kroger:${PREVIEW_KROGER_LOCATION}` },
-  aldi:   { label: "ALDI",   cacheKey: () => "aldi:national" },
-  walmart:{ label: "Walmart",cacheKey: () => "walmart:national" },
+  kroger: { label: "Kroger", cacheKeys: () => [`kroger:${PREVIEW_KROGER_LOCATION}`] },
+  aldi:   { label: "ALDI",   cacheKeys: () => ["aldi:national", "ad-extract:aldi"] },
+  walmart:{ label: "Walmart",cacheKeys: () => ["walmart:national"] },
 };
 
 // Fetch a Pexels photo for a recipe title. Returns null on any failure.
@@ -1196,8 +1199,13 @@ async function fetchRecipePhoto(title) {
 async function buildChainBundle(slug) {
   const cfg = SSR_CHAINS[slug];
   if (!cfg) return null;
-  const raw = await getCachedDeals(cfg.cacheKey());
-  if (!raw || !raw.length) return null;
+  // Walk the fallback list — first cache with data wins.
+  let raw = null;
+  for (const key of cfg.cacheKeys()) {
+    const c = await getCachedDeals(key);
+    if (c && c.length) { raw = c; console.log(`SSR ${slug}: using cache ${key} (${c.length} deals)`); break; }
+  }
+  if (!raw || !raw.length) { console.log(`SSR ${slug}: no data in any cache`); return null; }
 
   // Deals shown on the page: up to 15 curated fresh items.
   const deals = curateChainDeals(raw, 15);

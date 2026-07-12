@@ -1692,9 +1692,10 @@ function renderChainPage(bundle) {
     /* The site header (.landing-nav) is position:fixed at ~66-70px tall. Without
        this padding the top of the page renders underneath it. */
     body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
-    /* display:block is REQUIRED. styles.min.css has a global 'header { display: none }'
-       for the in-app header, and this element is a <header>, so it inherits it and the
-       entire title block vanishes. */
+    /* This block is a DIV, not a HEADER, on purpose. styles.min.css has five global
+       'header' rules including a display:none AND a mobile display:flex!important,
+       which hid this block entirely and then laid it out sideways on phones. A div
+       is immune to all of them. Keep display:block as belt-and-braces. */
     .cp-hero { display: block; background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
     .cp-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
     .cp-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
@@ -1761,13 +1762,13 @@ function renderChainPage(bundle) {
 </head>
 <body>
   ${SITE_HEADER}
-  <header class="cp-hero">
+  <div class="cp-hero">
     <div class="cp-wrap">
       <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
       <h1>${_esc(label)}'s featured deals this week</h1>
       <p>Week of ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them. Enter your zip for the full list at your store.</p>
     </div>
-  </header>
+  </div>
 
   <main class="cp-wrap">
     ${heroCard}
@@ -1980,10 +1981,10 @@ router.get("/deals", async (req, res, next) => {
 </head>
 <body>
   ${SITE_HEADER}
-  <header class="hb-hero">
+  <div class="hb-hero">
     <h1>This week's featured deals</h1>
     <p>Real deals from the stores below, and the dinners you can build from them.</p>
-  </header>
+  </div>
   <main class="hb-wrap">
     ${cards.join("\n")}
     <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>

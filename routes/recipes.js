@@ -568,8 +568,15 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         exclude: ["bread","pasta","spaghetti","noodle","flour tortilla","cracker","cookie","cake","pie crust","croissant","bagel","muffin","pancake mix","biscuit","pretzel","wheat","barley","rye","couscous"]
       },
       "Dairy-Free": {
-        rule: "DAIRY-FREE: No milk, cheese, butter, cream, yogurt, sour cream, ice cream, or any dairy product.",
-        exclude: ["milk","cheese","butter","yogurt","cream","sour cream","ice cream","whipped cream","half and half","cottage cheese","cream cheese"]
+        rule: "DAIRY-FREE: No dairy milk, cheese, butter, cream, yogurt, sour cream, or ice cream. Plant-based substitutes ARE allowed and encouraged: almond/coconut/oat/soy milk, coconut cream, nut butters, and dairy-free cheese.",
+        // Word-boundary, NOT substring. Substring matching dropped "Butternut Squash"
+        // (contains "butter") and, worse, "Almond Milk" and "Coconut Milk" — the very
+        // substitutes this diet depends on.
+        excludeWord: ["milk","cheese","butter","yogurt","cream","buttermilk","ghee","half and half"],
+        // These bypass the excludeWord match. Plant milks and nut butters are the
+        // whole point of a dairy-free diet. ("butternut" needs no entry — \bbutter\b
+        // does not match it.)
+        whitelistPhrase: ["almond milk","coconut milk","oat milk","soy milk","cashew milk","rice milk","hemp milk","coconut cream","almond butter","peanut butter","cashew butter","sunflower butter","nut butter","seed butter","butter lettuce","dairy-free","non-dairy","vegan cheese","nutritional yeast"]
       },
       "Low Calorie": { rule: "LOW CALORIE: Each serving must be under 500 calories. Lean proteins, lots of vegetables, minimal oil/butter/cheese.", exclude: [] },
       "Halal": {
@@ -598,7 +605,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         ],
         // These bypass the excludeWord match above. Note: peanut butter is deliberately
         // NOT whitelisted — peanuts are legumes, not nuts.
-        whitelistPhrase: ["almond butter","cashew butter","sunflower butter","almond milk","coconut milk","coconut cream","coconut flour","almond flour","sweet potato"]
+        whitelistPhrase: ["almond butter","cashew butter","sunflower butter","almond milk","coconut milk","coconut cream","coconut flour","almond flour","sweet potato","butter lettuce"]
       },
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
@@ -607,7 +614,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         // Plant-based nut/seed butters: bypass the \bbutter\b excludeWord match.
         // Substring exclude (above) is unaffected — "peanut butter" still gets checked
         // against fish/seafood/etc. terms, none of which appear in nut butters.
-        whitelistPhrase: ["peanut butter","almond butter","cashew butter","sunflower butter","nut butter","seed butter"]
+        whitelistPhrase: ["peanut butter","almond butter","cashew butter","sunflower butter","nut butter","seed butter","almond milk","coconut milk","oat milk","soy milk","cashew milk","rice milk","hemp milk","coconut cream","butter lettuce","vegan cheese","nutritional yeast"]
       },
       // KOSHER: the meat-dairy separation rule (no mixing meat/poultry with dairy in
       // a single recipe) is a RECIPE-LEVEL constraint that the substring/word-boundary

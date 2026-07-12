@@ -1723,14 +1723,6 @@ function renderChainPage(bundle) {
     .cp-cta p { font-size: 14px; color: #4a463d; margin: 0 0 14px; }
     .cp-cta a { display: inline-block; background: var(--orange, #d97706); color: #fff; text-decoration: none; padding: 13px 26px; border-radius: 999px; font-weight: 700; }
     .cp-foot { text-align: center; font-size: 12px; color: var(--muted, #6b6b6b); padding: 20px; }
-    /* Copied from about.html's inline styles — .about-footer is NOT in styles.min.css,
-       so injecting the shared footer markup without these rules renders it unstyled. */
-    .about-footer { background: #1a2e1f; border-top: 1px solid rgba(82, 183, 136, 0.15); padding: 40px 24px; text-align: center; }
-    .about-footer .footer-brand { font-size: 14px; color: #b7c7ba; margin-bottom: 12px; }
-    .about-footer .footer-links { display: flex; gap: 20px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-    .about-footer .footer-links a { color: #74c69d; text-decoration: underline; text-underline-offset: 2px; font-size: 14px; font-weight: 500; transition: color 0.2s; }
-    .about-footer .footer-links a:hover { color: #fff; }
-    .about-footer .footer-copy { font-size: 12px; color: #8a9b8d; }
     .cp-foot a { color: var(--muted, #6b6b6b); }
     @media (max-width: 520px) { .cr-card { flex-direction: column; } .cr-img { width: 100%; height: 150px; } }
     .cr-hero { display: block; background: #fff; border: 2px solid var(--orange, #d97706); border-radius: 16px; overflow: hidden; margin: 26px 0 4px; cursor: pointer; }
@@ -1971,12 +1963,6 @@ router.get("/deals", async (req, res, next) => {
     .hb-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 10px; }
     .hb-cta { text-align: center; margin-top: 26px; font-size: 14px; color: var(--muted, #6b6b6b); }
     .hb-cta a { color: var(--orange, #d97706); font-weight: 700; }
-    .about-footer { background: #1a2e1f; border-top: 1px solid rgba(82, 183, 136, 0.15); padding: 40px 24px; text-align: center; }
-    .about-footer .footer-brand { font-size: 14px; color: #b7c7ba; margin-bottom: 12px; }
-    .about-footer .footer-links { display: flex; gap: 20px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-    .about-footer .footer-links a { color: #74c69d; text-decoration: underline; text-underline-offset: 2px; font-size: 14px; font-weight: 500; transition: color 0.2s; }
-    .about-footer .footer-links a:hover { color: #fff; }
-    .about-footer .footer-copy { font-size: 12px; color: #8a9b8d; }
   </style>
 </head>
 <body>

@@ -768,6 +768,10 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 /* Homepage recipe card: image, tap affordance */
 .landing-recipe { cursor: pointer; overflow: hidden; }
 .landing-recipe-img { width: 100%; height: 130px; object-fit: cover; border-radius: var(--r-sm); margin-bottom: 10px; }
+/* The card widens on desktop but a fixed height turned the photo into a 4.7:1
+   sliver. Scale the height with the card so the crop stays reasonable. */
+@media (min-width: 640px) { .landing-recipe-img { height: 200px; } }
+@media (min-width: 900px) { .landing-recipe-img { height: 240px; } }
 .landing-recipe-tapcue { font-size: 12px; color: var(--orange); font-weight: 700; margin-top: 8px; }
 .landing-recipe:hover .landing-recipe-tapcue { text-decoration: underline; }
 

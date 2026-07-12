@@ -1153,11 +1153,18 @@ function curateChainDeals(raw, limit) {
     .map(d => {
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
       const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
-      const hasReg = Number.isFinite(r) && r > s && r > 0;
-      const pct = Number(d.pctOff) > 0
+      // Plausibility guard, matching the homepage preview (curateFreshDeals). A
+      // regular price more than 2.5x the sale price is almost always a per-each
+      // vs per-pound error in the source feed ("Black Plums, Each: $0.76, was
+      // $2.50" = 70% off). The SALE price is still real and worth showing — we
+      // just refuse to make the suspect discount claim, so we zero the percent
+      // AND drop the struck-through regular price.
+      const plausible = Number.isFinite(r) && r > s && r > 0 && r <= s * 2.5;
+      const rawPct = Number(d.pctOff) > 0
         ? Number(d.pctOff)
-        : (hasReg ? Math.round(((r - s) / r) * 100) : 0);
-      return { ...d, _sale: s, _reg: hasReg ? r : null, _pct: (pct > 0 && pct <= 70) ? pct : 0 };
+        : (plausible ? Math.round(((r - s) / r) * 100) : 0);
+      const pct = (rawPct > 0 && rawPct <= 60 && plausible) ? rawPct : 0;
+      return { ...d, _sale: s, _reg: plausible ? r : null, _pct: pct };
     })
     .filter(d =>
       d.name && d.name.trim().length > 2 &&

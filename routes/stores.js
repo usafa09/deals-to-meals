@@ -1692,7 +1692,10 @@ function renderChainPage(bundle) {
     /* The site header (.landing-nav) is position:fixed at ~66-70px tall. Without
        this padding the top of the page renders underneath it. */
     body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
-    .cp-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
+    /* display:block is REQUIRED. styles.min.css has a global 'header { display: none }'
+       for the in-app header, and this element is a <header>, so it inherits it and the
+       entire title block vanishes. */
+    .cp-hero { display: block; background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
     .cp-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
     .cp-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
     .cp-hero h1 { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #fff; margin: 8px 0 6px; line-height: 1.2; }
@@ -1887,7 +1890,12 @@ router.get("/deals", async (req, res, next) => {
           ? `<img class="hb-thumb-img" src="${_esc(d.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
           : `<div class="hb-thumb-noimg"></div>`;
         const unit = d.isPerLb ? "<span class=\"hb-unit\">/lb</span>" : "";
+        // Only badge a REAL discount. Items whose regular price failed the H6
+        // plausibility guard carry pctOff 0 and correctly show no badge.
+        const pct = Number(d.pctOff) > 0
+          ? `<span class="hb-thumb-pct">${Number(d.pctOff)}% off</span>` : "";
         return `<div class="hb-thumb">
+          ${pct}
           ${img}
           <div class="hb-thumb-price">$${Number(d.salePrice).toFixed(2)}${unit}</div>
           <div class="hb-thumb-name">${_esc(d.name)}</div>
@@ -1935,7 +1943,8 @@ router.get("/deals", async (req, res, next) => {
     /* The site header (.landing-nav) is position:fixed at ~66-70px tall. Without
        this padding the top of the page renders underneath it. */
     body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
-    .hb-hero { background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px; text-align: center; }
+    /* display:block REQUIRED — see the note on .cp-hero. */
+    .hb-hero { display: block; background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px; text-align: center; }
     .hb-hero h1 { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 8px; }
     .hb-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
     .hb-wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
@@ -1944,7 +1953,8 @@ router.get("/deals", async (req, res, next) => {
     .hb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .hb-pct { background: var(--orange, #d97706); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
     .hb-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
-    .hb-thumb { border: 1px solid #F0EAD9; border-radius: 10px; padding: 8px; text-align: center; }
+    .hb-thumb { position: relative; border: 1px solid #F0EAD9; border-radius: 10px; padding: 8px; text-align: center; }
+    .hb-thumb-pct { position: absolute; top: 5px; left: 5px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 6px; line-height: 1.3; z-index: 1; }
     .hb-thumb-img { width: 100%; height: 66px; max-height: 66px; object-fit: contain; display: block; margin-bottom: 4px; }
     .hb-thumb-noimg { height: 8px; }
     .hb-thumb-price { font-size: 15px; font-weight: 800; color: var(--green-dark, #2d6a4f); }

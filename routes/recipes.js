@@ -347,6 +347,7 @@ const _PROFILE_DIET_MAP = {
   "dairyfree":   "Dairy-Free",
   "halal":       "Halal",
   "keto":        "Keto",
+  "paleo":       "Paleo",
   "kosher":      "Kosher",
   "low calorie": "Low Calorie",
   "low-calorie": "Low Calorie",
@@ -582,6 +583,22 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         // form. The duplicate is idempotent — filter logic ORs across both passes.
         exclude: ["bread"],
         excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie","rolls","roll","bun","biscuit","muffin","croissant","pita","naan","baguette","pancake","waffle","donut","doughnut","pretzel","breadstick"]
+      },
+      // PALEO: no grains, no legumes, no dairy, no refined sugar. The whitelist
+      // handles the paleo-allowed exceptions that would otherwise be caught by a
+      // word-boundary match: nut/seed butters and milks (but NOT peanut — a legume),
+      // sweet potato (allowed; white potato is not), and grain-free flours.
+      "Paleo": {
+        rule: "PALEO: NO grains of any kind (wheat, rice, oats, corn, quinoa, bread, pasta, tortillas, cereal, flour). NO legumes (beans, lentils, chickpeas, peanuts, soy, tofu, peas). NO dairy (milk, cheese, butter, yogurt, cream). NO refined sugar. Focus on meat, fish, eggs, vegetables, fruit, nuts, seeds, and healthy fats. Coconut and almond products, sweet potatoes, and grain-free flours ARE allowed.",
+        excludeWord: [
+          "bread","pasta","spaghetti","noodle","rice","wheat","barley","rye","oat","oatmeal","cereal","granola","tortilla","flour","corn","cornmeal","quinoa","couscous","cracker","cookie","cake","bagel","muffin","pancake","waffle","biscuit","roll","bun","pita","naan","baguette","pretzel","breadstick","croissant","donut","doughnut",
+          "bean","lentil","chickpea","peanut","soy","soybean","tofu","edamame","pea","hummus",
+          "milk","cheese","butter","yogurt","cream",
+          "sugar","syrup","candy"
+        ],
+        // These bypass the excludeWord match above. Note: peanut butter is deliberately
+        // NOT whitelisted — peanuts are legumes, not nuts.
+        whitelistPhrase: ["almond butter","cashew butter","sunflower butter","almond milk","coconut milk","coconut cream","coconut flour","almond flour","sweet potato"]
       },
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",

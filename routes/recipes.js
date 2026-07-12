@@ -339,18 +339,10 @@ function isPantryStaple(...names) {
 const _PROFILE_DIET_MAP = {
   "vegetarian":  "Vegetarian",
   "vegan":       "Vegan",
-  "gluten-free": "Gluten-Free",
-  "gluten_free": "Gluten-Free",
-  "glutenfree":  "Gluten-Free",
-  "dairy-free":  "Dairy-Free",
-  "dairy_free":  "Dairy-Free",
-  "dairyfree":   "Dairy-Free",
   "halal":       "Halal",
   "keto":        "Keto",
   "paleo":       "Paleo",
   "kosher":      "Kosher",
-  "low calorie": "Low Calorie",
-  "low-calorie": "Low Calorie",
 };
 function normalizeProfileDiet(s) {
   if (typeof s !== "string") return null;
@@ -542,9 +534,9 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       } catch (e) { /* history fetch failed, continue without it */ }
     }
 
-    // DIET_RULES: existing entries (Vegetarian, Gluten-Free, Dairy-Free, Low Calorie)
-    // use `exclude` with naive substring includes() matching. New entries (Halal, Keto,
-    // Vegan) use `excludeWord` with word-boundary regex matching (now plural-aware via
+    // DIET_RULES: the legacy Vegetarian entry uses `exclude` with naive substring
+    // includes() matching. Newer entries (Halal, Keto, Vegan, Paleo) use `excludeWord`
+    // with word-boundary regex matching (now plural-aware via
     // (s|es)?) to avoid false positives like "egg" matching "eggplant" or "ham" matching
     // "hamburger". Diets can use BOTH fields: substring for terms that need to catch
     // compounds (Keto "bread" → also breadcrumbs, cornbread, shortbread; Vegan "fish" →
@@ -563,22 +555,6 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
         exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","pot roast","roast beef","chuck roast","rump roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","fish","seafood","crab","lobster","clam","mussel","anchov"]
       },
-      "Gluten-Free": {
-        rule: "GLUTEN-FREE: No wheat, barley, rye, or regular pasta/bread/flour. Use rice, potatoes, corn, gluten-free alternatives.",
-        exclude: ["bread","pasta","spaghetti","noodle","flour tortilla","cracker","cookie","cake","pie crust","croissant","bagel","muffin","pancake mix","biscuit","pretzel","wheat","barley","rye","couscous"]
-      },
-      "Dairy-Free": {
-        rule: "DAIRY-FREE: No dairy milk, cheese, butter, cream, yogurt, sour cream, or ice cream. Plant-based substitutes ARE allowed and encouraged: almond/coconut/oat/soy milk, coconut cream, nut butters, and dairy-free cheese.",
-        // Word-boundary, NOT substring. Substring matching dropped "Butternut Squash"
-        // (contains "butter") and, worse, "Almond Milk" and "Coconut Milk" — the very
-        // substitutes this diet depends on.
-        excludeWord: ["milk","cheese","butter","yogurt","cream","buttermilk","ghee","half and half"],
-        // These bypass the excludeWord match. Plant milks and nut butters are the
-        // whole point of a dairy-free diet. ("butternut" needs no entry — \bbutter\b
-        // does not match it.)
-        whitelistPhrase: ["almond milk","coconut milk","oat milk","soy milk","cashew milk","rice milk","hemp milk","coconut cream","almond butter","peanut butter","cashew butter","sunflower butter","nut butter","seed butter","butter lettuce","dairy-free","non-dairy","vegan cheese","nutritional yeast"]
-      },
-      "Low Calorie": { rule: "LOW CALORIE: Each serving must be under 500 calories. Lean proteins, lots of vegetables, minimal oil/butter/cheese.", exclude: [] },
       "Halal": {
         rule: "HALAL: No pork or pork-derived products, no alcohol or cooking wines, no gelatin or other non-halal animal products. Use halal-certified meats and plant-based ingredients only.",
         excludeWord: ["pork","bacon","ham","lard","prosciutto","pepperoni","pancetta","chorizo","salami","wine","beer","rum","vodka","whiskey","sake","mirin","sherry","gelatin"]

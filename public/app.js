@@ -290,10 +290,10 @@ function showOnboardingSurvey() {
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'none\')" class="survey-btn">None</button>' +
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'vegetarian\')" class="survey-btn">Vegetarian</button>' +
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'vegan\')" class="survey-btn">Vegan</button>' +
-    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'gluten-free\')" class="survey-btn">Gluten-free</button>' +
-    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'dairy-free\')" class="survey-btn">Dairy-free</button>' +
-    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'low-carb\')" class="survey-btn">Low-carb / Keto</button>' +
-    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'nut-allergy\')" class="survey-btn">Nut allergy</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'keto\')" class="survey-btn">Keto</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'paleo\')" class="survey-btn">Paleo</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'halal\')" class="survey-btn">Halal</button>' +
+    '<button onclick="toggleSurveyMulti(this,\'dietary\',\'kosher\')" class="survey-btn">Kosher</button>' +
     '<button onclick="toggleSurveyMulti(this,\'dietary\',\'other\')" class="survey-btn">Other</button>' +
     '</div>' +
     '<input type="text" id="surveyOtherDietary" placeholder="Describe your dietary needs..." style="display:none;width:100%;margin-top:12px;padding:10px;border:2px solid #d0c5a0;border-radius:10px;font-size:14px;box-sizing:border-box;" />' +
@@ -430,10 +430,10 @@ async function saveSurveyAndClose() {
       const DIETARY_SLUG_TO_LABEL = {
         "vegetarian":  "Vegetarian",
         "vegan":       "Vegan",
-        "gluten-free": "Gluten-Free",
-        "dairy-free":  "Dairy-Free",
-        "low-carb":    "Low-Carb",
-        "nut-allergy": "Nut Allergy",
+        "keto":        "Keto",
+        "paleo":       "Paleo",
+        "halal":       "Halal",
+        "kosher":      "Kosher",
       };
       const dietaryLabels = (surveyData.dietary || [])
         .map(slug => {
@@ -1001,7 +1001,7 @@ const RECIPE_STYLES = [
   { id:"Healthy & Light", icon:"🥗", label:"Healthy & Light", sub:"Under 500 cal/serving" },
   { id:"Slow Cooker", icon:"🫕", label:"Slow Cooker", sub:"Set it and forget it" },
 ];
-const DIET_FILTERS = ["Vegetarian","Gluten-Free","Dairy-Free","Low Calorie","Halal","Keto","Paleo","Vegan","Kosher"];
+const DIET_FILTERS = ["Vegetarian","Vegan","Keto","Paleo","Halal","Kosher"];
 
 let state = {
   zip:"", distance:15, storeBrands:[], selectedBrands:[], krogerLocations:[], selectedKrogerId:null,
@@ -3048,7 +3048,7 @@ function addFamilyMember() {
     '<input type="text" placeholder="Name or nickname" onchange="state.survey._familyMembers[' + idx + '].name=this.value" style="flex:1;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;" />' +
     '<select onchange="state.survey._familyMembers[' + idx + '].ageGroup=this.value" style="padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;"><option value="toddler">Toddler</option><option value="kid">Kid</option><option value="teen">Teen</option><option value="adult" selected>Adult</option></select>' +
     '<button onclick="document.getElementById(\'familyMember' + idx + '\').remove();state.survey._familyMembers[' + idx + ']=null" style="background:none;border:none;color:#c00;cursor:pointer;font-size:16px;">✕</button></div>' +
-    '<input type="text" placeholder="Dietary restrictions (e.g. dairy-free)" onchange="state.survey._familyMembers[' + idx + '].dietary=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:4px;" />' +
+    '<input type="text" placeholder="Dietary restrictions (e.g. vegetarian)" onchange="state.survey._familyMembers[' + idx + '].dietary=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:4px;" />' +
     '<input type="text" placeholder="Dislikes (e.g. mushrooms, spicy food)" onchange="state.survey._familyMembers[' + idx + '].dislikes=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:4px;" />' +
     '<input type="text" placeholder="Notes (e.g. only likes plain pasta)" onchange="state.survey._familyMembers[' + idx + '].notes=this.value" style="width:100%;padding:8px;border:1px solid #d0c5a0;border-radius:8px;font-size:13px;box-sizing:border-box;" />' +
     '</div>');

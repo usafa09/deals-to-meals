@@ -1123,6 +1123,28 @@ function curateFreshDeals(raw, limit) {
 // needs product photos), these pages render text+price cards, so images and
 // regular prices are optional. OCR'd chains (ALDI and most others) have neither.
 // Requirements: a real name, a plausible sale price, and food (not household).
+// Shared deal classifier. Used by BOTH the SSR chain bundles and the homepage
+// preview bundle so their recipe pools can't drift apart. Order matters: protein
+// and vegetable are checked BEFORE fruit, so "Bacon Applewood Smoked" and "Grape
+// Tomatoes" don't get misclassified as fruit.
+function dealBucket(d) {
+  const c = (d.category || "").toLowerCase();
+  const n = (d.name || "").toLowerCase();
+  if (/snack|candy|cookie|chip|cracker|soda|beverage|dessert/.test(c) ||
+      /chips?|crackers?|cookie|candy|soda|little debbie|frito|ritz|goldfish|doritos|oreo/.test(n)) return "snack";
+  if (/beef|pork|chicken|turkey|meat|poultry|seafood|fish|lamb|bison/.test(c) ||
+      /\b(beef|pork|chicken|turkey|sausage|bacon|steak|shrimp|salmon|chop|brisket|ribeye|wing|ground|scallop|tilapia|cod)\b/.test(n)) return "protein";
+  if (/vegetable|produce/.test(c) ||
+      /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|lettuce|cucumber|greens|spinach|cabbage|celery|mushroom|asparagus|green bean)\b/.test(n)) return "vegetable";
+  if (/fruit/.test(c) ||
+      /\b(grape|apple|melon|watermelon|berry|berries|blueberr|strawberr|peach|plum|nectarine|mango|pineapple|mandarin|orange|banana|pear|cherry|cherries)\b/.test(n)) return "fruit";
+  if (/dairy|egg|cheese|milk|butter|yogurt/.test(c) ||
+      /\b(egg|cheese|milk|butter|yogurt|cream)\b/.test(n)) return "dairy";
+  if (/pasta|rice|grain|bean|pantry|bread|condiment|sauce|canned/.test(c) ||
+      /\b(pasta|rice|beans|tortilla|bread|broth|stock)\b/.test(n)) return "pantry";
+  return "other";
+}
+
 function curateChainDeals(raw, limit) {
   if (!raw || !raw.length) return [];
   const NON_FOOD = /paper towel|toilet|detergent|bleach|napkin|foil|trash bag|cleaner|shampoo|soap|diaper|batteries|charcoal|propane|flower|greeting card/i;
@@ -1166,26 +1188,6 @@ function curateChainDeals(raw, limit) {
   // the page read like a butcher counter and leaves the recipe generator with
   // no sale produce to cook with. Protein still anchors the dinners; produce,
   // dairy, and pantry get guaranteed representation.
-  const bucketOfDeal = (d) => {
-    const c = (d.category || "").toLowerCase();
-    const n = (d.name || "").toLowerCase();
-    if (/snack|candy|cookie|chip|cracker|soda|beverage|dessert/.test(c) ||
-        /chips?|crackers?|cookie|candy|soda|little debbie|frito|ritz|goldfish|doritos|oreo/.test(n)) return "snack";
-    if (/beef|pork|chicken|turkey|meat|poultry|seafood|fish|lamb|bison/.test(c) ||
-        /\b(beef|pork|chicken|turkey|sausage|bacon|steak|shrimp|salmon|chop|brisket|ribeye|wing|ground|scallop|tilapia|cod)\b/.test(n)) return "protein";
-    // Fruit is shown on the page but kept OUT of the dinner recipes (see the
-    // recipe pool filter in buildChainBundle). Vegetables are dinner ingredients.
-    if (/fruit/.test(c) ||
-        /\b(grape|apple|melon|watermelon|berry|berries|blueberr|strawberr|peach|plum|nectarine|mango|pineapple|mandarin|orange|banana|pear|cherry|cherries)\b/.test(n)) return "fruit";
-    if (/vegetable|produce/.test(c) ||
-        /\b(corn|broccoli|squash|zucchini|pepper|tomato|potato|onion|carrot|lettuce|cucumber|greens|spinach|cabbage|celery|mushroom|asparagus|green bean)\b/.test(n)) return "vegetable";
-    if (/dairy|egg|cheese|milk|butter|yogurt/.test(c) ||
-        /\b(egg|cheese|milk|butter|yogurt|cream)\b/.test(n)) return "dairy";
-    if (/pasta|rice|grain|bean|pantry|bread|condiment|sauce|canned/.test(c) ||
-        /\b(pasta|rice|beans|tortilla|bread|broth|stock)\b/.test(n)) return "pantry";
-    return "other";
-  };
-
   // Slot budget (sums to `limit` at the default 15): protein anchors, produce
   // supports, dairy/pantry round it out. Snacks get nothing unless we'd
   // otherwise come up short.
@@ -1199,7 +1201,7 @@ function curateChainDeals(raw, limit) {
 
   const byBucket = {};
   for (const d of clean) {
-    const b = bucketOfDeal(d);
+    const b = dealBucket(d);
     (byBucket[b] = byBucket[b] || []).push(d);
   }
   for (const b in byBucket) byBucket[b].sort((a, z) => cookScore(z) - cookScore(a));
@@ -1211,10 +1213,10 @@ function curateChainDeals(raw, limit) {
     if (!k || seen.has(k)) return false;
     seen.add(k);
     // Tag the bucket so downstream consumers (the recipe pool) can filter on the
-    // SAME classification instead of re-running a raw regex — bucketOfDeal checks
+    // SAME classification instead of re-running a raw regex — dealBucket checks
     // protein/vegetable before fruit, so "Bacon Applewood" and "Grape Tomatoes"
     // classify correctly.
-    out.push({ ...d, _bucket: bucketOfDeal(d) });
+    out.push({ ...d, _bucket: dealBucket(d) });
     return true;
   };
 
@@ -1411,6 +1413,11 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
     }
     // 2. Curate a generous fresh pool (up to 12) to give the recipe good options.
     const pool = curateFreshDeals(raw, 12);
+    // Savory subset for the recipe generator. Fruit stays in the displayed cards
+    // (real deals worth showing) but must not go into a savory dinner — without
+    // this the generator produced "Sausage & Scallop Pasta with Grapes".
+    const savory = pool.filter(d => dealBucket(d) !== "fruit");
+    const genPool = savory.length >= 4 ? savory : pool;
     if (!pool.length) return res.json({ ok: false, reason: "no fresh deals" });
 
     // 3. Generate one dinner recipe from the pool via the internal recipe path.
@@ -1421,13 +1428,13 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-internal-token": process.env.INTERNAL_API_TOKEN },
         body: JSON.stringify({
-          ingredients: pool.map(d => ({
+          ingredients: genPool.map(d => ({
             name: d.name, category: d.category, salePrice: d.salePrice,
             regularPrice: d.regularPrice, savings: "", storeName: "Kroger",
             isPerLb: !!d.isPerLb, priceUnit: d.priceUnit || "",
           })),
           style: "Dinner", mealType: "Dinner", diets: [],
-          mealRequest: "A simple, appealing dinner that uses several of these sale items together.",
+          mealRequest: "Create ONE realistic weeknight dinner from these sale items. CRITICAL RULES: (1) It must be a coherent dish a real family would actually eat. (2) Only combine sale items that genuinely belong together in one dish. (3) Do NOT force unrelated items into the recipe just because they are on sale. (4) It is fine to use only 2 or 3 of the sale items plus common pantry staples. (5) Center the dinner on one protein.",
         }),
       });
       const rj = await rr.json();

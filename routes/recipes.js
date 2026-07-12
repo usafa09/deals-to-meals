@@ -561,7 +561,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     const DIET_RULES = {
       "Vegetarian": {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
-        exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","fish","seafood","crab","lobster","clam","mussel","anchov"]
+        exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","pot roast","roast beef","chuck roast","rump roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","fish","seafood","crab","lobster","clam","mussel","anchov"]
       },
       "Gluten-Free": {
         rule: "GLUTEN-FREE: No wheat, barley, rye, or regular pasta/bread/flour. Use rice, potatoes, corn, gluten-free alternatives.",
@@ -582,7 +582,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         // cornbread, shortbread, breadfruit), word-boundary catches the standalone
         // form. The duplicate is idempotent — filter logic ORs across both passes.
         exclude: ["bread"],
-        excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie","rolls","roll","bun","biscuit","muffin","croissant","pita","naan","baguette","pancake","waffle","donut","doughnut","pretzel","breadstick"]
+        excludeWord: ["bread","pasta","rice","potato","corn","sugar","syrup","honey","flour","tortilla","bagel","cereal","oat","granola","lentil","chickpea","bean","cracker","cookie","bun","biscuit","muffin","croissant","pita","naan","baguette","pancake","waffle","donut","doughnut","pretzel","breadstick"]
       },
       // PALEO: no grains, no legumes, no dairy, no refined sugar. The whitelist
       // handles the paleo-allowed exceptions that would otherwise be caught by a
@@ -603,7 +603,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
         exclude: ["fish","seafood","anchov","crab","lobster","clam","mussel","salmon","tuna","tilapia","cod","shrimp","oyster","scallop"],
-        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"],
+        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","pot roast","roast beef","chuck roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"],
         // Plant-based nut/seed butters: bypass the \bbutter\b excludeWord match.
         // Substring exclude (above) is unaffected — "peanut butter" still gets checked
         // against fish/seafood/etc. terms, none of which appear in nut butters.

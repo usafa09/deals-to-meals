@@ -593,7 +593,7 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
         excludeWord: [
           "bread","pasta","spaghetti","noodle","rice","wheat","barley","rye","oat","oatmeal","cereal","granola","tortilla","flour","corn","cornmeal","quinoa","couscous","cracker","cookie","cake","bagel","muffin","pancake","waffle","biscuit","roll","bun","pita","naan","baguette","pretzel","breadstick","croissant","donut","doughnut",
           "bean","lentil","chickpea","peanut","soy","soybean","tofu","edamame","pea","hummus",
-          "milk","cheese","butter","yogurt","cream",
+          "milk","cheese","butter","yogurt","cream","creamy","buttermilk","ranch","mayo","mayonnaise",
           "sugar","syrup","candy"
         ],
         // These bypass the excludeWord match above. Note: peanut butter is deliberately

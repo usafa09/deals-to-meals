@@ -275,3 +275,57 @@ jobs:
               echo "::warning::SSR bundle refresh failed for $CHAIN. The page will serve last week's bundle. Response: $RESP"
             fi
           done
+
+      - name: Health check (verify the live surfaces actually have data)
+        run: |
+          BASE="https://dishcount.co"
+          FAILED=0
+
+          echo "── Homepage preview bundle ──"
+          PREVIEW=$(curl -s --max-time 30 "$BASE/api/deals/preview")
+          COUNT=$(echo "$PREVIEW" | grep -o '"count":[0-9]*' | head -1 | cut -d: -f2)
+          if [ -z "$COUNT" ] || [ "$COUNT" -lt 1 ]; then
+            echo "::error::Homepage preview has NO deal cards. The preview section is invisible to every visitor. Response: $PREVIEW"
+            FAILED=1
+          else
+            echo "  ✅ $COUNT deal cards"
+          fi
+
+          RECIPE=$(curl -s --max-time 30 "$BASE/api/deals/preview-recipe")
+          if echo "$RECIPE" | grep -q '"title"'; then
+            TITLE=$(echo "$RECIPE" | grep -o '"title":"[^"]*"' | head -1 | cut -d'"' -f4)
+            echo "  ✅ recipe: $TITLE"
+          else
+            echo "::error::Homepage preview recipe is MISSING. The recipe card is invisible. Response: $RECIPE"
+            FAILED=1
+          fi
+
+          echo "── SSR chain pages ──"
+          for CHAIN in kroger aldi walmart; do
+            CODE=$(curl -s --max-time 30 -o /dev/null -w "%{http_code}" "$BASE/deals/$CHAIN")
+            if [ "$CODE" = "200" ]; then
+              echo "  ✅ /deals/$CHAIN → 200"
+            else
+              echo "::error::/deals/$CHAIN returned $CODE (503 = empty bundle, the page is dark). This page is in the sitemap and linked from the nav."
+              FAILED=1
+            fi
+          done
+
+          CODE=$(curl -s --max-time 30 -o /dev/null -w "%{http_code}" "$BASE/deals")
+          if [ "$CODE" = "200" ]; then
+            echo "  ✅ /deals hub → 200"
+          else
+            echo "::error::/deals hub returned $CODE. The nav's Featured Deals link is broken."
+            FAILED=1
+          fi
+
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "One or more live surfaces have no data. The site is degraded but will NOT look broken to visitors — empty sections hide themselves and the deal pages 503. Re-run the refresh steps, or trigger them manually:"
+            echo "  curl -X POST -H \"x-internal-token: \$TOKEN\" https://dishcount.co/api/cron/refresh-preview"
+            echo "  curl -X POST -H \"x-internal-token: \$TOKEN\" \"https://dishcount.co/api/cron/refresh-ssr?chain=kroger\"   # and aldi, walmart"
+            exit 1
+          fi
+
+          echo ""
+          echo "All live surfaces have data."

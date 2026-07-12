@@ -947,11 +947,21 @@ IMPORTANT ingredient type rules:
               }
               const info = DIET_RULES[diet];
               if (!info) continue;
+              // Mirror the POOL filter's semantics exactly (see the isWhitelisted
+              // check in the ingredient filter above): whitelisted phrases bypass
+              // excludeWord, but NOT the authoritative substring `exclude`.
+              // Without this, the whitelist did nothing here — \bmilk\b matched
+              // inside "almond milk" and \bbutter\b inside "peanut butter", so a
+              // compliant recipe using the diet's own substitutes was discarded.
+              let checkText = text;
+              for (const phrase of (info.whitelistPhrase || [])) {
+                checkText = checkText.split(phrase).join(" ");
+              }
               for (const term of (info.exclude || [])) {
                 if (text.includes(term)) reasons.push(`${diet} forbidden term: ${term}`);
               }
               for (const term of (info.excludeWord || [])) {
-                if (_wordBoundaryRegex(term).test(text)) reasons.push(`${diet} forbidden term: ${term}`);
+                if (_wordBoundaryRegex(term).test(checkText)) reasons.push(`${diet} forbidden term: ${term}`);
               }
             }
             if (reasons.length > 0) dropped.push({ recipe, reasons });

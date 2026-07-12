@@ -260,6 +260,12 @@ app.use(express.static(join(__dirname, "public"), {
     }
     // Images, fonts, favicons — long cache (1 year)
     else if (["jpg","jpeg","png","webp","avif","svg","ico","gif","woff","woff2","ttf"].includes(ext)) {
+      // Helmet's default Cross-Origin-Resource-Policy is same-origin, which BLOCKS
+      // browsers on any other origin from loading these files. Email clients render
+      // from their own origin (mail.google.com etc), so the newsletter logo was being
+      // blocked outright. Public images are meant to be embeddable; scope this to
+      // image/font assets only so API responses keep the safe same-origin default.
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.setHeader("Cache-Control", "public, max-age=31536000");
     }
     // Other JS/CSS — 1 hour with revalidation

@@ -1867,11 +1867,45 @@ router.get("/deals", async (req, res, next) => {
       const b = await getCachedDeals(`ssr:bundle:${slug}`);
       if (!b || !b.deals || !b.deals.length) continue;
       const first = b.recipes && b.recipes[0];
+      // Best discount on the page, for the hook. Deals with no regular price
+      // (OCR chains) report pctOff 0, so this is a floor, not a guess.
+      const topPct = Math.max(0, ...b.deals.map(d => Number(d.pctOff) || 0));
+      // Three preview deals: highest discount first so the hook is honest.
+      const preview = b.deals
+        .slice()
+        .sort((a, z) => (Number(z.pctOff) || 0) - (Number(a.pctOff) || 0))
+        .slice(0, 3);
+      const thumbs = preview.map(d => {
+        const img = isProductPhoto(d.image)
+          ? `<img class="hb-thumb-img" src="${_esc(d.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+          : `<div class="hb-thumb-noimg"></div>`;
+        const unit = d.isPerLb ? "<span class=\"hb-unit\">/lb</span>" : "";
+        return `<div class="hb-thumb">
+          ${img}
+          <div class="hb-thumb-price">$${Number(d.salePrice).toFixed(2)}${unit}</div>
+          <div class="hb-thumb-name">${_esc(d.name)}</div>
+        </div>`;
+      }).join("");
+
       cards.push(`<a class="hb-card" href="/deals/${_esc(slug)}">
-        <div class="hb-name">${_esc(b.label)}</div>
-        <div class="hb-meta">Featured deals this week</div>
-        ${first ? `<div class="hb-rec">Tonight: ${_esc(first.title)}</div>` : ""}
-        <div class="hb-go">See the deals &rarr;</div>
+        <div class="hb-head">
+          <div class="hb-name">${_esc(b.label)}</div>
+          ${topPct > 0 ? `<div class="hb-pct">up to ${topPct}% off</div>` : ""}
+        </div>
+        <div class="hb-meta">${b.deals.length} featured deals this week</div>
+
+        <div class="hb-thumbs">${thumbs}</div>
+
+        ${first ? `<div class="hb-rec">
+          ${first.image ? `<img class="hb-rec-img" src="${_esc(first.image)}" alt="" loading="lazy" />` : ""}
+          <div class="hb-rec-body">
+            <div class="hb-rec-label">Tonight's dinner</div>
+            <div class="hb-rec-title">${_esc(first.title)}</div>
+            ${first.costPerServing ? `<div class="hb-rec-meta">$${Number(first.costPerServing).toFixed(2)}/serving</div>` : ""}
+          </div>
+        </div>` : ""}
+
+        <div class="hb-go">See all ${_esc(b.label)} deals &rarr;</div>
       </a>`);
     }
     if (!cards.length) { res.set("Retry-After", "3600"); return res.status(503).send("<!DOCTYPE html><html><body><p>Deals are refreshing. Check back shortly.</p></body></html>"); }
@@ -1898,10 +1932,24 @@ router.get("/deals", async (req, res, next) => {
     .hb-hero h1 { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 8px; }
     .hb-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
     .hb-wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
-    .hb-card { display: block; background: #fff; border: 1px solid #EDE6D4; border-radius: 14px; padding: 18px 20px; margin-bottom: 12px; text-decoration: none; color: inherit; }
+    .hb-card { display: block; background: #fff; border: 1px solid #EDE6D4; border-radius: 16px; padding: 18px 20px 16px; margin-bottom: 14px; text-decoration: none; color: inherit; transition: box-shadow 0.15s, transform 0.15s; }
+    .hb-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .hb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .hb-pct { background: var(--orange, #d97706); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+    .hb-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
+    .hb-thumb { border: 1px solid #F0EAD9; border-radius: 10px; padding: 8px; text-align: center; }
+    .hb-thumb-img { width: 100%; height: 66px; max-height: 66px; object-fit: contain; display: block; margin-bottom: 4px; }
+    .hb-thumb-noimg { height: 8px; }
+    .hb-thumb-price { font-size: 15px; font-weight: 800; color: var(--green-dark, #2d6a4f); }
+    .hb-unit { font-size: 11px; font-weight: 600; color: #777; }
+    .hb-thumb-name { font-size: 11px; color: var(--muted, #6b6b6b); line-height: 1.25; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 27px; }
+    .hb-rec { display: flex; gap: 10px; align-items: center; background: #FAF6EE; border-radius: 12px; padding: 10px; margin-top: 12px; }
+    .hb-rec-img { width: 64px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+    .hb-rec-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--orange, #d97706); }
+    .hb-rec-title { font-size: 14px; font-weight: 700; color: var(--green-dark, #2d6a4f); line-height: 1.25; margin-top: 1px; }
+    .hb-rec-meta { font-size: 12px; color: var(--muted, #6b6b6b); margin-top: 2px; }
     .hb-name { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); }
     .hb-meta { font-size: 14px; color: var(--muted, #6b6b6b); margin-top: 2px; }
-    .hb-rec { font-size: 14px; color: var(--text, #2d2a24); margin-top: 8px; }
     .hb-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 10px; }
     .hb-cta { text-align: center; margin-top: 26px; font-size: 14px; color: var(--muted, #6b6b6b); }
     .hb-cta a { color: var(--orange, #d97706); font-weight: 700; }

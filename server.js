@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFileSync } from "fs";
 
-import { initStoresWithDealsCache } from "./lib/utils.js";
+import { initStoresWithDealsCache, getCachedDeals } from "./lib/utils.js";
 
 import authRoutes from "./routes/auth.js";
 import krogerRoutes from "./routes/kroger.js";
@@ -194,9 +194,57 @@ app.use("/api/leaderboard", gamificationLimiter);
 app.use("/api/challenges", gamificationLimiter);
 
 // ── Static files ────────────────────────────────────────────────────────────
-app.get('/sitemap.xml', (req, res) => {
+// Dynamic sitemap. Non-deal URLs are copied verbatim from public/sitemap.xml
+// (kept in the repo as reference — this route no longer reads it). Deal pages
+// get a truthful lastmod pulled from the live SSR bundle cache so we never claim
+// a fresher date than the deals actually are.
+const SITEMAP_STATIC_URLS = [
+  { loc: "https://dishcount.co/",                                            lastmod: "2026-04-19", changefreq: "weekly",  priority: "1.0" },
+  { loc: "https://dishcount.co/about.html",                                  lastmod: "2026-04-19", changefreq: "monthly", priority: "0.8" },
+  { loc: "https://dishcount.co/features.html",                               lastmod: "2026-04-19", changefreq: "monthly", priority: "0.8" },
+  { loc: "https://dishcount.co/contact.html",                                lastmod: "2026-04-19", changefreq: "monthly", priority: "0.6" },
+  { loc: "https://dishcount.co/terms.html",                                  lastmod: "2026-04-19", changefreq: "monthly", priority: "0.5" },
+  { loc: "https://dishcount.co/privacy.html",                                lastmod: "2026-04-19", changefreq: "monthly", priority: "0.5" },
+  { loc: "https://dishcount.co/disclosures.html",                            lastmod: "2026-05-07", changefreq: "monthly", priority: "0.5" },
+  { loc: "https://dishcount.co/blog/",                                       lastmod: "2026-04-19", changefreq: "weekly",  priority: "0.8" },
+  { loc: "https://dishcount.co/blog/why-i-built-dishcount.html",             lastmod: "2026-04-19", changefreq: "monthly", priority: "0.7" },
+  { loc: "https://dishcount.co/blog/meal-plan-around-deals.html",            lastmod: "2026-04-19", changefreq: "monthly", priority: "0.7" },
+  { loc: "https://dishcount.co/blog/what-to-make-when-chicken-is-on-sale.html", lastmod: "2026-05-05", changefreq: "monthly", priority: "0.7" },
+  { loc: "https://dishcount.co/blog/dishcount-vs-flipp.html",                lastmod: "2026-05-05", changefreq: "monthly", priority: "0.7" },
+  { loc: "https://dishcount.co/blog/memorial-day-cookout-deals.html",        lastmod: "2026-07-09", changefreq: "monthly", priority: "0.7" },
+];
+// Mirrors SSR_CHAINS in routes/stores.js (kroger/aldi/walmart). If a chain is
+// added there, add its slug here so it appears in the sitemap.
+const SITEMAP_DEAL_SLUGS = ["kroger", "aldi", "walmart"];
+
+app.get('/sitemap.xml', async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const chainUrls = [];
+  const chainDates = [];
+  for (const slug of SITEMAP_DEAL_SLUGS) {
+    let lastmod = today;
+    try {
+      const bundle = await getCachedDeals(`ssr:bundle:${slug}`);
+      if (bundle && bundle.generatedAt) lastmod = String(bundle.generatedAt).slice(0, 10);
+    } catch { /* bundle missing → fall back to today */ }
+    chainDates.push(lastmod);
+    chainUrls.push({ loc: `https://dishcount.co/deals/${slug}`, lastmod, changefreq: "weekly", priority: "0.9" });
+  }
+  // /deals lastmod = the freshest chain date (ISO YYYY-MM-DD sorts lexically).
+  const dealsLastmod = chainDates.length ? chainDates.slice().sort().pop() : today;
+  const urls = [
+    ...SITEMAP_STATIC_URLS,
+    { loc: "https://dishcount.co/deals", lastmod: dealsLastmod, changefreq: "weekly", priority: "0.9" },
+    ...chainUrls,
+  ];
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
+    + urls.map(u =>
+        `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      ).join("\n")
+    + `\n</urlset>\n`;
   res.type('application/xml');
-  res.sendFile(join(__dirname, 'public', 'sitemap.xml'));
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(body);
 });
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain');

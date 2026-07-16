@@ -1582,6 +1582,21 @@ const _esc = (s) => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
+// Builds the inner links for the "More weekly ads" SEO cross-link nav, shared by
+// the chain pages and the /deals hub. currentSlug: the chain to omit (its own
+// page shouldn't link to itself; the hub passes null so all chains appear).
+// includeAllDeals: include the "/deals" self link (true on chain pages, false on
+// the hub since it IS /deals). Built from SSR_CHAINS keys so future chains show
+// up automatically. Each call site wraps this in its own nav element.
+function moreAdsLinks(currentSlug, includeAllDeals) {
+  const parts = Object.keys(SSR_CHAINS)
+    .filter(s => s !== currentSlug)
+    .map(s => `<a href="/deals/${s}">${_esc(SSR_CHAINS[s].label)} weekly ad &amp; dinner ideas</a>`);
+  if (includeAllDeals) parts.push(`<a href="/deals">All weekly deals</a>`);
+  parts.push(`<a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a>`);
+  return parts.join(" &middot; ");
+}
+
 // One honest paragraph per chain, in Bill's voice. Only chains he actually shops.
 const CHAIN_NOTES = {
   kroger: "Kroger's ad runs Wednesday to Tuesday, and the meat counter is where the real money is. Their weekly digital coupons stack on top of the sale price, so it's worth clipping them in the app before you go. Prices here are from the Dayton division. Kroger prices vary by region, so what you see is representative, not a promise for your store.",
@@ -1790,6 +1805,10 @@ ${recipeCards}
       <p>Enter your zip and Dishcount pulls the weekly ads from every grocery store near you, then builds dinners around what's on sale. Free, no signup.</p>
       <a href="/">Find deals near me &rarr;</a>
     </div>
+    <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
+      <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
+      <p>${moreAdsLinks(slug, true)}</p>
+    </nav>
   </main>
 
   <div class="cp-foot">
@@ -1974,6 +1993,10 @@ router.get("/deals", async (req, res, next) => {
   <main class="hb-wrap">
     ${cards.join("\n")}
     <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
+    <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
+      <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
+      <p>${moreAdsLinks(null, false)}</p>
+    </nav>
   </main>
   ${SITE_FOOTER}
 </body>

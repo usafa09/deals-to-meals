@@ -14,7 +14,7 @@ import krogerRoutes from "./routes/kroger.js";
 import walmartRoutes from "./routes/walmart.js";
 import aldiRoutes from "./routes/aldi.js";
 import recipesRoutes from "./routes/recipes.js";
-import storesRoutes from "./routes/stores.js";
+import storesRoutes, { SSR_CHAINS } from "./routes/stores.js";
 import adminRoutes from "./routes/admin.js";
 import gamificationRoutes from "./routes/gamification.js";
 import newsletterRoutes from "./routes/newsletter.js";
@@ -213,15 +213,12 @@ const SITEMAP_STATIC_URLS = [
   { loc: "https://dishcount.co/blog/dishcount-vs-flipp.html",                lastmod: "2026-05-05", changefreq: "monthly", priority: "0.7" },
   { loc: "https://dishcount.co/blog/memorial-day-cookout-deals.html",        lastmod: "2026-07-09", changefreq: "monthly", priority: "0.7" },
 ];
-// Mirrors SSR_CHAINS in routes/stores.js (kroger/aldi/walmart). If a chain is
-// added there, add its slug here so it appears in the sitemap.
-const SITEMAP_DEAL_SLUGS = ["kroger", "aldi", "walmart"];
-
 app.get('/sitemap.xml', async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const chainUrls = [];
   const chainDates = [];
-  for (const slug of SITEMAP_DEAL_SLUGS) {
+  // Deal URLs are derived from SSR_CHAINS keys so future chains appear automatically.
+  for (const slug of Object.keys(SSR_CHAINS)) {
     let lastmod = today;
     try {
       const bundle = await getCachedDeals(`ssr:bundle:${slug}`);

@@ -1301,7 +1301,7 @@ router.get("/api/deals/preview-recipe", async (req, res) => {
 // cacheKeys is an ordered fallback list — first non-empty cache wins. ALDI's
 // bespoke scraper was retired (May 2026); its deals now come from the OCR
 // pipeline under ad-extract:aldi, so aldi:national is empty in production.
-const SSR_CHAINS = {
+export const SSR_CHAINS = {
   kroger: { label: "Kroger", cacheKeys: () => [`kroger:${PREVIEW_KROGER_LOCATION}`] },
   aldi:   { label: "ALDI",   cacheKeys: () => ["aldi:national", "ad-extract:aldi"] },
   walmart:{ label: "Walmart",cacheKeys: () => ["walmart:national"] },
@@ -1582,19 +1582,16 @@ const _esc = (s) => String(s == null ? "" : s)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-// Builds the inner links for the "More weekly ads" SEO cross-link nav, shared by
-// the chain pages and the /deals hub. currentSlug: the chain to omit (its own
-// page shouldn't link to itself; the hub passes null so all chains appear).
-// includeAllDeals: include the "/deals" self link (true on chain pages, false on
-// the hub since it IS /deals). Built from SSR_CHAINS keys so future chains show
-// up automatically. Each call site wraps this in its own nav element.
-function moreAdsLinks(currentSlug, includeAllDeals) {
-  const parts = Object.keys(SSR_CHAINS)
-    .filter(s => s !== currentSlug)
-    .map(s => `<a href="/deals/${s}">${_esc(SSR_CHAINS[s].label)} weekly ad &amp; dinner ideas</a>`);
-  if (includeAllDeals) parts.push(`<a href="/deals">All weekly deals</a>`);
-  parts.push(`<a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a>`);
-  return parts.join(" &middot; ");
+// Builds the chain-link portion of the "More weekly ads" SEO cross-link nav,
+// derived from SSR_CHAINS so future chains appear automatically. excludeSlug:
+// the chain to omit (a chain page shouldn't link to itself; the hub passes null
+// so all chains appear). Each call site wraps this in its own nav element and
+// appends its own literal blog-link tail.
+function chainCrossLinks(excludeSlug) {
+  return Object.keys(SSR_CHAINS)
+    .filter(s => s !== excludeSlug)
+    .map(s => `<a href="/deals/${s}">${_esc(SSR_CHAINS[s].label)} weekly ad &amp; dinner ideas</a>`)
+    .join(" &middot; ");
 }
 
 // One honest paragraph per chain, in Bill's voice. Only chains he actually shops.
@@ -1807,7 +1804,7 @@ ${recipeCards}
     </div>
     <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
       <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
-      <p>${moreAdsLinks(slug, true)}</p>
+      <p>${chainCrossLinks(slug)} &middot; <a href="/deals">All weekly deals</a> &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a></p>
     </nav>
   </main>
 
@@ -1995,7 +1992,7 @@ router.get("/deals", async (req, res, next) => {
     <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
     <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
       <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
-      <p>${moreAdsLinks(null, false)}</p>
+      <p>${chainCrossLinks(null)} &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a></p>
     </nav>
   </main>
   ${SITE_FOOTER}

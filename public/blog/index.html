@@ -364,6 +364,9 @@
       transition: border-color 0.15s, transform 0.15s;
     }
 
+    .post-card { position: relative; }
+    .new-badge { position: absolute; top: 10px; right: 10px; background: #d97706; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+
     .post-card:hover {
       border-color: #52b788;
       transform: translateY(-3px);
@@ -463,37 +466,37 @@
 
     <section class="post-grid">
 
-      <a class="post-card" href="/blog/kroger-weekly-ad-meal-plan.html">
+      <a class="post-card" href="/blog/kroger-weekly-ad-meal-plan.html" data-published="2026-07-17">
         <div class="kicker">Guide</div>
         <h2>Kroger Weekly Ad Meal Plan (5 Dinners from This Week's Ad)</h2>
         <p>How to turn the Kroger weekly ad into 5 real dinners. The method I use every Wednesday, a worked example with real prices, and the mistakes to avoid.</p>
         <div class="read-more">Read more →</div>
       </a>
-      <a class="post-card" href="/blog/memorial-day-cookout-deals.html">
+      <a class="post-card" href="/blog/memorial-day-cookout-deals.html" data-published="2026-05-21">
         <div class="kicker">Holiday Guide</div>
         <h2>The Memorial Day Cookout, Built From This Week's Deals</h2>
         <p>What's on sale this week for a Memorial Day cookout at Walmart, Kroger, and ALDI.</p>
         <div class="read-more">Read more →</div>
       </a>
-      <a class="post-card" href="/blog/dishcount-vs-flipp.html">
+      <a class="post-card" href="/blog/dishcount-vs-flipp.html" data-published="2026-05-05">
         <div class="kicker">Comparison</div>
         <h2>Dishcount vs Flipp: When to Use Each</h2>
         <p>I've used Flipp. I built Dishcount. They're solving different problems. Here's an honest breakdown of when to use each.</p>
         <div class="read-more">Read more →</div>
       </a>
-      <a class="post-card" href="/blog/what-to-make-when-chicken-is-on-sale.html">
+      <a class="post-card" href="/blog/what-to-make-when-chicken-is-on-sale.html" data-published="2026-05-05">
         <div class="kicker">Recipe Guide</div>
         <h2>What to Make When Chicken Is on Sale</h2>
         <p>Six recipes I default to when chicken thighs are $1.99/lb. Real numbers, real cooking methods, no fluff.</p>
         <div class="read-more">Read more →</div>
       </a>
-      <a class="post-card" href="/blog/why-i-built-dishcount.html">
+      <a class="post-card" href="/blog/why-i-built-dishcount.html" data-published="2026-04-19">
         <div class="kicker">Founder Story</div>
         <h2>Why I Built Dishcount</h2>
         <p>The story of how a $7.99 jar of something I needed for exactly one recipe turned into a free meal-planning app.</p>
         <div class="read-more">Read more →</div>
       </a>
-      <a class="post-card" href="/blog/meal-plan-around-deals.html">
+      <a class="post-card" href="/blog/meal-plan-around-deals.html" data-published="2026-04-19">
         <div class="kicker">Meal Planning</div>
         <h2>How to Meal Plan Around Grocery Deals</h2>
         <p>The old way: pick recipes, then buy whatever. The new way: check the sales first. It takes about 15 minutes and saves $30-50 a week.</p>
@@ -562,6 +565,17 @@
 
 <script>
 document.addEventListener("click",function(e){var m=document.getElementById("hamMenu");var btn=document.getElementById("hamBtn");if(m&&btn&&m.style.display==="block"&&!btn.contains(e.target)&&!m.contains(e.target))m.style.display="none";});
+</script>
+<script>
+document.querySelectorAll('.post-card[data-published]').forEach(function(card){
+  var d = new Date(card.getAttribute('data-published') + 'T12:00:00');
+  if (!isNaN(d) && (Date.now() - d.getTime()) < 7*24*60*60*1000) {
+    var b = document.createElement('span');
+    b.className = 'new-badge';
+    b.textContent = 'New';
+    card.appendChild(b);
+  }
+});
 </script>
 </body>
 </html>

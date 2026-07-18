@@ -212,6 +212,7 @@ const SITEMAP_STATIC_URLS = [
   { loc: "https://dishcount.co/blog/what-to-make-when-chicken-is-on-sale.html", lastmod: "2026-05-05", changefreq: "monthly", priority: "0.7" },
   { loc: "https://dishcount.co/blog/dishcount-vs-flipp.html",                lastmod: "2026-05-05", changefreq: "monthly", priority: "0.7" },
   { loc: "https://dishcount.co/blog/memorial-day-cookout-deals.html",        lastmod: "2026-07-09", changefreq: "monthly", priority: "0.7" },
+  { loc: "https://dishcount.co/blog/kroger-weekly-ad-meal-plan.html",        lastmod: "2026-07-17", changefreq: "monthly", priority: "0.8" },
 ];
 app.get('/sitemap.xml', async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);

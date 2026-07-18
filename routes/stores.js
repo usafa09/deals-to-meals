@@ -1804,7 +1804,7 @@ ${recipeCards}
     </div>
     <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
       <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
-      <p>${chainCrossLinks(slug)} &middot; <a href="/deals">All weekly deals</a> &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a></p>
+      <p>${chainCrossLinks(slug)} &middot; <a href="/deals">All weekly deals</a> &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a> &middot; <a href="/blog/kroger-weekly-ad-meal-plan.html">Kroger meal plan guide</a></p>
     </nav>
   </main>
 
@@ -1992,7 +1992,7 @@ router.get("/deals", async (req, res, next) => {
     <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
     <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
       <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
-      <p>${chainCrossLinks(null)} &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a></p>
+      <p>${chainCrossLinks(null)} &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a> &middot; <a href="/blog/kroger-weekly-ad-meal-plan.html">Kroger meal plan guide</a></p>
     </nav>
   </main>
   ${SITE_FOOTER}

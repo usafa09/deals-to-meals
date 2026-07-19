@@ -79,11 +79,24 @@ export function buildHistoryRow(rawItem, cacheKey, capturedAt) {
   const unit = (rawItem.priceUnit || rawItem.unit || "").toString().trim();
   const dealType = (rawItem.dealType || rawItem.deal_type || "").toString().trim();
 
+  // Stable per-chain product identifier for week-over-week item matching. Only
+  // the API-sourced chains carry one, and both expose it on the `id` field:
+  //   Walmart  -> id = affiliate itemId (e.g. "44391147"); also has `upc`
+  //   Kroger   -> id = productId (e.g. "0085706300202"); `upc` is empty
+  // OCR / ad-extract deals have no stable id, so product_id stays null for them.
+  let productId = null;
+  if (source === "walmart" || source === "kroger") {
+    const rawId = (rawItem.id ?? rawItem.itemId ?? rawItem.productId ?? "").toString().trim();
+    const rawUpc = (rawItem.upc ?? "").toString().trim();
+    productId = rawId || rawUpc || null;
+  }
+
   return {
     source,
     chain,
     store_name: storeNameRaw || null,
     store_id: source === "kroger" ? inferStoreIdFromKey(cacheKey) : null,
+    product_id: productId,
     item_name: itemName,
     brand: brand || null,
     category: category || null,

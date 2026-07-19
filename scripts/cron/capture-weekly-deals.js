@@ -58,6 +58,32 @@ async function main() {
   console.log(`  newly inserted:       ${inserted}`);
   console.log(`  duplicates ignored:   ${duplicates}`);
   console.log(`  by source (eligible): ${JSON.stringify(sourceCounts)}`);
+
+  // Capture guard: kroger and walmart are the API-sourced chains (not OCR), so a
+  // zero eligible count means their upstream fetch/cache is wedged. Log per-chain
+  // rows for each source, then FAIL the run (nonzero exit) if EITHER captured
+  // nothing — so the GitHub Actions run shows red instead of a silent green that
+  // hides a missing chain.
+  const chainCounts = { kroger: {}, walmart: {} };
+  for (const h of historyRows) {
+    if (h.source === "kroger" || h.source === "walmart") {
+      chainCounts[h.source][h.chain] = (chainCounts[h.source][h.chain] || 0) + 1;
+    }
+  }
+  const krogerTotal = sourceCounts["kroger"] || 0;
+  const walmartTotal = sourceCounts["walmart"] || 0;
+  console.log("\n=== CAPTURE GUARD ===");
+  console.log(`  kroger rows by chain:  ${JSON.stringify(chainCounts.kroger)}`);
+  console.log(`  kroger total:          ${krogerTotal}`);
+  console.log(`  walmart rows by chain: ${JSON.stringify(chainCounts.walmart)}`);
+  console.log(`  walmart total:         ${walmartTotal}`);
+  if (krogerTotal === 0 || walmartTotal === 0) {
+    console.error(
+      `GUARD FAILED: a source captured zero rows (kroger=${krogerTotal}, walmart=${walmartTotal}). ` +
+      `Upstream deal_cache is likely wedged for that chain. Failing the run.`
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

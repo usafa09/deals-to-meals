@@ -1355,12 +1355,19 @@ const scanHourlyCount = new Map();
 setInterval(() => { const h = Math.floor(Date.now() / 3600000); for (const k of scanHourlyCount.keys()) { if (!k.endsWith(String(h))) scanHourlyCount.delete(k); } }, 60 * 60 * 1000);
 
 router.post("/api/scan-pantry", async (req, res) => {
-  const userId = req.headers["x-anon-id"] || req.ip;
+  const ip = req.ip; // Real client IP, unspoofable behind trust proxy 1 (server.js sets 'trust proxy', 1).
   const hour = Math.floor(Date.now() / 3600000);
-  const key = userId + "-" + hour;
-  const used = scanHourlyCount.get(key) || 0;
-  if (used >= 5) return res.status(429).json({ error: "Scan limit reached. Try again in a bit.", items: [] });
-  scanHourlyCount.set(key, used + 1);
+  // Per-device soft cap. Each browser gets its own small budget so people sharing an IP (mobile carrier NAT, office, campus) do not collide.
+  const deviceId = req.headers["x-anon-id"] || ip;
+  const deviceKey = deviceId + "-" + hour;
+  const deviceUsed = scanHourlyCount.get(deviceKey) || 0;
+  if (deviceUsed >= 5) return res.status(429).json({ error: "Scan limit reached. Try again in a bit.", items: [] });
+  // Per-IP hard ceiling. x-anon-id is client-set and can be rotated to reset the device cap, so this unspoofable IP ceiling is what actually stops unbounded paid Haiku vision calls.
+  const ipKey = "ip:" + ip + "-" + hour;
+  const ipUsed = scanHourlyCount.get(ipKey) || 0;
+  if (ipUsed >= 20) return res.status(429).json({ error: "Scan limit reached. Try again in a bit.", items: [] });
+  scanHourlyCount.set(deviceKey, deviceUsed + 1);
+  scanHourlyCount.set(ipKey, ipUsed + 1);
 
   const { image } = req.body;
   if (!image) return res.status(400).json({ error: "No image provided", items: [] });

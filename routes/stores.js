@@ -2020,4 +2020,102 @@ router.get("/deals/:slug", async (req, res, next) => {
   }
 });
 
+// ── Featured recipe pages ──────────────────────────────────────────────
+// Permanent, crawlable single-recipe pages with Recipe JSON-LD (Rich Pins).
+// Backed by the weekly_featured_recipes table so the URL stays live after
+// the weekly deal bundle rotates. Modeled on renderChainPage.
+function renderRecipePage(recipe, chain) {
+  const label = (SSR_CHAINS[chain] && SSR_CHAINS[chain].label) || "your store";
+  const slug = recipe.slug;
+  const meta = [recipe.time, recipe.servings ? `serves ${recipe.servings}` : "", recipe.costPerServing ? `$${Number(recipe.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
+  const uses = (recipe.usedSaleItems || []).map(n => _esc(String(n).split(",")[0]));
+  const ingredients = (recipe.ingredients || []).map(i => `<li>${_esc(i)}</li>`).join("\n");
+  const steps = (recipe.instructions || []).map(s => `<li>${_esc(s)}</li>`).join("\n");
+  const schema = {
+    "@context": "https://schema.org", "@type": "Recipe", name: recipe.title,
+    ...(recipe.image ? { image: [recipe.image] } : {}),
+    author: { "@type": "Organization", name: "Dishcount" },
+    description: `A dinner built from this week's ${label} sale items.`,
+    recipeCategory: "Dinner",
+    ...(recipe.servings ? { recipeYield: `${recipe.servings} servings` } : {}),
+    ...(recipe.time ? { totalTime: recipe.time } : {}),
+    recipeIngredient: (recipe.ingredients || []),
+    recipeInstructions: (recipe.instructions || []).map(s => ({ "@type": "HowToStep", text: s })),
+  };
+  const title = `${recipe.title} | Dishcount`;
+  const desc = `${recipe.title}. A dinner built from this week's ${label} deals, with the sale items it uses. Free, no signup.`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${_esc(title)}</title>
+  <meta name="description" content="${_esc(desc)}">
+  <link rel="canonical" href="https://dishcount.co/recipe/${_esc(slug)}">
+  <meta property="og:title" content="${_esc(title)}">
+  <meta property="og:description" content="${_esc(desc)}">
+  <meta property="og:type" content="article">
+  ${recipe.image ? `<meta property="og:image" content="${_esc(recipe.image)}">` : ""}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.min.css">
+  <script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
+    .rp-hero { display: block; background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
+    .rp-wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+    .rp-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
+    .rp-hero h1 { font-family: 'Outfit', sans-serif; font-size: 30px; font-weight: 700; color: #fff; margin: 8px 0 6px; line-height: 1.2; }
+    .rp-meta { color: #c8d6cb; font-size: 14px; margin: 4px 0 0; }
+    .rp-img { width: 100%; max-height: 420px; object-fit: cover; border-radius: 14px; margin: 20px 0 4px; }
+    .rp-section { padding: 24px 0 0; }
+    .rp-section h2 { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0 0 12px; }
+    .rp-uses { background: #f3f7f4; border: 1px solid #dce8df; border-radius: 12px; padding: 14px 16px; font-size: 15px; }
+    .rp-list { padding-left: 20px; } .rp-list li { margin: 6px 0; }
+    .rp-cta { display: block; text-align: center; background: var(--orange, #d97706); color: #fff; font-weight: 700; text-decoration: none; padding: 16px 20px; border-radius: 14px; margin: 28px 0 40px; font-size: 17px; }
+    .rp-foot { max-width: 720px; margin: 0 auto 40px; padding: 0 20px; font-size: 13px; color: #6b7a6f; }
+  </style>
+</head>
+<body>
+  <div class="rp-hero"><div class="rp-wrap">
+    <div class="rp-eyebrow">${_esc(label)} dinner from this week's ad</div>
+    <h1>${_esc(recipe.title)}</h1>
+    ${meta ? `<p class="rp-meta">${meta}</p>` : ""}
+  </div></div>
+  <div class="rp-wrap">
+    ${recipe.image ? `<img class="rp-img" src="${_esc(recipe.image)}" alt="${_esc(recipe.title)}">` : ""}
+    ${uses.length ? `<div class="rp-section"><div class="rp-uses">Built from ${_esc(uses.join(", "))}, on sale at ${_esc(label)} this week.</div></div>` : ""}
+    <div class="rp-section"><h2>Ingredients</h2><ul class="rp-list">${ingredients}</ul></div>
+    <div class="rp-section"><h2>Steps</h2><ol class="rp-list">${steps}</ol></div>
+    <a class="rp-cta" href="/deals/${_esc(chain)}">See this week's full ${_esc(label)} ad and build your plan &rarr;</a>
+  </div>
+  <div class="rp-foot">Prices and sale items change weekly. This recipe is built around what is typically on sale. Check this week's ad for current prices. Dishcount is free, no signup.</div>
+</body>
+</html>`;
+}
+
+// Permanent single-recipe page, backed by weekly_featured_recipes.
+router.get("/recipe/:slug", async (req, res, next) => {
+  const slug = String(req.params.slug || "").toLowerCase();
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return next();
+  try {
+    const { data, error } = await supabase
+      .from("weekly_featured_recipes")
+      .select("chain, recipe")
+      .eq("slug", slug)
+      .single();
+    if (error || !data) {
+      res.set("Cache-Control", "public, max-age=300");
+      return res.status(404).type("html").send("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Recipe not found</title></head><body style=\"font-family:sans-serif;padding:40px;text-align:center\"><p>Recipe not found. <a href=\"/deals\">See this week's deals &rarr;</a></p></body></html>");
+    }
+    const recipe = { ...data.recipe, slug };
+    res.set("Cache-Control", "public, max-age=3600");
+    res.type("html").send(renderRecipePage(recipe, data.chain));
+  } catch (err) {
+    console.error(`recipe page ${slug} failed:`, err.message);
+    next(err);
+  }
+});
+
 export default router;

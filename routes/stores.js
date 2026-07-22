@@ -1548,6 +1548,22 @@ router.post("/api/cron/refresh-ssr", async (req, res) => {
         await setCachedDeals(`ssr:bundle:${slug}`, bundle);
         results[slug] = { ok: true, deals: bundle.deals.length, recipes: bundle.recipes.length, titles: bundle.recipes.map(r => r.title) };
         console.log(`SSR bundle ${slug}: ${bundle.deals.length} deals, ${bundle.recipes.length} recipes`);
+
+        // Featured-recipe writer (Model B): give each generated recipe a permanent page.
+        // Insert-only (ignoreDuplicates) so hand-seeded/curated rows are never overwritten.
+        const _saleWeek = new Date(bundle.generatedAt || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        const _slugify = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+        for (const _r of bundle.recipes) {
+          const _rslug = _slugify(_r.title);
+          if (!_rslug) continue;
+          try {
+            await supabase.from("weekly_featured_recipes").upsert(
+              { slug: `${slug}-${_rslug}`, chain: slug, recipe: { ..._r, saleWeek: _saleWeek } },
+              { onConflict: "slug", ignoreDuplicates: true }
+            );
+          } catch (_e) { console.error(`featured-recipe upsert failed for ${slug}-${_rslug}:`, _e.message); }
+        }
+        results[slug].featured = bundle.recipes.map(r => `${slug}-${_slugify(r.title)}`);
       } else {
         results[slug] = { ok: false, reason: "no bundle (empty cache or generation failed)" };
       }
@@ -2196,7 +2212,8 @@ router.get("/recipes", async (req, res, next) => {
     const { data, error } = await supabase
       .from("weekly_featured_recipes")
       .select("slug, chain, recipe")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(30);
     res.set("Cache-Control", "public, max-age=1800");
     res.type("html").send(renderRecipesIndex(error ? [] : (data || [])));
   } catch (err) {

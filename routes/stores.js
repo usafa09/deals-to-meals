@@ -2029,6 +2029,7 @@ function renderRecipePage(recipe, chain) {
   const slug = recipe.slug;
   const meta = [recipe.time, recipe.servings ? `serves ${recipe.servings}` : "", recipe.costPerServing ? `$${Number(recipe.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
   const uses = (recipe.usedSaleItems || []).map(n => _esc(String(n).split(",")[0]));
+  const saleWeek = recipe.saleWeek ? _esc(recipe.saleWeek) : "";
   const ingredients = (recipe.ingredients || []).map(i => `<li>${_esc(i)}</li>`).join("\n");
   const steps = (recipe.instructions || []).map(s => `<li>${_esc(s)}</li>`).join("\n");
   const schema = {
@@ -2086,12 +2087,12 @@ function renderRecipePage(recipe, chain) {
   </div></div>
   <div class="rp-wrap">
     ${recipe.image ? `<img class="rp-img" src="${_esc(recipe.image)}" alt="${_esc(recipe.title)}">` : ""}
-    ${uses.length ? `<div class="rp-section"><div class="rp-uses">Built from ${_esc(uses.join(", "))}, on sale at ${_esc(label)} this week.</div></div>` : ""}
+    ${uses.length ? `<div class="rp-section"><div class="rp-uses">Built from ${_esc(uses.join(", "))}, on sale at ${_esc(label)}${saleWeek ? ` the week of ${saleWeek}` : " this week"}.</div></div>` : ""}
     <div class="rp-section"><h2>Ingredients</h2><ul class="rp-list">${ingredients}</ul></div>
     <div class="rp-section"><h2>Steps</h2><ol class="rp-list">${steps}</ol></div>
     <a class="rp-cta" href="/deals/${_esc(chain)}">See this week's full ${_esc(label)} ad and build your plan &rarr;</a>
   </div>
-  <div class="rp-foot">Prices and sale items change weekly. This recipe is built around what is typically on sale. Check this week's ad for current prices. Dishcount is free, no signup.</div>
+  <div class="rp-foot">${saleWeek ? `Prices are from the week of ${saleWeek}. ` : ""}Sale items and prices change weekly. This recipe is built around what is typically on sale. Check this week's ad for current prices. Dishcount is free, no signup.</div>
 </body>
 </html>`;
 }

@@ -2078,6 +2078,7 @@ function renderRecipePage(recipe, chain) {
   </style>
 </head>
 <body>
+  ${SITE_HEADER}
   <div class="rp-hero"><div class="rp-wrap">
     <div class="rp-eyebrow">${_esc(label)} dinner from this week's ad</div>
     <h1>${_esc(recipe.title)}</h1>
@@ -2114,6 +2115,91 @@ router.get("/recipe/:slug", async (req, res, next) => {
     res.type("html").send(renderRecipePage(recipe, data.chain));
   } catch (err) {
     console.error(`recipe page ${slug} failed:`, err.message);
+    next(err);
+  }
+});
+
+// ── Recipes index ──────────────────────────────────────────────────────
+// Lists every featured recipe from weekly_featured_recipes, each linking to
+// its /recipe/:slug page. Gives the "Recipes" nav item a real destination.
+function renderRecipesIndex(rows) {
+  const cards = (rows || []).map(r => {
+    const rec = r.recipe || {};
+    const label = (SSR_CHAINS[r.chain] && SSR_CHAINS[r.chain].label) || "";
+    const meta = [rec.time, rec.servings ? `serves ${rec.servings}` : "", rec.costPerServing ? `$${Number(rec.costPerServing).toFixed(2)}/serving` : ""].filter(Boolean).join(" &middot; ");
+    return `<a class="ri-card" href="/recipe/${_esc(r.slug)}">
+      ${rec.image ? `<img class="ri-img" src="${_esc(rec.image)}" alt="${_esc(rec.title || r.slug)}" loading="lazy">` : `<div class="ri-img ri-img-ph">&#127869;</div>`}
+      <div class="ri-body">
+        ${label ? `<div class="ri-eyebrow">${_esc(label)}</div>` : ""}
+        <div class="ri-title">${_esc(rec.title || r.slug)}</div>
+        ${meta ? `<div class="ri-meta">${meta}</div>` : ""}
+      </div>
+    </a>`;
+  }).join("\n");
+  const title = "Recipes Built From This Week's Grocery Deals | Dishcount";
+  const desc = "Dinner recipes built from real grocery store sale items. Each one starts with what's on sale and shows the deals it uses. Free, no signup.";
+  const body = (rows && rows.length)
+    ? `<div class="ri-grid">${cards}</div>`
+    : `<p class="ri-empty">New recipes are on the way. In the meantime, <a href="/deals">see this week's deals</a> and build your own.</p>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${_esc(title)}</title>
+  <meta name="description" content="${_esc(desc)}">
+  <link rel="canonical" href="https://dishcount.co/recipes">
+  <meta property="og:title" content="${_esc(title)}">
+  <meta property="og:description" content="${_esc(desc)}">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.min.css">
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream, #fffdf7); color: var(--text, #2d2a24); margin: 0; padding-top: 70px; line-height: 1.6; }
+    .ri-hero { display: block; background: var(--dark, #1a2e1f); color: #e8f0ea; padding: 32px 20px 28px; }
+    .ri-wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .ri-hero-eyebrow { font-size: 12px; letter-spacing: 0.6px; color: #8fb89a; text-transform: uppercase; }
+    .ri-hero h1 { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #fff; margin: 8px 0 6px; line-height: 1.2; }
+    .ri-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
+    .ri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 28px 0 48px; }
+    .ri-card { display: block; background: #fff; border: 1px solid #EDE6D4; border-radius: 14px; overflow: hidden; text-decoration: none; color: inherit; transition: box-shadow .15s ease; }
+    .ri-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+    .ri-img { width: 100%; height: 150px; object-fit: cover; display: block; }
+    .ri-img-ph { display: flex; align-items: center; justify-content: center; font-size: 44px; background: #f3f7f4; }
+    .ri-body { padding: 14px 16px 16px; }
+    .ri-eyebrow { font-size: 11px; letter-spacing: 0.5px; color: #6b7a6f; text-transform: uppercase; margin-bottom: 4px; }
+    .ri-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--green-dark, #1a2e1f); }
+    .ri-meta { color: #6b7a6f; font-size: 13px; margin-top: 4px; }
+    .ri-empty { max-width: 900px; margin: 40px auto; padding: 0 20px; font-size: 16px; color: #555; }
+  </style>
+</head>
+<body>
+  ${SITE_HEADER}
+  <div class="ri-hero"><div class="ri-wrap">
+    <div class="ri-hero-eyebrow">Dishcount</div>
+    <h1>Recipes from this week's deals</h1>
+    <p>Every recipe starts with what's on sale, then builds a dinner around it.</p>
+  </div></div>
+  <div class="ri-wrap">
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+// Recipes index — gives the Recipes nav item a destination.
+router.get("/recipes", async (req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from("weekly_featured_recipes")
+      .select("slug, chain, recipe")
+      .order("created_at", { ascending: false });
+    res.set("Cache-Control", "public, max-age=1800");
+    res.type("html").send(renderRecipesIndex(error ? [] : (data || [])));
+  } catch (err) {
+    console.error("recipes index failed:", err.message);
     next(err);
   }
 });

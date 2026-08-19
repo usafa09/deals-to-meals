@@ -798,12 +798,13 @@ router.post("/api/extract-store", async (req, res) => {
     // call count is what matters, not the page count.
     //   Meijer 31 pages x 1 tile = 31 calls  (fits)
     //   ALDI    4 pages x 3 tiles = 12 calls  (fits)
-    //   Lidl   36 pages x 2 tiles = 72 calls  (truncates at 24 pages — by design)
-    // The old 20/24 pair fit none of them and silently cut Meijer at 20 pages.
-    // Haiku vision runs ~$0.003/page, so a full 48-call chain is ~$0.15 —
-    // pennies per chain per week against losing half an ad.
+    //   Lidl   36 pages x 2 tiles = 72 calls  (fits at 80; was truncated at 48)
+    // The original 20/24 pair fit none of them and silently cut Meijer at 20
+    // pages. Haiku vision runs ~$0.003/page, so a worst-case 80-call chain is
+    // ~$0.24/chain/week — still pennies against losing half an ad. maxPages
+    // stays 40, so the page count remains the outer bound.
     const maxPages = Math.min(images.length, 40);
-    const MAX_VISION_CALLS = 48;
+    const MAX_VISION_CALLS = 80;
     let visionCalls = 0;
     // Per-chain OCR observability. apiOkCount tallies Anthropic 2xx; apiNon2xxCount
     // tallies HTTP errors (429/529/5xx); parseFailCount is a sub-tally of tiles
@@ -1037,6 +1038,38 @@ Rules:
     unique = unique.filter(d => d.salePrice != null && d.salePrice !== "" && parseFloat(d.salePrice) > 0);
     if (unique.length < beforeNullFilter) {
       console.log(`On-demand: ${storeName} — dropped ${beforeNullFilter - unique.length} rows with null or zero salePrice`);
+    }
+
+    // Inverted-price sanitation. OCR sometimes maps an adjacent item's compare-at
+    // price onto this row, yielding regularPrice < salePrice. The sale price is
+    // the reliably-anchored value — it's the large figure the ad layout is built
+    // around — while the "reg" is small print that drifts between items. A wrong
+    // regular price overstates savings and erodes trust, so drop the suspect
+    // field rather than the row: the sale price is still worth showing.
+    let priceInvertCount = 0;
+    unique = unique.map(d => {
+      const s = parseFloat(String(d.salePrice ?? "").replace(/[^0-9.]/g, ""));
+      const r = parseFloat(String(d.regularPrice ?? "").replace(/[^0-9.]/g, ""));
+      if (Number.isFinite(s) && Number.isFinite(r) && s > r) {
+        priceInvertCount++;
+        return { ...d, regularPrice: null };
+      }
+      return d;
+    });
+    if (priceInvertCount > 0) {
+      console.warn(`PRICE_INVERT ${storeName}: ${priceInvertCount} of ${unique.length} rows had salePrice > regularPrice; regularPrice nulled, rows kept`);
+    }
+
+    // Extraction quality signal. A healthy OCR run carries per-unit info on most
+    // rows. A high empty-unit rate means either the model is reading the pages
+    // poorly or the rows did not come from the ad images at all — the text
+    // fallback strips the layout entirely, and Meijer's fallback week ran 56 of
+    // 58 rows unit-less while reporting "ready". Warn only; the threshold gets
+    // tightened once there are a few weeks of signal behind it.
+    const emptyUnitCount = unique.filter(d => !String(d.unit ?? "").trim()).length;
+    const emptyUnitPct = unique.length ? Math.round((emptyUnitCount / unique.length) * 100) : 0;
+    if (unique.length >= 20 && emptyUnitPct > 50) {
+      console.warn(`OCR_QUALITY ${storeName}: ${emptyUnitCount} of ${unique.length} rows (${emptyUnitPct}%) have no unit`);
     }
 
     unique = unique.map((d, i) => ({

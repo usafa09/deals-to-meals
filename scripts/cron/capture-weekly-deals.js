@@ -31,6 +31,11 @@ async function main() {
   let attempted = 0;
   const historyRows = [];
   const sourceCounts = {};
+  // Which cache keys actually yielded at least one usable row. Tracked by KEY,
+  // not by chain name: item.storeName is free-text OCR output ("Cub Foods -
+  // Fridley", "Hannaford Supermarket", "GIANT") that does not normalize back to
+  // the cache-key slug, so name matching reports ~19 false positives.
+  const productiveStoreIds = new Set();
   for (const row of cacheRows) {
     for (const item of row.data) {
       attempted++;
@@ -38,6 +43,8 @@ async function main() {
       if (h == null) continue;
       historyRows.push(h);
       sourceCounts[h.source] = (sourceCounts[h.source] || 0) + 1;
+      const sid = row.cache_key.split(":")[1];
+      if (sid) productiveStoreIds.add(sid);
     }
   }
   const skipped = attempted - historyRows.length;
@@ -77,6 +84,36 @@ async function main() {
   console.log(`  kroger total:          ${krogerTotal}`);
   console.log(`  walmart rows by chain: ${JSON.stringify(chainCounts.walmart)}`);
   console.log(`  walmart total:         ${walmartTotal}`);
+
+  // Rot visibility for the OCR chains. These are deliberately NOT part of the
+  // exit-code guard above (an individual chain going quiet is normal-ish and
+  // shouldn't redden the run), but they were previously invisible here:
+  // fetchEligibleCacheRows drops empty arrays, so a chain whose extraction wrote
+  // the []-on-zero-deals failure marker disappears from this report entirely.
+  // That is the exact shape of the Meijer outage (Aug 7-19: status "ready",
+  // zero rows, nothing in any summary). Re-query the ad-extract keys directly so
+  // "in the rotation" is measured by having a cache row at all, not by having
+  // usable data. Report only.
+  const { data: adKeys, error: adKeyErr } = await supabase
+    .from("deal_cache")
+    .select("cache_key")
+    .like("cache_key", "ad-extract%");
+  if (adKeyErr) {
+    console.log(`  OCR chains with zero deals this week: (query failed: ${adKeyErr.message})`);
+  } else {
+    // ad-extract:foo and ad-extract:foo:454 both collapse to the store id "foo".
+    const rotation = new Set();
+    for (const r of adKeys || []) {
+      const id = r.cache_key.split(":")[1];
+      if (id) rotation.add(id);
+    }
+    const zero = [...rotation].filter(id => !productiveStoreIds.has(id)).sort();
+    console.log(
+      `  OCR chains with zero deals this week: ${zero.length}` +
+      (zero.length ? ` (${zero.join(", ")})` : "")
+    );
+  }
+
   if (krogerTotal === 0 || walmartTotal === 0) {
     console.error(
       `GUARD FAILED: a source captured zero rows (kroger=${krogerTotal}, walmart=${walmartTotal}). ` +

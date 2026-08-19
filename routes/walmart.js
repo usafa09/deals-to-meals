@@ -14,22 +14,47 @@ function resolveRegularPrice(p) {
 
 const router = Router();
 
-export async function fetchWalmartDeals() {
+const SEARCH_TERMS = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
+
+// Cache-write thresholds. Each search term is an independent HTTP call and the
+// Walmart affiliate API fails them individually and silently — a term that 429s
+// or throws contributes zero rows and the total just comes back smaller. On
+// 2026-08-19 eight of ten terms failed on one call, wrote 19 deals to
+// walmart:national, and that partial served the whole regional pool for 15
+// hours (the 24h TTL outlived the Wednesday cron that would have replaced it).
+// A result below EITHER bar is served to the caller but never cached.
+export const WALMART_MIN_TERMS = 7;   // of 10
+export const WALMART_MIN_DEALS = 60;  // healthy runs return 100-130
+
+// Full fetch with per-term telemetry. Callers that need to judge whether the
+// result is complete enough to persist should use this; fetchWalmartDeals()
+// below is the plain-array wrapper for callers that just want the deals.
+export async function fetchWalmartDealsWithStats() {
+  const empty = { deals: [], termsSucceeded: 0, termsTotal: SEARCH_TERMS.length, failedTerms: [] };
   if (!process.env.WALMART_CONSUMER_ID || !process.env.WALMART_PRIVATE_KEY) {
     console.log("Walmart: credentials not configured, skipping");
-    return [];
+    return { ...empty, failedTerms: SEARCH_TERMS.map(t => `${t} (no credentials)`) };
   }
   let headers;
-  try { headers = getWalmartHeaders(); } catch(e) { console.error("Walmart auth error:", e.message); return []; }
+  try { headers = getWalmartHeaders(); } catch(e) {
+    console.error("Walmart auth error:", e.message);
+    return { ...empty, failedTerms: SEARCH_TERMS.map(t => `${t} (auth: ${e.message})`) };
+  }
   const allProducts = [];
-  const searchTerms = ["chicken","beef","pasta","vegetables","fruit","dairy","snacks","breakfast","seafood","pork"];
-  await Promise.all(searchTerms.map(async (term) => {
+  const searchTerms = SEARCH_TERMS;
+  // A term "succeeds" when the API answered and we parsed it — including when
+  // its rows were all filtered out by the price sanity checks below. Zero
+  // qualifying rollbacks is a real answer; a non-2xx or a throw is not.
+  const termStats = await Promise.all(searchTerms.map(async (term) => {
     try {
       const r = await fetch(
         `${WALMART_API_BASE}/search?query=${encodeURIComponent(term)}&categoryId=976759&specialOffer=rollback&numItems=25&responseGroup=full`,
         { headers }
       );
-      if (!r.ok) return;
+      if (!r.ok) {
+        console.error(`Walmart search "${term}" failed: HTTP ${r.status}`);
+        return { term, ok: false, reason: `HTTP ${r.status}` };
+      }
       const data = await r.json();
       const items = (data.items || [])
         .filter(p => {
@@ -53,7 +78,11 @@ export async function fetchWalmartDeals() {
           };
         });
       allProducts.push(...items);
-    } catch (e) { console.error(`Walmart search "${term}" error:`, e.message); }
+      return { term, ok: true };
+    } catch (e) {
+      console.error(`Walmart search "${term}" error:`, e.message);
+      return { term, ok: false, reason: e.message };
+    }
   }));
   const seen = new Set();
   const out = allProducts
@@ -61,8 +90,15 @@ export async function fetchWalmartDeals() {
     .sort((a, b) => b.pctOff - a.pctOff)
     .slice(0, 500);
   const maxPct = out.reduce((m, d) => Math.max(m, d.pctOff), 0);
-  console.log(`Walmart: ${out.length} deals, max ${maxPct}% off (ceiling ${MAX_PLAUSIBLE_PCT_OFF})`);
-  return out;
+  const failedTerms = termStats.filter(t => !t.ok).map(t => `${t.term} (${t.reason})`);
+  const termsSucceeded = termStats.length - failedTerms.length;
+  console.log(`Walmart: ${out.length} deals, max ${maxPct}% off (ceiling ${MAX_PLAUSIBLE_PCT_OFF}), ${termsSucceeded}/${termStats.length} terms ok${failedTerms.length ? ` — failed: ${failedTerms.join(", ")}` : ""}`);
+  return { deals: out, termsSucceeded, termsTotal: termStats.length, failedTerms };
+}
+
+export async function fetchWalmartDeals() {
+  const { deals } = await fetchWalmartDealsWithStats();
+  return deals;
 }
 
 router.get("/api/walmart/stores", async (req, res) => {

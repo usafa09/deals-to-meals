@@ -8,7 +8,7 @@ import {
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
-import { fetchWalmartDeals } from "./walmart.js";
+import { fetchWalmartDealsWithStats, WALMART_MIN_TERMS, WALMART_MIN_DEALS } from "./walmart.js";
 import { notifyStoreRequest } from "../lib/email.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -206,7 +206,21 @@ router.get("/api/deals/regional", async (req, res) => {
     const zip3 = zip.substring(0, 3);
     const regions = await getAdRegions(zip);
     const summary = summarizeRegions(regions);
-    console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains ═══`);
+
+    // Cron authority (internal-token gated): ?refresh=walmart makes the Wednesday
+    // pass ignore the cached walmart:national row and refetch. Any organic request
+    // can win the race to fill that key overnight, and whatever it writes then
+    // outlives the cron under the 24h TTL. The cron is the authoritative writer,
+    // so it must be able to repair a bad overnight write. The write guard below
+    // still applies — forcing a refresh never installs a partial.
+    const isInternal = req.headers["x-internal-token"]
+      && process.env.INTERNAL_API_TOKEN
+      && req.headers["x-internal-token"] === process.env.INTERNAL_API_TOKEN;
+    const refreshParam = String(req.query.refresh || "").toLowerCase();
+    const forceWalmart = !!isInternal && (refreshParam === "walmart" || refreshParam === "all");
+    if (refreshParam && !isInternal) console.warn(`  refresh=${refreshParam} ignored: missing or bad x-internal-token`);
+
+    console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains${forceWalmart ? " [force: walmart]" : ""} ═══`);
 
     const results = { kroger: null, aldi: null, walmart: null, sources: [] };
     const fetchPromises = [];
@@ -267,20 +281,31 @@ router.get("/api/deals/regional", async (req, res) => {
     // ── Walmart: national rollback deals, cache as walmart:national ──
     fetchPromises.push((async () => {
       const cacheKey = "walmart:national";
-      const cached = await getCachedDeals(cacheKey);
+      const cached = forceWalmart ? null : await getCachedDeals(cacheKey);
       if (cached) {
         results.walmart = cached;
         results.sources.push({ store: "walmart", banner: "Walmart", division: "National", deals: cached.length, cached: true });
         console.log(`  Walmart National: ${cached.length} deals [cached]`);
       } else {
         try {
-          const deals = await fetchWalmartDeals();
-          if (deals.length > 0) {
+          const { deals, termsSucceeded, termsTotal, failedTerms } = await fetchWalmartDealsWithStats();
+          // Write guard: a partial fetch must not become the cached pool. Terms
+          // fail independently and silently, so a thin result is indistinguishable
+          // from a genuinely thin week unless we count them. Serve what we got,
+          // cache only what we trust — the next request retries the full fetch.
+          const complete = termsSucceeded >= WALMART_MIN_TERMS || deals.length >= WALMART_MIN_DEALS;
+          if (deals.length > 0 && complete) {
             await setCachedDeals(cacheKey, deals);
+          } else if (deals.length > 0) {
+            console.warn(`  ⚠️ Walmart PARTIAL: ${deals.length} deals from ${termsSucceeded}/${termsTotal} terms (need ${WALMART_MIN_TERMS} terms or ${WALMART_MIN_DEALS} deals) — serving this request, NOT caching. Failed: ${failedTerms.join(", ") || "none reported"}`);
+          } else {
+            console.warn(`  ⚠️ Walmart returned 0 deals from ${termsSucceeded}/${termsTotal} terms — nothing cached. Failed: ${failedTerms.join(", ") || "none reported"}`);
           }
           results.walmart = deals;
-          results.sources.push({ store: "walmart", banner: "Walmart", division: "National", deals: deals.length, cached: false });
-          console.log(`  Walmart National: ${deals.length} deals [live]`);
+          const src = { store: "walmart", banner: "Walmart", division: "National", deals: deals.length, cached: false };
+          if (!complete) { src.partial = true; src.termsSucceeded = termsSucceeded; src.termsTotal = termsTotal; }
+          results.sources.push(src);
+          console.log(`  Walmart National: ${deals.length} deals [live${complete ? "" : ", partial — not cached"}]`);
         } catch (e) {
           console.error(`  Walmart fetch error: ${e.message}`);
           results.sources.push({ store: "walmart", banner: "Walmart", deals: 0, error: e.message });

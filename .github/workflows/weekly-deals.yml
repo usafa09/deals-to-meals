@@ -38,11 +38,35 @@ jobs:
             "48201|Detroit (Kroger, Meijer)"
           )
 
+          # refresh=walmart (internal-token gated) forces a refetch of
+          # walmart:national instead of accepting whatever is cached. Any organic
+          # overnight request can fill that key with a partial fetch, and the 24h
+          # TTL keeps it alive past this run — on 2026-08-19 a 19-deal partial
+          # written at 02:57 served the pool all day. The cron is the
+          # authoritative writer, so it repairs the key here.
+          #
+          # Only the FIRST zip forces. walmart:national is national, so one
+          # refetch per run is enough, and 10 forced refetches would be 100
+          # needless API calls (rate-limit pressure is itself a cause of partial
+          # fetches). If that first fetch comes back partial the write guard
+          # leaves the key empty, and the remaining zips each refetch live until
+          # one is complete enough to cache — the loop self-heals.
+          FORCE_WALMART=1
+
           for entry in "${ZIPS[@]}"; do
             IFS='|' read -r zip label <<< "$entry"
             echo "::group::$label (zip $zip)"
             echo "Fetching deals for $label..."
-            RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 120 "$BASE/deals/regional?zip=$zip")
+            if [ "$FORCE_WALMART" = "1" ]; then
+              echo "Forcing walmart:national refresh on this zip (cron is authoritative writer)"
+              REFRESH="&refresh=walmart"
+            else
+              REFRESH=""
+            fi
+            RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 120 \
+              -H "X-Internal-Token: $INTERNAL_TOKEN" \
+              "$BASE/deals/regional?zip=$zip$REFRESH")
+            FORCE_WALMART=0
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             DEAL_COUNT=$(echo "$BODY" | grep -o '"name"' | wc -l)

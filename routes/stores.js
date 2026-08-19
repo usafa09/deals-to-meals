@@ -556,14 +556,41 @@ async function tileImage(buffer) {
   // decoded-pixel cache and its internal thread pool fan-out.
   sharp.cache(false);
   sharp.concurrency(1);
+
+  // INVARIANT: every buffer returned from this function is JPEG.
+  //
+  // The Vision request hardcodes media_type "image/jpeg". The resize and tile
+  // paths below both end in .jpeg(), but the two pass-through returns used to
+  // hand back the source buffer untouched — so a source serving WebP pages that
+  // needed neither resize nor tiling produced a WebP payload labelled as JPEG,
+  // and Anthropic rejected every page with HTTP 400 ("the image appears to be a
+  // image/webp image"). That is exactly what happened to Meijer (1400x1521:
+  // under the 1600 width bound and under the 1800 height bound, so it hit
+  // neither conversion), which silently degraded to the text fallback and lost
+  // ~200 deals/week. ALDI (1400x3100) and Lidl (1400x2375) always tile, so they
+  // always transcoded and never showed the defect.
+  //
+  // Normalizing here is one change; type-detecting at the call site would be N.
+  const toJpeg = async (buf, format) => {
+    if (format === "jpeg" || format === "jpg") return buf;
+    try {
+      return await sharp(buf).jpeg({ quality: 85 }).toBuffer();
+    } catch (e) {
+      // An un-transcodable buffer is an unusable image; let it through so the
+      // per-tile error handling reports it rather than killing the whole page.
+      console.error(`tileImage: JPEG transcode failed (format=${format}): ${e.message}`);
+      return buf;
+    }
+  };
+
   let img = sharp(buffer);
   let meta = await img.metadata();
-  if (!meta.width || !meta.height) return [buffer];
+  if (!meta.width || !meta.height) return [await toJpeg(buffer, meta.format)];
   if (meta.width > 1600) {
     buffer = await sharp(buffer).resize({ width: 1600 }).jpeg({ quality: 85 }).toBuffer();
     meta = await sharp(buffer).metadata();
   }
-  if (meta.height <= 1800) return [buffer];
+  if (meta.height <= 1800) return [await toJpeg(buffer, meta.format)];
   const BAND = 1400, OVERLAP = 150, tiles = [];
   for (let top = 0; top < meta.height; top += BAND - OVERLAP) {
     const h = Math.min(BAND, meta.height - top);
@@ -767,8 +794,16 @@ router.post("/api/extract-store", async (req, res) => {
     }
 
     const allDeals = [];
-    const maxPages = Math.min(images.length, 20);
-    const MAX_VISION_CALLS = 24;
+    // Budget math, measured 2026-08-19: pages tile into 1-3 images each, so the
+    // call count is what matters, not the page count.
+    //   Meijer 31 pages x 1 tile = 31 calls  (fits)
+    //   ALDI    4 pages x 3 tiles = 12 calls  (fits)
+    //   Lidl   36 pages x 2 tiles = 72 calls  (truncates at 24 pages — by design)
+    // The old 20/24 pair fit none of them and silently cut Meijer at 20 pages.
+    // Haiku vision runs ~$0.003/page, so a full 48-call chain is ~$0.15 —
+    // pennies per chain per week against losing half an ad.
+    const maxPages = Math.min(images.length, 40);
+    const MAX_VISION_CALLS = 48;
     let visionCalls = 0;
     // Per-chain OCR observability. apiOkCount tallies Anthropic 2xx; apiNon2xxCount
     // tallies HTTP errors (429/529/5xx); parseFailCount is a sub-tally of tiles
@@ -900,6 +935,13 @@ Use JSON null (not "") for unknown numeric fields. Return [] if the page has no 
     });
 
     if (unique.length < 10) {
+      // Loud, greppable alarm. This path replaces the vision rows wholesale with
+      // a scrape of the first 8000 chars of page HTML — a real degradation that
+      // previously looked like a successful extraction from the outside (Meijer
+      // sat here for weeks reporting "ready" with a fraction of its deals). The
+      // counts distinguish the causes: all non-2xx means the API rejected the
+      // payloads, all ok with few deals means the ad pages genuinely had little.
+      console.warn(`TEXT_FALLBACK ${storeName}: only ${unique.length} deals from ${images.length} images (vision: ${apiOkCount} ok, ${apiNon2xxCount} non-2xx, ${parseFailCount} parse-fail) — falling back to HTML text scrape, vision rows will be DISCARDED`);
       console.log(`  Only ${unique.length} deals from images — trying text extraction fallback...`);
       try {
         const textContent = html

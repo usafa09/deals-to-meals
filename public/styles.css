@@ -388,7 +388,15 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .tint-snack   { background: linear-gradient(135deg, #f3ecdc, #e8dcc0); }
 .tint-other   { background: linear-gradient(135deg, #f5f0e8, #e8e0d0); }
 .sale-card-body { padding: 10px; }
-.sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; }
+/* 3-line clamp (was 2). OCR'd flyer names run long — "Fresh Boneless Skinless
+   Chicken Breast Value Pack Family Size" lost its last words at 2 lines. The
+   min-height reserves all 3 lines whether or not the name needs them, so a
+   1-line Kroger name and a 3-line ALDI name keep their prices on the same
+   baseline instead of staggering the grid row. 12px * 1.3 * 3 = 46.8px. */
+.sale-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; min-height: 46.8px; }
+/* Worst-case OCR names: a ~1px step down plus tighter leading fits more words
+   into the same 3 lines. Height math stays put — 11px * 1.42 * 3 = 46.86px. */
+.sale-card-name--long { font-size: 11px; line-height: 1.42; }
 .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
 .sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
 .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }

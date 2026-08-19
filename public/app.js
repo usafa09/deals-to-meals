@@ -54,6 +54,28 @@ function formatPriceDisplay(p) {
   return s.startsWith("$") ? s : "$" + s;
 }
 
+// Resolve a deal's price unit for display, plus whether it's a per-pound price.
+// Same shape mismatch as formatPriceDisplay above: the Kroger path emits a
+// display-ready `priceUnit` ("/lb", "/ea", ""), while ad-extract/OCR deals carry
+// a raw `unit` straight off the flyer ("lb", "per lb", "each", "pint"). Without
+// this fallback every ALDI and OCR row rendered a bare "$1.29" with no "/lb".
+//
+// A non-empty priceUnit is returned untouched so Kroger output stays exactly as
+// it was — notably "/ea", which must NOT collapse to "" the way a raw "each" does.
+function dealUnitInfo(d) {
+  const pre = d && d.priceUnit != null ? String(d.priceUnit) : "";
+  if (pre !== "") return { unit: pre, isPerLb: !!(d && d.isPerLb) || pre === "/lb" };
+
+  const raw = d && d.unit != null ? String(d.unit).trim() : "";
+  if (!raw) return { unit: "", isPerLb: !!(d && d.isPerLb) };
+  // "each"/"ea" is the absence of a unit, not a suffix worth printing.
+  if (/^(?:each|ea)\.?$/i.test(raw)) return { unit: "", isPerLb: !!(d && d.isPerLb) };
+  // lb shapes: "lb", "lbs", "per lb", "/lb", "pound", "per pound", trailing dot ok.
+  if (/^(?:\/|per\s+)?(?:lb|lbs|pound|pounds)\.?$/i.test(raw)) return { unit: "/lb", isPerLb: true };
+  // Anything else prints as-is behind a slash: "pint" -> "/pint".
+  return { unit: "/" + raw, isPerLb: !!(d && d.isPerLb) };
+}
+
 const SUPABASE_URL = "https://bvwwtrwxnuncalgtuqvx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2d3d0cnd4bnVuY2FsZ3R1cXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzMwODAsImV4cCI6MjA4NzY0OTA4MH0.EYBbEBMsRuGngDJ-pM_CSE7tGgD1GoEduTDwLFarDJw";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -1993,7 +2015,8 @@ async function renderSaleItems() {
     const ariaState=ds==="include"?"currently included":ds==="exclude"?"currently excluded":"not selected";
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
-    const unit=d.priceUnit||"";
+    const unit=dealUnitInfo(d).unit;
+    const nameCls=String(d.name||"").length>60?" sale-card-name--long":"";
     const hasCoupon = findMatchingCoupon(d.name);
     return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${escapeHtml(formatPriceDisplay(price))}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
@@ -2002,7 +2025,7 @@ async function renderSaleItems() {
       ${d.pctOff>=40&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.source==="kroger"&&typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}" style="display:none"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`:`<div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`}
       <div class="sale-card-body">
-        <div class="sale-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
+        <div class="sale-card-name${nameCls}" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
         <div class="sale-card-price">${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}</div>
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
         <div class="sale-card-store">${escapeHtml(store)}${store?` · <a href="#" onclick="event.preventDefault();event.stopPropagation();openStoreAd('${escapeHtml(store).replace(/'/g,"&#039;")}')" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
@@ -2049,7 +2072,10 @@ function getRecipePayload(offset) {
   const budgetTarget=parseFloat(document.getElementById("budgetTarget")?.value)||null;
   const leftovers=(document.getElementById("leftoversInput")?.value||"").trim();
   return {
-    ingredients:mustFirst.map(d=>({name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:!!d.isPerLb,priceUnit:d.priceUnit||""})),
+    // Unit resolved through dealUnitInfo so ad-extract rows carrying a raw `unit`
+    // reach the server as per-pound estimates too — that's what drives the "≈"
+    // prefix and the per-lb cost handling on the way back.
+    ingredients:mustFirst.map(d=>{const u=dealUnitInfo(d);return{name:d.name,category:d.category,salePrice:d.salePrice,regularPrice:d.regularPrice,savings:d.savings,storeName:d.storeName||d.source||"",mustInclude:!!d.mustInclude,isPerLb:u.isPerLb,priceUnit:u.unit};}),
     style:state.selectedStyle || state.selectedMealType || "Dinner", mealType:state.selectedMealType, diets:state.selectedDiets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences:state.userPreferences||null, offset:offset||0
   };
 }

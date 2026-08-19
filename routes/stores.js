@@ -674,6 +674,22 @@ router.post("/api/extract-store", async (req, res) => {
           } else break;
         } catch { break; }
       }
+      // Not every sister site numbers its pages 1.webp, 2.webp… Meijer serves the
+      // same /images/{slug}/view/ directory but names files
+      // "Weekly-Deals_compressed_page-0001.webp", so the probe above 403s on the
+      // first URL and finds nothing. Fall back to reading the page markup, which
+      // lists every page image on all three chains we use here (ALDI 4, Lidl 36,
+      // Meijer 31). Probing stays primary so ALDI and Lidl keep their exact
+      // current behaviour; this only runs when probing came up empty.
+      if (!images.length) {
+        const viewRegex = new RegExp(`https?://${slug}\\.weeklyad\\.us\\.com/images/${slug}/view/[^"'\\s)]+\\.webp`, "gi");
+        const pageNum = (u) => {
+          const m = u.split("/").pop().match(/(\d+)\D*\.webp$/i);
+          return m ? parseInt(m[1], 10) : 0;
+        };
+        images = [...new Set(html.match(viewRegex) || [])].sort((a, b) => pageNum(a) - pageNum(b));
+        console.log(`On-demand: ${storeName} — probe found no sequential pages; markup scan found ${images.length}`);
+      }
     } else if (isLadySavings) {
       const looksLikeChallenge = html.length < 50000 && /Just a moment|cf-chl-bypass|cloudflare/i.test(html);
       const suspectSmall = html.length < 50000 && !looksLikeChallenge;

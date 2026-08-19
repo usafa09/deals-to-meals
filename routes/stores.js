@@ -1332,6 +1332,36 @@ export const SSR_CHAINS = {
   walmart:{ label: "Walmart",cacheKeys: () => ["walmart:national"] },
 };
 
+// TWIN OF dealUnitInfo() IN public/app.js — keep the two in sync.
+// Not shared because public/app.js is a plain browser script served statically,
+// not an ESM module this file can import; extracting it to lib/ would mean
+// shipping a module to the client just for one function.
+//
+// The Kroger path emits a display-ready `priceUnit` ("/lb", "/ea", ""), while
+// ad-extract/OCR rows carry the raw flyer field `unit` ("lb", "per lb", "each",
+// "12 pk"). A non-empty priceUnit is returned untouched so Kroger stays exactly
+// as it was — notably "/ea", which must NOT collapse the way a raw "each" does.
+function dealUnitInfo(d) {
+  const pre = d && d.priceUnit != null ? String(d.priceUnit) : "";
+  if (pre !== "") return { unit: pre, isPerLb: !!(d && d.isPerLb) || pre === "/lb" };
+
+  const raw = d && d.unit != null ? String(d.unit).trim() : "";
+  if (!raw) return { unit: "", isPerLb: !!(d && d.isPerLb) };
+  // "each"/"ea" is the absence of a unit, not a suffix worth printing.
+  if (/^(?:each|ea)\.?$/i.test(raw)) return { unit: "", isPerLb: !!(d && d.isPerLb) };
+  // lb shapes: "lb", "lbs", "per lb", "/lb", "pound", "per pound", trailing dot ok.
+  if (/^(?:\/|per\s+)?(?:lb|lbs|pound|pounds)\.?$/i.test(raw)) return { unit: "/lb", isPerLb: true };
+  // Anything else prints as-is behind a slash: "pint" -> "/pint".
+  return { unit: "/" + raw, isPerLb: !!(d && d.isPerLb) };
+}
+
+// Display unit for a row that came out of a cached SSR bundle. Bundles cached
+// before priceUnit was carried through hold only isPerLb, so fall back to that
+// rather than dropping the "/lb" Kroger rows already show.
+function bundleUnitText(d) {
+  return dealUnitInfo(d).unit || (d && d.isPerLb ? "/lb" : "");
+}
+
 // Fetch a Pexels photo for a recipe title. Returns null on any failure.
 async function fetchRecipePhoto(title) {
   try {
@@ -1416,11 +1446,17 @@ async function buildChainBundle(slug) {
   return {
     chain: slug,
     label: cfg.label,
-    deals: deals.map(d => ({
-      name: d.name, salePrice: d._sale, regularPrice: d._reg,
-      pctOff: d._pct, image: d.image || null, category: d.category || "",
-      isPerLb: !!d.isPerLb,
-    })),
+    deals: deals.map(d => {
+      // Resolve the unit HERE, at the point the bundle is built, because this
+      // map is what drops the raw `unit` field — the renderers downstream only
+      // ever see what this object carries.
+      const u = dealUnitInfo(d);
+      return {
+        name: d.name, salePrice: d._sale, regularPrice: d._reg,
+        pctOff: d._pct, image: d.image || null, category: d.category || "",
+        isPerLb: u.isPerLb, priceUnit: u.unit,
+      };
+    }),
     recipes: outRecipes,
     generatedAt: new Date().toISOString(),
   };
@@ -1658,7 +1694,9 @@ function renderChainPage(bundle) {
     const reg = d.regularPrice && d.regularPrice > d.salePrice
       ? `<span class="cd-reg">$${Number(d.regularPrice).toFixed(2)}</span>` : "";
     const pct = d.pctOff ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
-    const unit = d.isPerLb ? " <span class=\"cd-unit\">/lb</span>" : "";
+    const unitText = bundleUnitText(d);
+    // Escaped now that the text can be arbitrary OCR ("12 pk"), not a literal "/lb".
+    const unit = unitText ? ` <span class="cd-unit">${_esc(unitText)}</span>` : "";
     const img = isProductPhoto(d.image)
       ? `<img class="cd-img" src="${_esc(d.image)}" alt="${_esc(d.name)}" loading="lazy" onerror="this.style.display='none'" />`
       : "";
@@ -1939,7 +1977,8 @@ router.get("/deals", async (req, res, next) => {
         const img = isProductPhoto(d.image)
           ? `<img class="hb-thumb-img" src="${_esc(d.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
           : `<div class="hb-thumb-noimg"></div>`;
-        const unit = d.isPerLb ? "<span class=\"hb-unit\">/lb</span>" : "";
+        const unitText = bundleUnitText(d);
+        const unit = unitText ? `<span class="hb-unit">${_esc(unitText)}</span>` : "";
         // Only badge a REAL discount. Items whose regular price failed the H6
         // plausibility guard carry pctOff 0 and correctly show no badge.
         const pct = Number(d.pctOff) > 0

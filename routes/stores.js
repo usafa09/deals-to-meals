@@ -8,7 +8,6 @@ import {
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
-import { fetchWalmartDealsWithStats, WALMART_MIN_TERMS, WALMART_MIN_DEALS } from "./walmart.js";
 import { notifyStoreRequest } from "../lib/email.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -158,8 +157,8 @@ router.get("/api/nearby-stores", async (req, res) => {
       .map(s => ({
         ...s,
         hasDeals: storesWithDealsCache.has(normalizeName(s.name))
-          || isKrogerFamilyBrand(s.name) || s.name === "ALDI" || s.name === "Walmart",
-        canExtract: !!findIgroceryadsUrl(s.name) || isKrogerFamilyBrand(s.name) || s.name === "ALDI" || s.name === "Walmart",
+          || isKrogerFamilyBrand(s.name) || s.name === "ALDI",
+        canExtract: !!findIgroceryadsUrl(s.name) || isKrogerFamilyBrand(s.name) || s.name === "ALDI",
         krogerFamily: isKrogerFamilyBrand(s.name),
       }))
       .filter(s => s.hasDeals || s.canExtract);
@@ -207,22 +206,19 @@ router.get("/api/deals/regional", async (req, res) => {
     const regions = await getAdRegions(zip);
     const summary = summarizeRegions(regions);
 
-    // Cron authority (internal-token gated): ?refresh=walmart makes the Wednesday
-    // pass ignore the cached walmart:national row and refetch. Any organic request
-    // can win the race to fill that key overnight, and whatever it writes then
-    // outlives the cron under the 24h TTL. The cron is the authoritative writer,
-    // so it must be able to repair a bad overnight write. The write guard below
-    // still applies — forcing a refresh never installs a partial.
-    const isInternal = req.headers["x-internal-token"]
-      && process.env.INTERNAL_API_TOKEN
-      && req.headers["x-internal-token"] === process.env.INTERNAL_API_TOKEN;
+    // The ?refresh= cron-authority parameter existed only to force a refetch of
+    // walmart:national past its cached row. Walmart was retired as a source in
+    // Aug 2026 and no remaining source in this handler is fetched live here —
+    // Kroger and ALDI both read from caches written elsewhere — so the parameter
+    // has nothing left to force. It is still parsed and warned about so a stale
+    // caller (the weekly workflow, a bookmarked URL) gets a log line rather than
+    // silence, but it no longer changes behaviour.
     const refreshParam = String(req.query.refresh || "").toLowerCase();
-    const forceWalmart = !!isInternal && (refreshParam === "walmart" || refreshParam === "all");
-    if (refreshParam && !isInternal) console.warn(`  refresh=${refreshParam} ignored: missing or bad x-internal-token`);
+    if (refreshParam) console.warn(`  refresh=${refreshParam} ignored: no live-fetched source remains in this handler`);
 
-    console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains${forceWalmart ? " [force: walmart]" : ""} ═══`);
+    console.log(`\n═══ Regional deals for ${zip} (${zip3}) — ${summary.length} chains ═══`);
 
-    const results = { kroger: null, aldi: null, walmart: null, sources: [] };
+    const results = { kroger: null, aldi: null, sources: [] };
     const fetchPromises = [];
 
     // Kroger-family deals: fetch if locationId is provided (works for all Kroger banners)
@@ -278,41 +274,6 @@ router.get("/api/deals/regional", async (req, res) => {
       }
     })());
 
-    // ── Walmart: national rollback deals, cache as walmart:national ──
-    fetchPromises.push((async () => {
-      const cacheKey = "walmart:national";
-      const cached = forceWalmart ? null : await getCachedDeals(cacheKey);
-      if (cached) {
-        results.walmart = cached;
-        results.sources.push({ store: "walmart", banner: "Walmart", division: "National", deals: cached.length, cached: true });
-        console.log(`  Walmart National: ${cached.length} deals [cached]`);
-      } else {
-        try {
-          const { deals, termsSucceeded, termsTotal, failedTerms } = await fetchWalmartDealsWithStats();
-          // Write guard: a partial fetch must not become the cached pool. Terms
-          // fail independently and silently, so a thin result is indistinguishable
-          // from a genuinely thin week unless we count them. Serve what we got,
-          // cache only what we trust — the next request retries the full fetch.
-          const complete = termsSucceeded >= WALMART_MIN_TERMS || deals.length >= WALMART_MIN_DEALS;
-          if (deals.length > 0 && complete) {
-            await setCachedDeals(cacheKey, deals);
-          } else if (deals.length > 0) {
-            console.warn(`  ⚠️ Walmart PARTIAL: ${deals.length} deals from ${termsSucceeded}/${termsTotal} terms (need ${WALMART_MIN_TERMS} terms or ${WALMART_MIN_DEALS} deals) — serving this request, NOT caching. Failed: ${failedTerms.join(", ") || "none reported"}`);
-          } else {
-            console.warn(`  ⚠️ Walmart returned 0 deals from ${termsSucceeded}/${termsTotal} terms — nothing cached. Failed: ${failedTerms.join(", ") || "none reported"}`);
-          }
-          results.walmart = deals;
-          const src = { store: "walmart", banner: "Walmart", division: "National", deals: deals.length, cached: false };
-          if (!complete) { src.partial = true; src.termsSucceeded = termsSucceeded; src.termsTotal = termsTotal; }
-          results.sources.push(src);
-          console.log(`  Walmart National: ${deals.length} deals [live${complete ? "" : ", partial — not cached"}]`);
-        } catch (e) {
-          console.error(`  Walmart fetch error: ${e.message}`);
-          results.sources.push({ store: "walmart", banner: "Walmart", deals: 0, error: e.message });
-        }
-      }
-    })());
-
     await Promise.all(fetchPromises);
 
     let adExtractDeals = [];
@@ -356,7 +317,6 @@ router.get("/api/deals/regional", async (req, res) => {
     let allDeals = [
       ...(results.kroger || []),
       ...(results.aldi || []),
-      ...(results.walmart || []),
       ...adExtractDeals,
     ];
 
@@ -439,7 +399,7 @@ router.get("/api/deals/regional", async (req, res) => {
     try {
       const cacheKeys = [];
       if (locationId) cacheKeys.push(`kroger:${locationId}`);
-      cacheKeys.push("aldi:national", "walmart:national");
+      cacheKeys.push("aldi:national");
       const { data: cacheRows } = await supabase
         .from("deal_cache")
         .select("fetched_at")
@@ -1261,8 +1221,8 @@ const PREVIEW_KROGER_LOCATION = "01400705"; // Kroger, 1555 Wayne Ave, Dayton OH
 // deal_history froze it into the permanent record, and any consumer that does
 // not go through a curate* function saw it raw. The rules now also run once at
 // the cache boundary in extract-store, so a row that can never be shown is
-// never stored. curateChainDeals keeps applying them because Kroger and Walmart
-// rows reach it without passing through the extraction path.
+// never stored. curateChainDeals keeps applying them because Kroger rows reach
+// it without passing through the extraction path.
 // Word boundaries on foil/soap/flower are load-bearing now. As bare substrings
 // they matched Cauliflower, Sunflower Oil, and Sunflower Seeds — real food that
 // read-side filtering merely hid from chain pages. At write time the same match
@@ -1406,8 +1366,8 @@ function dealBucket(d) {
 function curateChainDeals(raw, limit) {
   if (!raw || !raw.length) return [];
   // Patterns now live at module scope (NON_FOOD_NAME / JUNK_NAME) so extract-store
-  // rejects on the same rules at write time. Kroger and Walmart rows never pass
-  // through that path, so this read-side pass stays.
+  // rejects on the same rules at write time. Kroger rows never pass through
+  // that path, so this read-side pass stays.
   const clean = raw
     .map(d => {
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
@@ -1565,7 +1525,6 @@ router.get("/api/deals/preview-recipe", async (req, res) => {
 export const SSR_CHAINS = {
   kroger: { label: "Kroger", cacheKeys: () => [`kroger:${PREVIEW_KROGER_LOCATION}`] },
   aldi:   { label: "ALDI",   cacheKeys: () => ["aldi:national", "ad-extract:aldi"] },
-  walmart:{ label: "Walmart",cacheKeys: () => ["walmart:national"] },
 };
 
 // TWIN OF dealUnitInfo() IN public/app.js — keep the two in sync.
@@ -1911,13 +1870,12 @@ function chainCrossLinks(excludeSlug) {
 const CHAIN_NOTES = {
   kroger: "Kroger's ad runs Wednesday to Tuesday, and the meat counter is where the real money is. Their weekly digital coupons stack on top of the sale price, so it's worth clipping them in the app before you go. Prices here are from the Dayton division. Kroger prices vary by region, so what you see is representative, not a promise for your store.",
   aldi: "ALDI's ad turns over Wednesday and the produce deals are usually the best of it. Prices are the same nationally, so what you see here is what you'll pay. The catch is that ALDI's weekly specials are limited stock. If something good is in the ad, go early in the week.",
-  walmart: "Walmart doesn't run a traditional weekly ad. They do rollbacks, which change constantly and vary by store. The prices here are national rollbacks, so they're a solid guide, but check your store before you plan around a specific item.",
 };
 
 // Only these hosts serve REAL product photos. ALDI's OCR pipeline attaches
 // Unsplash stock images, which are not the actual product — showing them as
 // product photos would be misleading, so those cards render text-only.
-const PRODUCT_IMAGE_HOSTS = /(^https:\/\/www\.kroger\.com\/product\/images\/)|(^https:\/\/i5\.walmartimages\.com\/)/i;
+const PRODUCT_IMAGE_HOSTS = /^https:\/\/www\.kroger\.com\/product\/images\//i;
 const isProductPhoto = (url) => !!url && PRODUCT_IMAGE_HOSTS.test(String(url));
 
 function renderChainPage(bundle) {
@@ -2251,7 +2209,7 @@ router.get("/deals", async (req, res, next) => {
     if (!cards.length) { res.set("Retry-After", "3600"); return res.status(503).send("<!DOCTYPE html><html><body><p>Deals are refreshing. Check back shortly.</p></body></html>"); }
 
     const title = "Grocery Weekly Ads and Dinner Ideas | Dishcount";
-    const desc = "This week's grocery deals from Kroger, ALDI, and Walmart, plus dinners you can build from them. Real prices, updated weekly. Free, no signup.";
+    const desc = "This week's grocery deals from Kroger, ALDI, and 80+ regional chains, plus dinners you can build from them. Real prices, updated weekly. Free, no signup.";
     res.set("Cache-Control", "public, max-age=1800");
     res.type("html").send(`<!DOCTYPE html>
 <html lang="en">

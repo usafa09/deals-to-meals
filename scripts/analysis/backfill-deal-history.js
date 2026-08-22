@@ -1,5 +1,5 @@
 // One-time backfill: snapshot every existing deal_cache row (kroger,
-// ad-extract, walmart) into deal_history, preserving each cache row's
+// ad-extract) into deal_history, preserving each cache row's
 // fetched_at as the captured_at timestamp so the historical record reflects
 // when the data was actually fetched, not when this script ran.
 //

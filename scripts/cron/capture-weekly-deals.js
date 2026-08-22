@@ -1,5 +1,5 @@
 // Weekly snapshot: capture the current state of deal_cache (kroger,
-// ad-extract, walmart) into deal_history. Designed to run from GitHub Actions
+// ad-extract) into deal_history. Designed to run from GitHub Actions
 // every Wednesday morning, after most chains drop their new weekly ads.
 //
 // FRESHNESS CAVEAT: snapshot-only design. This script does NOT trigger fresh
@@ -66,24 +66,37 @@ async function main() {
   console.log(`  duplicates ignored:   ${duplicates}`);
   console.log(`  by source (eligible): ${JSON.stringify(sourceCounts)}`);
 
-  // Capture guard: kroger and walmart are the API-sourced chains (not OCR), so a
-  // zero eligible count means their upstream fetch/cache is wedged. Log per-chain
-  // rows for each source, then FAIL the run (nonzero exit) if EITHER captured
-  // nothing — so the GitHub Actions run shows red instead of a silent green that
-  // hides a missing chain.
-  const chainCounts = { kroger: {}, walmart: {} };
+  // Capture guard. Kroger is the one API-sourced chain left (Walmart was retired
+  // Aug 2026), so a zero eligible count there means its upstream fetch/cache is
+  // wedged. ad-extract is guarded on a FLOOR rather than on zero: the OCR corpus
+  // is an aggregate across ~20 cron chains plus whatever organic traffic filled
+  // in, and it fails by thinning, not by vanishing. A run that captures 3 rows
+  // across 58 chains is as broken as one that captures none, and a bare zero
+  // check waves it through.
+  //
+  // AD_EXTRACT_FLOOR = 50. The weekly workflow extracts 20 chains and tolerates
+  // up to 5 failures (.github/workflows/weekly-deals.yml, FAIL_COUNT > 5), so a
+  // working week has >= 15 productive chains. Both that workflow and the
+  // extract-store handler treat 10 deals as a chain's healthy floor, which puts
+  // a merely-degraded week near 150 rows. 50 sits at a third of that: low enough
+  // that a bad-but-working week cannot redden the run, high enough to catch a
+  // collapse to a handful of chains.
+  const AD_EXTRACT_FLOOR = 50;
+  const chainCounts = { kroger: {} };
   for (const h of historyRows) {
-    if (h.source === "kroger" || h.source === "walmart") {
+    if (h.source === "kroger") {
       chainCounts[h.source][h.chain] = (chainCounts[h.source][h.chain] || 0) + 1;
     }
   }
   const krogerTotal = sourceCounts["kroger"] || 0;
-  const walmartTotal = sourceCounts["walmart"] || 0;
+  const adExtractTotal = sourceCounts["ad-extract"] || 0;
+  const adExtractChains = new Set(
+    historyRows.filter(h => h.source === "ad-extract").map(h => h.chain)
+  ).size;
   console.log("\n=== CAPTURE GUARD ===");
   console.log(`  kroger rows by chain:  ${JSON.stringify(chainCounts.kroger)}`);
   console.log(`  kroger total:          ${krogerTotal}`);
-  console.log(`  walmart rows by chain: ${JSON.stringify(chainCounts.walmart)}`);
-  console.log(`  walmart total:         ${walmartTotal}`);
+  console.log(`  ad-extract total:      ${adExtractTotal} (floor ${AD_EXTRACT_FLOOR}, across ${adExtractChains} chains)`);
 
   // Rot visibility for the OCR chains. These are deliberately NOT part of the
   // exit-code guard above (an individual chain going quiet is normal-ish and
@@ -114,10 +127,11 @@ async function main() {
     );
   }
 
-  if (krogerTotal === 0 || walmartTotal === 0) {
+  if (krogerTotal === 0 || adExtractTotal < AD_EXTRACT_FLOOR) {
     console.error(
-      `GUARD FAILED: a source captured zero rows (kroger=${krogerTotal}, walmart=${walmartTotal}). ` +
-      `Upstream deal_cache is likely wedged for that chain. Failing the run.`
+      `GUARD FAILED: kroger=${krogerTotal} (need > 0), ` +
+      `ad-extract=${adExtractTotal} across ${adExtractChains} chains (need >= ${AD_EXTRACT_FLOOR}). ` +
+      `Upstream deal_cache is likely wedged. Failing the run.`
     );
     process.exit(1);
   }

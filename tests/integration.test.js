@@ -61,15 +61,18 @@ async function runTests() {
     log("GET /api/aldi/deals", r.ok && d.deals !== undefined, `status=${r.status} deals=${d.deals?.length}`);
   } catch (e) { log("GET /api/aldi/deals", false, e.message); }
 
+  // Walmart was retired as a source (Aug 2026). Both endpoints must answer 410,
+  // not 404 — a 404 would mean the retirement stub was dropped and the URLs
+  // silently fell through to the catch-all.
   try {
     const r = await get("/api/walmart/stores?zip=45432");
-    log("GET /api/walmart/stores", r.status === 200 || r.status === 500, `status=${r.status} (500=creds not set)`);
-  } catch (e) { log("GET /api/walmart/stores", false, e.message); }
+    log("GET /api/walmart/stores → 410 Gone", r.status === 410, `status=${r.status}`);
+  } catch (e) { log("GET /api/walmart/stores → 410 Gone", false, e.message); }
 
   try {
     const r = await get("/api/walmart/deals");
-    log("GET /api/walmart/deals", r.status === 200 || r.status === 500, `status=${r.status} (500=creds not set)`);
-  } catch (e) { log("GET /api/walmart/deals", false, e.message); }
+    log("GET /api/walmart/deals → 410 Gone", r.status === 410, `status=${r.status}`);
+  } catch (e) { log("GET /api/walmart/deals → 410 Gone", false, e.message); }
 
   try {
     const r = await get("/api/extract-status?store=meijer");

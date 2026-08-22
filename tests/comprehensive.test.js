@@ -69,8 +69,6 @@ async function testApiEndpoints() {
     { path: "/api/nearby-stores?zip=80841&radius=10", check: (d) => d.stores !== undefined, name: "nearby-stores 80841" },
     { path: "/api/deals/regional?zip=45432", check: (d) => d.deals !== undefined, name: "regional deals" },
     { path: "/api/aldi/deals", check: (d) => d.deals !== undefined, name: "ALDI deals" },
-    { path: "/api/walmart/stores?zip=45432", check: () => true, name: "Walmart stores" },
-    { path: "/api/walmart/deals", check: () => true, name: "Walmart deals" },
     { path: "/api/extract-status?store=meijer", check: (d) => ["none","extracting","ready"].includes(d.status), name: "extract status" },
     { path: "/api/recipe-image?title=chicken+parmesan", check: (d) => d.url !== undefined, name: "recipe image" },
     { path: "/api/kroger/search?query=butter&locationId=01400765", check: (d) => d.product !== undefined, name: "Kroger search" },

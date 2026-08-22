@@ -22,17 +22,18 @@ export function makeSupabase() {
   return createClient(url, key);
 }
 
+// Walmart was retired as a source in Aug 2026. Historical deal_history rows
+// still carry source "walmart"; nothing new is classified as such, and the
+// walmart% cache keys are no longer queried below.
 export function inferSource(cacheKey) {
   if (cacheKey.startsWith("ad-extract")) return "ad-extract";
   if (cacheKey.startsWith("kroger")) return "kroger";
-  if (cacheKey.startsWith("walmart")) return "walmart";
   return "other";
 }
 
 export function inferStoreIdFromKey(cacheKey) {
   // ad-extract:foo or ad-extract:foo:zip3 → "foo"
   // kroger:locationId → locationId
-  // walmart:national → "national"
   const parts = cacheKey.split(":");
   return parts[1] || cacheKey;
 }
@@ -80,12 +81,11 @@ export function buildHistoryRow(rawItem, cacheKey, capturedAt) {
   const dealType = (rawItem.dealType || rawItem.deal_type || "").toString().trim();
 
   // Stable per-chain product identifier for week-over-week item matching. Only
-  // the API-sourced chains carry one, and both expose it on the `id` field:
-  //   Walmart  -> id = affiliate itemId (e.g. "44391147"); also has `upc`
+  // the API-sourced chain carries one, on the `id` field:
   //   Kroger   -> id = productId (e.g. "0085706300202"); `upc` is empty
   // OCR / ad-extract deals have no stable id, so product_id stays null for them.
   let productId = null;
-  if (source === "walmart" || source === "kroger") {
+  if (source === "kroger") {
     const rawId = (rawItem.id ?? rawItem.itemId ?? rawItem.productId ?? "").toString().trim();
     const rawUpc = (rawItem.upc ?? "").toString().trim();
     productId = rawId || rawUpc || null;
@@ -109,13 +109,13 @@ export function buildHistoryRow(rawItem, cacheKey, capturedAt) {
   };
 }
 
-// Pull deal_cache rows from the three history-eligible sources. Skips empty
-// arrays so callers do not have to.
+// Pull deal_cache rows from the history-eligible sources. Skips empty arrays so
+// callers do not have to.
 export async function fetchEligibleCacheRows(supabase) {
   const { data, error } = await supabase
     .from("deal_cache")
     .select("cache_key, data, fetched_at")
-    .or("cache_key.like.kroger%,cache_key.like.ad-extract%,cache_key.like.walmart%");
+    .or("cache_key.like.kroger%,cache_key.like.ad-extract%");
   if (error) throw new Error(`deal_cache query failed: ${error.message}`);
   return (data || []).filter(r => Array.isArray(r.data) && r.data.length > 0);
 }

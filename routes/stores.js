@@ -790,6 +790,27 @@ router.post("/api/extract-store", async (req, res) => {
       // on 2026-07-08). This is a fetch failure, not an empty ad — leave any
       // existing cache untouched so users keep last week's real data.
       console.warn(`On-demand: ${storeName} — SOURCE FETCH FAILURE: 0 ad images discovered (page bytes=${html.length}). Cache left untouched. Body starts: ${String(html).substring(0, 200).replace(/\s+/g, " ")}`);
+      // The ad-reject: row tracks every invocation, so it is written here too.
+      // rejected:0 on this path does NOT mean a clean extraction — nothing was
+      // validated because nothing was fetched. outcome distinguishes the two:
+      // without it, a run that never reached the deals and a run that found no
+      // junk are indistinguishable rows, and the fetch failure reads as health.
+      // Deliberately separate from the ad-extract: row, which is left untouched
+      // above so users keep last week's real deals.
+      await setCachedDeals(`ad-reject:${storeId}`, {
+        storeName, storeId,
+        adSourceUrl: adUrl,
+        rejectedAt: new Date().toISOString(),
+        outcome: "source-fetch-failure",
+        note: `Source fetch failed: 0 ad images discovered from ${adUrl} (page bytes=${html.length}). No deals were extracted or validated; the ad-extract cache was left untouched.`,
+        pageBytes: html.length,
+        imagesFound: 0,
+        total: 0,
+        rejected: 0,
+        byReason: {},
+        truncated: false,
+        rows: [],
+      });
       return;
     }
 
@@ -1093,16 +1114,19 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     // No serving path reads this key, and setCachedDeals only marks a chain as
     // having deals for ad-extract: keys, so it cannot affect store listings.
     //
-    // Written on EVERY run that reaches validation, clean ones included. Writing
-    // only when something was rejected would leave a stale batch sitting under a
-    // key whose fetched_at nobody updated, so a chain that stopped rejecting
-    // would still read as "these rows were rejected" — worse than no record.
-    // rejected:0 with rows:[] is the affirmative "last run was clean" statement.
+    // Written on EVERY invocation, clean runs and source-fetch failures alike
+    // (see the images.length === 0 early return above). Writing only when
+    // something was rejected would leave a stale batch sitting under a key whose
+    // fetched_at nobody updated, so a chain that stopped rejecting would still
+    // read as "these rows were rejected" — worse than no record. Here
+    // rejected:0 with outcome:"validated" is the affirmative "last run was
+    // clean"; on the failure path rejected:0 means nothing was ever validated.
     const MAX_STORED_REJECTS = 300;
     await setCachedDeals(`ad-reject:${storeId}`, {
       storeName, storeId,
       adSourceUrl: adUrl,
       rejectedAt: new Date().toISOString(),
+      outcome: "validated",
       total: beforeValidate,
       rejected: rejects.length,
       byReason: rejectTally,

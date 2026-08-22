@@ -790,6 +790,27 @@ router.post("/api/extract-store", async (req, res) => {
       // on 2026-07-08). This is a fetch failure, not an empty ad — leave any
       // existing cache untouched so users keep last week's real data.
       console.warn(`On-demand: ${storeName} — SOURCE FETCH FAILURE: 0 ad images discovered (page bytes=${html.length}). Cache left untouched. Body starts: ${String(html).substring(0, 200).replace(/\s+/g, " ")}`);
+      // The ad-reject: row tracks every invocation, so it is written here too.
+      // rejected:0 on this path does NOT mean a clean extraction — nothing was
+      // validated because nothing was fetched. outcome distinguishes the two:
+      // without it, a run that never reached the deals and a run that found no
+      // junk are indistinguishable rows, and the fetch failure reads as health.
+      // Deliberately separate from the ad-extract: row, which is left untouched
+      // above so users keep last week's real deals.
+      await setCachedDeals(`ad-reject:${storeId}`, {
+        storeName, storeId,
+        adSourceUrl: adUrl,
+        rejectedAt: new Date().toISOString(),
+        outcome: "source-fetch-failure",
+        note: `Source fetch failed: 0 ad images discovered from ${adUrl} (page bytes=${html.length}). No deals were extracted or validated; the ad-extract cache was left untouched.`,
+        pageBytes: html.length,
+        imagesFound: 0,
+        total: 0,
+        rejected: 0,
+        byReason: {},
+        truncated: false,
+        rows: [],
+      });
       return;
     }
 
@@ -850,7 +871,7 @@ salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
 - "2/$5" -> 2.50. Put "2 for $5" in notes.
 - B1G1 on a $4 item -> 2.00. Set dealType to "bogo".
 - B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
-- B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
+- B1G1 where the only figure shown is a savings amount (however it is worded — "Save 7.09", "Save up to 7.09"): on a buy-one-get-one that figure IS one item's price, so salePrice is half of it -> 3.55. This rule sets salePrice ONLY. It is the single exception to "hedged savings wording is unusable", and it does not extend to regularPrice: for BOGO, regularPrice comes from a listed single-item price or is null.
 - Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
 - "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
 - "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
@@ -859,13 +880,14 @@ salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
 - Large featured price circles and bubbles are deals, often the best on the page. Always include them.
 - If you cannot determine a per-unit price, omit the row.
 
-regularPrice: the non-sale per-unit price. Compute from any of:
-- "Was $5.99" -> 5.99
-- "SAVE $2", "$2 off", "save up to $2" -> salePrice + 2
+regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit reference price or an EXACT stated savings amount:
+- "Was $5.99", "Reg. $5.99", "Regularly $5.99" -> 5.99
+- "SAVE $2" or "$2 off" (exact amount) -> salePrice + 2
 - "SAVE $1.50 PER LB" on a $0.79/lb item -> 2.29
-- "SAVE UP TO 80¢" -> use the upper bound (salePrice + 0.80)
 - For BOGO, regularPrice is the listed single-item price.
-- If the ad shows no reference price and no savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
+- "SAVE UP TO $X" and "SAVE UP TO 80¢" are ceilings advertised across a group of items, NOT this item's savings. Set regularPrice to null. Do NOT add the amount to salePrice. Do NOT treat it as an upper bound.
+- Any hedged savings wording ("up to", "as much as", "save big") -> regularPrice is null.
+- If the ad shows no reference price and no exact savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
 
 unit: "lb" if priced per pound; otherwise "each" or the package unit ("12 pk", "case").
 dealType: "sale" for marked-down items, "bogo" for buy-one-get-one (any percentage), "percent_off" for "20% off" markdowns.
@@ -980,13 +1002,23 @@ Rules:
 - Only include items that have a clear price
 - For "2/$5" deals, set salePrice to "2.50" and notes to "2 for $5"
 - For per-lb prices like "$3.99 lb", set unit to "/lb"
-- B1G1 with "Save up to $X" and no listed price: X is the single-item price, so per-unit is X/2. Example: "Buy 1 Get 1 FREE, Save up to 7.09" -> 3.55.
+- B1G1 where the only figure shown is a savings amount (however it is worded — "Save 7.09", "Save up to 7.09"): on a buy-one-get-one that figure IS one item's price, so salePrice is half of it -> 3.55. This rule sets salePrice ONLY. It is the single exception to "hedged savings wording is unusable", and it does not extend to regularPrice: for BOGO, regularPrice comes from a listed single-item price or is null.
 - Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
 - "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
 - "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
 - "When You Buy N", "Must Buy N", "Limit N" are purchase conditions, not prices. Put them in notes; never use N or the bundle total as the per-unit salePrice.
 - requiresCoupon: set true when the price needs a digital coupon, store app, loyalty card, or membership (wording like "Digital Coupon", "with card", "for U", "mPerks", "Member Price"). Otherwise false.
 - Large featured price circles and bubbles are deals, often the best on the page. Always include them.
+
+regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit reference price or an EXACT stated savings amount:
+- "Was $5.99", "Reg. $5.99", "Regularly $5.99" -> 5.99
+- "SAVE $2" or "$2 off" (exact amount) -> salePrice + 2
+- "SAVE $1.50 PER LB" on a $0.79/lb item -> 2.29
+- For BOGO, regularPrice is the listed single-item price.
+- "SAVE UP TO $X" and "SAVE UP TO 80¢" are ceilings advertised across a group of items, NOT this item's savings. Set regularPrice to null. Do NOT add the amount to salePrice. Do NOT treat it as an upper bound.
+- Any hedged savings wording ("up to", "as much as", "save big") -> regularPrice is null.
+- If the ad shows no reference price and no exact savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
+
 - No markdown backticks, return ONLY the JSON array
 - If no deals found, return []`
               }]
@@ -1030,15 +1062,77 @@ Rules:
       }
     }
 
-    // Drop rows the model couldn't price. The Vision prompt instructs "if you
-    // cannot determine a per-unit price, omit the row" but the model sometimes
-    // includes the row anyway with salePrice=null. Those rows are useless to
-    // UI and analysis alike, so filter them at the cache boundary.
-    const beforeNullFilter = unique.length;
-    unique = unique.filter(d => d.salePrice != null && d.salePrice !== "" && parseFloat(d.salePrice) > 0);
-    if (unique.length < beforeNullFilter) {
-      console.log(`On-demand: ${storeName} — dropped ${beforeNullFilter - unique.length} rows with null or zero salePrice`);
+    // Reject-at-the-boundary validation (dealRejectReason). Supersedes the older
+    // null-salePrice-only filter: the Vision prompt instructs "if you cannot
+    // determine a per-unit price, omit the row" and "name the product", but the
+    // model returns unpriced rows, placeholder names, and bare category words
+    // anyway. Those were previously written to deal_cache and filtered on every
+    // read, which left them in deal_history permanently. Rejected rows are
+    // logged individually so a bad OCR week is diagnosable from the run log.
+    // Each rejection is emitted as one self-contained JSON object per line, so a
+    // log export answers "what did we throw away and why" directly:
+    //   grep '"evt":"DEAL_REJECT"' render.log | jq -r '[.store,.reason,.name,.salePrice]|@tsv'
+    const rejectTally = {};
+    const rejects = [];
+    const beforeValidate = unique.length;
+    unique = unique.filter(d => {
+      const reason = dealRejectReason(d);
+      if (!reason) return true;
+      rejectTally[reason] = (rejectTally[reason] || 0) + 1;
+      const row = {
+        evt: "DEAL_REJECT",
+        store: storeName,
+        storeId,
+        reason,
+        name: d?.name ?? null,
+        salePrice: d?.salePrice ?? null,
+        regularPrice: d?.regularPrice ?? null,
+        unit: d?.unit ?? null,
+        category: d?.category ?? null,
+        adPage: d?.adPage ?? null,
+        adImage: d?.adImage ?? null,
+      };
+      rejects.push(row);
+      console.log(JSON.stringify(row));
+      return false;
+    });
+    if (rejects.length > 0) {
+      console.warn(JSON.stringify({
+        evt: "DEAL_REJECT_SUMMARY", store: storeName, storeId,
+        rejected: rejects.length, of: beforeValidate, byReason: rejectTally,
+      }));
     }
+
+    // Logs are the wrong home for the only record of what OCR produced and we
+    // refused to store: Render's retention is short, and by the time a chain
+    // looks thin the run that thinned it has aged out. Park the batch in
+    // deal_cache under an ad-reject: key — same table, no migration, sits
+    // beside the ad-extract: row it corresponds to, and is reachable from SQL:
+    //   select cache_key, fetched_at,
+    //          jsonb_array_elements(data->'rows') ->> 'reason' as reason
+    //   from deal_cache where cache_key like 'ad-reject:%';
+    // No serving path reads this key, and setCachedDeals only marks a chain as
+    // having deals for ad-extract: keys, so it cannot affect store listings.
+    //
+    // Written on EVERY invocation, clean runs and source-fetch failures alike
+    // (see the images.length === 0 early return above). Writing only when
+    // something was rejected would leave a stale batch sitting under a key whose
+    // fetched_at nobody updated, so a chain that stopped rejecting would still
+    // read as "these rows were rejected" — worse than no record. Here
+    // rejected:0 with outcome:"validated" is the affirmative "last run was
+    // clean"; on the failure path rejected:0 means nothing was ever validated.
+    const MAX_STORED_REJECTS = 300;
+    await setCachedDeals(`ad-reject:${storeId}`, {
+      storeName, storeId,
+      adSourceUrl: adUrl,
+      rejectedAt: new Date().toISOString(),
+      outcome: "validated",
+      total: beforeValidate,
+      rejected: rejects.length,
+      byReason: rejectTally,
+      truncated: rejects.length > MAX_STORED_REJECTS,
+      rows: rejects.slice(0, MAX_STORED_REJECTS),
+    });
 
     // Inverted-price sanitation. OCR sometimes maps an adjacent item's compare-at
     // price onto this row, yielding regularPrice < salePrice. The sale price is
@@ -1161,6 +1255,54 @@ router.post("/api/store-requests", async (req, res) => {
 // errors that read as fake. Cache-miss → empty array; the homepage hides the grid.
 const PREVIEW_KROGER_LOCATION = "01400705"; // Kroger, 1555 Wayne Ave, Dayton OH
 
+// ── Deal row validation ─────────────────────────────────────────────────────
+// These patterns began life inside curateChainDeals, filtering junk on every
+// render. Filtering only on read meant the junk still landed in deal_cache:
+// deal_history froze it into the permanent record, and any consumer that does
+// not go through a curate* function saw it raw. The rules now also run once at
+// the cache boundary in extract-store, so a row that can never be shown is
+// never stored. curateChainDeals keeps applying them because Kroger and Walmart
+// rows reach it without passing through the extraction path.
+// Word boundaries on foil/soap/flower are load-bearing now. As bare substrings
+// they matched Cauliflower, Sunflower Oil, and Sunflower Seeds — real food that
+// read-side filtering merely hid from chain pages. At write time the same match
+// would delete those rows from deal_cache and from the deal_history record, so
+// the ambiguous tokens are anchored before the pattern is used to reject.
+const NON_FOOD_NAME = /paper towel|toilet|detergent|bleach|napkin|\bfoil\b|trash bag|cleaner|shampoo|\bsoaps?\b|diaper|batteries|charcoal|propane|\bflowers?\b|greeting card/i;
+const JUNK_NAME = /price drop|low price|extra savings|see store|weekly ad/i;
+// "assorted" and "varies" used to sit in JUNK_NAME as bare substrings, which
+// rejected "Kellogg's Cereal, Assorted Flavors" — a real product at a real
+// price. Both words are ordinary inside a product name and only junk when they
+// ARE the name, so they match whole-name only: the row is ad boilerplate that
+// reached the name field with no product in it.
+const BOILERPLATE_ONLY_NAME = /^(?:assorted|varies|variety)(?:\s+(?:varieties|variety|flavors?|types?|sizes?|brands?|by\s+store|per\s+store))?\.?$/i;
+// "Product 3", "Item 12", "Deal 4" — what the model emits when a tile carries a
+// legible price but no legible product name.
+const PLACEHOLDER_NAME = /^(?:product|item|deal|offer|sale item|unknown)\s*#?\s*\d*$/i;
+// A bare category word is the category field leaking into the name. Anchored on
+// both ends on purpose: "Meat" is not a product, "Meat Lovers Pizza" is.
+const CATEGORY_ONLY_NAME = /^(?:meat|produce|dairy|bakery|frozen|pantry|snacks?|beverages?|deli|seafood|household|grocery|food|other|misc|assorted)$/i;
+
+// Returns null when the row is storable, otherwise a short reason string.
+// Deliberately does NOT enforce curateChainDeals' salePrice < 40 ceiling: that
+// is a display-ranking judgement, and a $45 meat bundle is a real deal worth
+// keeping in cache even when it never surfaces on a chain page.
+function dealRejectReason(d) {
+  const name = String(d?.name ?? "").trim();
+  if (!name) return "empty name";
+  if (name.length <= 2) return "name too short";
+  if (PLACEHOLDER_NAME.test(name)) return "placeholder name";
+  if (CATEGORY_ONLY_NAME.test(name)) return "bare category as name";
+  if (NON_FOOD_NAME.test(name)) return "non-food";
+  if (JUNK_NAME.test(name)) return "junk phrase";
+  if (BOILERPLATE_ONLY_NAME.test(name)) return "ad boilerplate as name";
+  const raw = d?.salePrice;
+  if (raw == null || String(raw).trim() === "") return "empty salePrice";
+  const sale = parseFloat(String(raw).replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(sale) || sale <= 0) return "zero or unparseable salePrice";
+  return null;
+}
+
 // Shared fresh-deal curation: takes a raw Kroger deal array, returns up to
 // `limit` balanced fresh deals (image + real prices + plausible discount),
 // each annotated with _sale/_reg/_pct. Used by both the preview grid endpoint
@@ -1263,8 +1405,9 @@ function dealBucket(d) {
 
 function curateChainDeals(raw, limit) {
   if (!raw || !raw.length) return [];
-  const NON_FOOD = /paper towel|toilet|detergent|bleach|napkin|foil|trash bag|cleaner|shampoo|soap|diaper|batteries|charcoal|propane|flower|greeting card/i;
-  const JUNK = /price drop|low price|extra savings|see store|weekly ad|assorted|varies/i;
+  // Patterns now live at module scope (NON_FOOD_NAME / JUNK_NAME) so extract-store
+  // rejects on the same rules at write time. Kroger and Walmart rows never pass
+  // through that path, so this read-side pass stays.
   const clean = raw
     .map(d => {
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
@@ -1284,8 +1427,10 @@ function curateChainDeals(raw, limit) {
     })
     .filter(d =>
       d.name && d.name.trim().length > 2 &&
+      !PLACEHOLDER_NAME.test(d.name.trim()) && !CATEGORY_ONLY_NAME.test(d.name.trim()) &&
+      !BOILERPLATE_ONLY_NAME.test(d.name.trim()) &&
       Number.isFinite(d._sale) && d._sale > 0 && d._sale < 40 &&
-      !NON_FOOD.test(d.name) && !JUNK.test(d.name)
+      !NON_FOOD_NAME.test(d.name) && !JUNK_NAME.test(d.name)
     );
 
   // Rank by COOKABILITY, not discount depth. Sorting purely by pctOff floats

@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import {
   supabase, requireAdmin, validateZip,
-  getAppToken, getWalmartHeaders, getCategoryImage,
+  getAppToken, getCategoryImage,
   getCachedDeals, setCachedDeals,
   requireAdminToken, verifyAdminToken, createAdminToken,
   KROGER_API_BASE, DEAL_CACHE_TTL,
@@ -344,14 +344,6 @@ router.get("/api/admin/source-health", adminAuth, async (req, res) => {
         staleDays: 7, brokenDays: 14,
       }));
     }
-
-    // Walmart (live API, daily refresh expected)
-    chains.push(_analyzeChainHealth({
-      kind: "api", displayName: "Walmart", storeId: "walmart",
-      sourceUrl: "Walmart Affiliate API (live)",
-      cacheKey: "walmart:national", row: cacheByKey.get("walmart:national"),
-      staleDays: 2, brokenDays: 4,
-    }));
 
     // Kroger aggregate (per-locationId rows summarized as one entry — listing each
     // location would be noise; what matters is whether the live API is responsive)

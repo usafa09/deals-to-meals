@@ -98,20 +98,13 @@ async function main() {
     results.push(row);
   }
 
-  // ═══ ALDI & WALMART ═══
+  // ═══ ALDI ═══
   console.log("\n─── ALDI ───");
   try {
     const r = await get("/api/aldi/deals");
     const d = await r.json();
     console.log(`ALDI deals: ${d.deals?.length || 0}`);
   } catch(e) { console.log("ALDI error:", e.message); }
-
-  console.log("\n─── Walmart ───");
-  try {
-    const r = await get("/api/walmart/deals");
-    const d = await r.json();
-    console.log(`Walmart deals: ${d.deals?.length || 0}`);
-  } catch(e) { console.log("Walmart error:", e.message); }
 
   // ═══ EDGE CASES ═══
   console.log("\n─── Edge Cases ───");

@@ -45,7 +45,7 @@ function parseFraction(str) {
 
 // Render a price for display. Tolerates string ("3.99", "$3.99") and number
 // (3.99) inputs — the ad-extract Vision prompt returns numbers, the Kroger
-// API and Walmart paths return strings.
+// API returns strings.
 function formatPriceDisplay(p) {
   if (p == null || p === "") return "";
   if (typeof p === "number") return "$" + p.toFixed(2);
@@ -1342,7 +1342,7 @@ const BANNER_INFO = {
   "king soopers":{emoji:"👑",color:"#E31837"},"harris teeter":{emoji:"🌿",color:"#007A33"},"smith's":{emoji:"🏜️",color:"#003DA5"},
   "fry's":{emoji:"☀️",color:"#E31837"},"qfc":{emoji:"🏪",color:"#003DA5"},"dillons":{emoji:"🌾",color:"#003DA5"},
   "mariano":{emoji:"🛒",color:"#003DA5"},"pick n save":{emoji:"🛒",color:"#003DA5"},
-  "aldi":{emoji:"🟥",color:"#CC0000"},"walmart":{emoji:"🔵",color:"#0071CE"},
+  "aldi":{emoji:"🟥",color:"#CC0000"},
   "publix":{emoji:"🟢",color:"#3B8736"},"target":{emoji:"🎯",color:"#CC0000"},"meijer":{emoji:"🔴",color:"#D11242"},
   "giant eagle":{emoji:"🦅",color:"#003DA5"},"albertsons":{emoji:"🔷",color:"#0071CE"},"safeway":{emoji:"🔴",color:"#E21836"},
   "h-e-b":{emoji:"🌟",color:"#E21836"},"food lion":{emoji:"🦁",color:"#FF6600"},"sprouts":{emoji:"🌱",color:"#5B8C2A"},
@@ -1905,7 +1905,6 @@ const STORE_AD_URLS = {
   "jay c":"https://www.jaycfoods.com/weeklyad","pay less":"https://www.pay-less.com/weeklyad",
   "metro market":"https://www.metromarket.net/weeklyad",
   // Other chains
-  "walmart":"https://www.walmart.com/shop/deals/shop-advertised-deals",
   "aldi":"https://www.aldi.us/weekly-specials/weekly-ads",
   "meijer":"https://www.meijer.com/shopping/weeklyad.html","publix":"https://www.publix.com/savings/weekly-ad",
   "albertsons":"https://www.albertsons.com/weekly-ad.html","safeway":"https://www.safeway.com/weekly-ad.html",

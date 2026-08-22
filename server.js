@@ -11,7 +11,6 @@ import { initStoresWithDealsCache, getCachedDeals } from "./lib/utils.js";
 
 import authRoutes from "./routes/auth.js";
 import krogerRoutes from "./routes/kroger.js";
-import walmartRoutes from "./routes/walmart.js";
 import aldiRoutes from "./routes/aldi.js";
 import recipesRoutes from "./routes/recipes.js";
 import storesRoutes, { SSR_CHAINS } from "./routes/stores.js";
@@ -266,6 +265,21 @@ app.get('/tips.html', (req, res) => { res.redirect(301, '/features.html'); });
 app.get('/tips-and-features.html', (req, res) => { res.redirect(301, '/features.html'); });
 app.get('*.map', (req, res) => { res.status(404).end(); });
 
+// ── Walmart retirement (Aug 2026) ───────────────────────────────────────────
+// Walmart was removed as a deal source. /deals/walmart was a real indexed page
+// (it was in sitemap.xml and linked from the homepage footer), so it redirects
+// to the chain hub rather than 404ing and losing the accumulated ranking.
+// Registered here, ahead of storesRoutes: with "walmart" gone from SSR_CHAINS,
+// /deals/:slug now calls next() for it and would otherwise fall to the 404.
+app.get('/deals/walmart', (req, res) => { res.redirect(301, '/deals'); });
+// The two API endpoints were public but unlinked and unindexed — nothing in
+// public/ ever called them. 410 rather than 301: they answered JSON, so
+// redirecting a stale caller to an HTML page would hand it a broken response
+// that still looks like a success.
+app.get(['/api/walmart/deals', '/api/walmart/stores'], (req, res) => {
+  res.status(410).json({ error: "Walmart deals are no longer available." });
+});
+
 // ── HTML version injector — rewrites versioned asset URLs + meta tag ───────
 // Must come BEFORE express.static so it intercepts HTML requests.
 const PUBLIC_DIR = join(__dirname, "public");
@@ -335,7 +349,6 @@ app.use(express.static(join(__dirname, "public"), {
 // ── Mount route modules ─────────────────────────────────────────────────────
 app.use(authRoutes);
 app.use(krogerRoutes);
-app.use(walmartRoutes);
 app.use(aldiRoutes);
 app.use(recipesRoutes);
 app.use(storesRoutes);

@@ -37,6 +37,21 @@ const SITE_FOOTER = `
 
 const router = Router();
 
+// Single ceiling for any discount percentage this app is willing to assert.
+// Above it, the figure is almost always a source error — a per-each price
+// compared against a per-pound one, or an OCR'd "reg" belonging to a neighbouring
+// item — not a real deal. Every path that computes or displays pctOff reads this:
+// the regional backfill, the SSR chain pages (curateChainDeals), and the homepage
+// preview (curateFreshDeals). It was previously 90 in the backfill and 60 in the
+// two curate functions, so the same row rendered "75% off" in the deal browser
+// and no discount at all on /deals/{chain}.
+//
+// The remedy is uniform too: when the computed percentage exceeds the ceiling we
+// assert NO discount rather than clamping to 60. Clamping would just relocate the
+// disagreement — the browser would claim 60% off on a row the chain page shows
+// with no badge. A number we do not trust should not be published at all.
+const MAX_PLAUSIBLE_PCT_OFF = 60;
+
 // ══ NEARBY GROCERY STORES (Google Places API with 30-day cache) ═══════════════
 
 router.get("/api/nearby-stores", async (req, res) => {
@@ -355,14 +370,18 @@ router.get("/api/deals/regional", async (req, res) => {
 
     // pctOff backfill: OCR-extracted deals carry both prices but no pctOff,
     // which sinks them in the client's discount-weighted ranking. Compute it
-    // wherever both prices exist. Cap at 90 to keep OCR price errors from
-    // fabricating absurd discounts.
+    // wherever both prices exist, and drop anything above MAX_PLAUSIBLE_PCT_OFF
+    // on the floor — the same ceiling, with the same remedy, that the SSR chain
+    // pages and the homepage preview apply. This used to cap at 90, which is why
+    // a 75%-off OCR row showed "75% off" here and no discount on /deals/{chain}.
     allDeals = allDeals.map(d => {
       if (Number(d.pctOff) > 0) return d;
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
       const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
       if (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r) {
-        return { ...d, pctOff: Math.min(90, Math.round(((r - s) / r) * 100)) };
+        const pct = Math.round(((r - s) / r) * 100);
+        if (pct > MAX_PLAUSIBLE_PCT_OFF) return d; // implausible — assert no discount
+        return { ...d, pctOff: pct };
       }
       return d;
     });
@@ -1034,6 +1053,11 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     //   grep '"evt":"DEAL_REJECT"' render.log | jq -r '[.store,.reason,.name,.salePrice]|@tsv'
     const rejectTally = {};
     const rejects = [];
+    // Held across the filter below: the OCR_QUALITY signal measures the raw
+    // extraction, so it needs the rows as the model returned them, not the
+    // survivors. `unique = unique.filter(...)` rebinds to a new array, so this
+    // reference keeps pointing at the pre-rejection set.
+    const preValidationRows = unique;
     const beforeValidate = unique.length;
     unique = unique.filter(d => {
       const reason = dealRejectReason(d);
@@ -1120,10 +1144,18 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     // fallback strips the layout entirely, and Meijer's fallback week ran 56 of
     // 58 rows unit-less while reporting "ready". Warn only; the threshold gets
     // tightened once there are a few weeks of signal behind it.
-    const emptyUnitCount = unique.filter(d => !String(d.unit ?? "").trim()).length;
-    const emptyUnitPct = unique.length ? Math.round((emptyUnitCount / unique.length) * 100) : 0;
-    if (unique.length >= 20 && emptyUnitPct > 50) {
-      console.warn(`OCR_QUALITY ${storeName}: ${emptyUnitCount} of ${unique.length} rows (${emptyUnitPct}%) have no unit`);
+    //
+    // Measured against the PRE-rejection rows on purpose. Anchoring it to the
+    // survivors let the validation gate suppress the warning: 24 garbage rows
+    // minus 6 rejections arrives at 18 and skips the >= 20 floor entirely, so
+    // the worse the extraction, the quieter the signal — backwards for a health
+    // check. Rejected rows are part of what the model produced, so they belong
+    // in both the numerator and the denominator. The kept count is reported too,
+    // since a large gap between the two is itself the interesting number.
+    const emptyUnitCount = preValidationRows.filter(d => !String(d.unit ?? "").trim()).length;
+    const emptyUnitPct = beforeValidate ? Math.round((emptyUnitCount / beforeValidate) * 100) : 0;
+    if (beforeValidate >= 20 && emptyUnitPct > 50) {
+      console.warn(`OCR_QUALITY ${storeName}: ${emptyUnitCount} of ${beforeValidate} extracted rows (${emptyUnitPct}%) have no unit; ${unique.length} kept after validation`);
     }
 
     unique = unique.map((d, i) => ({
@@ -1284,7 +1316,7 @@ function curateFreshDeals(raw, limit) {
       d.name && d.name.trim() &&
       Number.isFinite(d._sale) && d._sale > 0 &&
       Number.isFinite(d._reg) && d._reg > d._sale &&
-      d._pct > 0 && d._pct <= 60 &&
+      d._pct > 0 && d._pct <= MAX_PLAUSIBLE_PCT_OFF &&
       d._reg <= d._sale * 2.5
     );
 
@@ -1382,7 +1414,7 @@ function curateChainDeals(raw, limit) {
       const rawPct = Number(d.pctOff) > 0
         ? Number(d.pctOff)
         : (plausible ? Math.round(((r - s) / r) * 100) : 0);
-      const pct = (rawPct > 0 && rawPct <= 60 && plausible) ? rawPct : 0;
+      const pct = (rawPct > 0 && rawPct <= MAX_PLAUSIBLE_PCT_OFF && plausible) ? rawPct : 0;
       return { ...d, _sale: s, _reg: plausible ? r : null, _pct: pct };
     })
     .filter(d =>

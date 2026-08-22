@@ -12,6 +12,13 @@ import {
 
 const router = Router();
 
+// How long ad-reject: rows (written by extract-store, see routes/stores.js) are
+// kept before cache-cleanup sweeps them. Long enough to cover several weekly ad
+// cycles, so a chain that quietly started rejecting rows is still diagnosable a
+// month later. Local to this file rather than lib/utils.js because it is a
+// retention policy for the cleanup endpoint, not a read TTL.
+const AD_REJECT_RETENTION = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 // Middleware: accept either old cookie auth OR new token auth
 function adminAuth(req, res, next) {
   if (verifyAdminToken(req)) return next();
@@ -418,11 +425,28 @@ router.post("/api/admin/cache-cleanup", adminAuth, async (req, res) => {
       if (error) throw new Error(error.message);
       res.json({ deleted: 1, message: `Removed ${key}` });
     } else {
-      // Delete all stale entries
+      // Delete all stale entries. ad-reject: rows are swept separately: they are
+      // a forensic record of what extraction refused to store, not a cache, so
+      // the 24h deal TTL would delete them the same day they were written.
       const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
-      const { data, error } = await supabase.from("deal_cache").delete().lt("fetched_at", cutoff).select("cache_key");
+      const { data, error } = await supabase.from("deal_cache").delete()
+        .lt("fetched_at", cutoff)
+        .not("cache_key", "like", "ad-reject:%")
+        .select("cache_key");
       if (error) throw new Error(error.message);
-      res.json({ deleted: data?.length || 0, message: "Removed stale entries" });
+
+      const rejectCutoff = new Date(Date.now() - AD_REJECT_RETENTION).toISOString();
+      const { data: rejectData, error: rejectError } = await supabase.from("deal_cache").delete()
+        .lt("fetched_at", rejectCutoff)
+        .like("cache_key", "ad-reject:%")
+        .select("cache_key");
+      if (rejectError) throw new Error(rejectError.message);
+
+      res.json({
+        deleted: (data?.length || 0) + (rejectData?.length || 0),
+        deletedRejects: rejectData?.length || 0,
+        message: "Removed stale entries",
+      });
     }
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

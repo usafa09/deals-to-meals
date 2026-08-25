@@ -664,38 +664,33 @@ router.post("/api/extract-store", async (req, res) => {
     let images = [];
 
     if (isWeeklyAdUS) {
-      // weeklyad.us.com network: sister subdomains ({chain}.weeklyad.us.com) each
-      // serve ad pages at /images/{chain}/view/{N}.webp with sequential numbering.
-      // Used for ALDI because igroceryads/ladysavings only mirror ALDI Finds (non-food
-      // merchandise), while this aggregator carries the actual in-store food ad pages.
-      // Probe sequentially from N=1 until first 404 to discover all pages.
+      // weeklyad.us.com network: sister subdomains ({chain}.weeklyad.us.com)
+      // each serve their ad pages under /images/{chain}/view/. Used for ALDI and
+      // Lidl because igroceryads and ladysavings mirror only those chains' Finds
+      // pages (non-food merchandise), while this aggregator carries the actual
+      // in-store food pages.
+      //
+      // The served markup lists every page image, so it is read directly. An
+      // earlier implementation guessed at URLs instead, requesting /view/1.webp,
+      // /view/2.webp and so on until one 404'd. That obtained nothing the markup
+      // does not already disclose, and it was strictly worse than reading it:
+      // filenames are not uniform across the network -- Meijer serves
+      // "Weekly-Deals_compressed_page-0001.webp" and 403s on the very first
+      // guess -- and the probe's 20-iteration ceiling silently truncated longer
+      // flyers, so a chain whose ad ran past 20 pages had the remainder dropped
+      // with nothing logged.
+      //
+      // Page counts vary by chain and week. A scan on 2026-08-25 returned 2 pages
+      // for ALDI, 38 for Lidl and 31 for Meijer; those are a sample of one run,
+      // not fixed expectations.
       const slug = new URL(adUrl).hostname.split(".")[0];
-      console.log(`On-demand: ${storeName} — weeklyad.us.com slug "${slug}", probing pages...`);
-      for (let n = 1; n <= 20; n++) {
-        const u = `https://${slug}.weeklyad.us.com/images/${slug}/view/${n}.webp`;
-        try {
-          const probe = await fetch(u, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
-          if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
-            images.push(u);
-          } else break;
-        } catch { break; }
-      }
-      // Not every sister site numbers its pages 1.webp, 2.webp… Meijer serves the
-      // same /images/{slug}/view/ directory but names files
-      // "Weekly-Deals_compressed_page-0001.webp", so the probe above 403s on the
-      // first URL and finds nothing. Fall back to reading the page markup, which
-      // lists every page image on all three chains we use here (ALDI 4, Lidl 36,
-      // Meijer 31). Probing stays primary so ALDI and Lidl keep their exact
-      // current behaviour; this only runs when probing came up empty.
-      if (!images.length) {
-        const viewRegex = new RegExp(`https?://${slug}\\.weeklyad\\.us\\.com/images/${slug}/view/[^"'\\s)]+\\.webp`, "gi");
-        const pageNum = (u) => {
-          const m = u.split("/").pop().match(/(\d+)\D*\.webp$/i);
-          return m ? parseInt(m[1], 10) : 0;
-        };
-        images = [...new Set(html.match(viewRegex) || [])].sort((a, b) => pageNum(a) - pageNum(b));
-        console.log(`On-demand: ${storeName} — probe found no sequential pages; markup scan found ${images.length}`);
-      }
+      const viewRegex = new RegExp(`https?://${slug}\\.weeklyad\\.us\\.com/images/${slug}/view/[^"'\\s)]+\\.webp`, "gi");
+      const pageNum = (u) => {
+        const m = u.split("/").pop().match(/(\d+)\D*\.webp$/i);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      images = [...new Set(html.match(viewRegex) || [])].sort((a, b) => pageNum(a) - pageNum(b));
+      console.log(`On-demand: ${storeName} — weeklyad.us.com slug "${slug}", markup scan found ${images.length} pages`);
     } else if (isLadySavings) {
       const looksLikeChallenge = html.length < 50000 && /Just a moment|cf-chl-bypass|cloudflare/i.test(html);
       const suspectSmall = html.length < 50000 && !looksLikeChallenge;
@@ -728,40 +723,62 @@ router.post("/api/extract-store", async (req, res) => {
         } catch (e) { console.error(`LadySavings page ${p} fetch error:`, e.message); }
       }
     } else {
-      const imgRegex = /https:\/\/www\.(?:igroceryads|iweeklyads)\.com\/wp-content\/uploads\/\d{4}\/\d{2}\/[^"'\s)]+\.(?:webp|jpg|jpeg|png)/gi;
-      images = [...new Set(html.match(imgRegex) || [])]
-        .filter(url => !url.includes("-150x150") && !url.includes("-300x") && !url.includes("-100x") && !url.includes("-200x200"))
-        .sort((a, b) => {
-          const extractNum = (url) => {
-            const fname = url.split("/").pop();
-            const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
-            return parseInt(m?.[1] || "0");
-          };
-          return extractNum(a) - extractNum(b);
-        });
-      images = [...new Set(images)];
+      // Only the URLs the post itself lists. A previous fallback probed sibling
+      // filenames (1-1-scaled.jpg, 1-2-scaled.jpg …) whenever three or fewer
+      // images were found, but /wp-content/uploads/YYYY/MM/ is a shared monthly
+      // directory holding every chain's ad images, so the probe walked into
+      // other posts and OCR'd other chains' circulars as if they were this
+      // chain's pages. No filename convention separates one post's uploads from
+      // another's in that directory, so no filename-shaped guess can be sound.
+      const UPLOAD_PATTERN = "(?:(?:https?:)?//(?:www\\.)?(?:igroceryads|iweeklyads)\\.com)?/wp-content/uploads/\\d{4}/\\d{2}/[^\"'\\s),]+?\\.(?:webp|jpg|jpeg|png)";
+      const uploadScan = new RegExp(UPLOAD_PATTERN, "gi");
+      const uploadTest = new RegExp("^" + UPLOAD_PATTERN + "$", "i");
 
-      if (images.length <= 3 && images.length > 0) {
-        const sample = images[0];
-        const scaledMatch = sample.match(/^(.*-)(\d+)(-scaled\.\w+)$/);
-        if (scaledMatch) {
-          const [, prefix, , suffix] = scaledMatch;
-          for (let n = 1; n <= 30; n++) {
-            const url = `${prefix}${n}${suffix}`;
-            if (!images.includes(url)) {
-              try {
-                const probe = await fetch(url, { method: "HEAD", headers: { "User-Agent": "Mozilla/5.0" } });
-                if (probe.ok && (probe.headers.get("content-type") || "").startsWith("image/")) {
-                  images.push(url);
-                } else break;
-              } catch { break; }
-            }
-          }
+      // Lazy-loading themes leave src as a placeholder and put the real URL in
+      // data-src or srcset, so every image-bearing attribute is collected before
+      // the whole document is scanned for gallery and attachment markup that may
+      // not use an img tag at all.
+      const candidates = [];
+      const attrRe = /(?:data-lazy-srcset|data-lazy-src|data-srcset|data-src|srcset|src|href)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+      let am;
+      while ((am = attrRe.exec(html))) {
+        const val = am[1] !== undefined ? am[1] : am[2];
+        // srcset is a comma-separated list of "url descriptor" pairs.
+        for (const part of String(val).split(",")) {
+          const u = part.trim().split(/\s+/)[0];
+          if (u) candidates.push(u);
         }
       }
+      candidates.push(...(html.match(uploadScan) || []));
+
+      const absolutize = (u) => {
+        const s = String(u).trim();
+        if (s.startsWith("//")) return "https:" + s;
+        if (s.startsWith("/")) { try { return new URL(s, adUrl).href; } catch { return s; } }
+        return s;
+      };
+
+      images = [...new Set(
+        candidates
+          .map(absolutize)
+          .filter(u => uploadTest.test(u))
+          // WordPress resize variants of a page image, not extra pages.
+          .filter(u => !/-\d{2,4}x\d{2,4}\.(?:webp|jpg|jpeg|png)$/i.test(u))
+      )].sort((a, b) => {
+        const extractNum = (url) => {
+          const fname = url.split("/").pop();
+          const m = fname.match(/page_(\d+)/) || fname.match(/img(\d+)/) || fname.match(/-(\d+)-scaled/) || fname.match(/-(\d+)\./);
+          return parseInt(m?.[1] || "0");
+        };
+        return extractNum(a) - extractNum(b);
+      });
     }
 
+    // Every discovered URL is logged, not just the count, so an undercount from
+    // a source changing its markup shows up in the logs instead of quietly
+    // producing a short ad.
     console.log(`On-demand extraction for ${storeName}: ${images.length} pages found`);
+    images.forEach((u, i) => console.log(`  [ad-image] ${storeName} ${i + 1}/${images.length} ${u}`));
 
     if (images.length === 0) {
       // 0 discovered images means the source page fetch failed or was blocked
@@ -1053,6 +1070,8 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     //   grep '"evt":"DEAL_REJECT"' render.log | jq -r '[.store,.reason,.name,.salePrice]|@tsv'
     const rejectTally = {};
     const rejects = [];
+    const keepTally = {};
+    const keeps = [];
     // Held across the filter below: the OCR_QUALITY signal measures the raw
     // extraction, so it needs the rows as the model returned them, not the
     // survivors. `unique = unique.filter(...)` rebinds to a new array, so this
@@ -1061,7 +1080,18 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     const beforeValidate = unique.length;
     unique = unique.filter(d => {
       const reason = dealRejectReason(d);
-      if (!reason) return true;
+      if (!reason) {
+        const note = dealKeepNote(d);
+        if (note) {
+          keepTally[note] = (keepTally[note] || 0) + 1;
+          keeps.push({
+            evt: "DEAL_KEEP_NOTE", store: storeName, storeId, note,
+            name: d?.name ?? null, salePrice: d?.salePrice ?? null,
+            category: d?.category ?? null,
+          });
+        }
+        return true;
+      }
       rejectTally[reason] = (rejectTally[reason] || 0) + 1;
       const row = {
         evt: "DEAL_REJECT",
@@ -1116,6 +1146,10 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       byReason: rejectTally,
       truncated: rejects.length > MAX_STORED_REJECTS,
       rows: rejects.slice(0, MAX_STORED_REJECTS),
+      // Rows we KEPT but flagged. Same key so the audit is one read, and the
+      // byNote tally is what tells us whether the combo-tile carve-out is
+      // earning its place or should be dropped.
+      kept: { byNote: keepTally, rows: keeps.slice(0, MAX_STORED_REJECTS) },
     });
 
     // Inverted-price sanitation. OCR sometimes maps an adjacent item's compare-at
@@ -1275,6 +1309,90 @@ const PLACEHOLDER_NAME = /^(?:product|item|deal|offer|sale item|unknown)\s*#?\s*
 // both ends on purpose: "Meat" is not a product, "Meat Lovers Pizza" is.
 const CATEGORY_ONLY_NAME = /^(?:meat|produce|dairy|bakery|frozen|pantry|snacks?|beverages?|deli|seafood|household|grocery|food|other|misc|assorted)$/i;
 
+
+// ---------------------------------------------------------------------------
+// Non-food category exclusion (write time).
+//
+// The extraction taxonomy cannot carry this filter. The Vision prompt offers
+// meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/
+// household/other and has no bucket for alcohol, merchandise, gift cards, pet,
+// HBA, or floral -- so scotch lands in "beverages", a gift card and an electric
+// wheelchair both land in "other", and an air fryer lands in "household". The
+// two catch-alls are not safely rejectable either: "other" also holds Boneless
+// Wings, Coffee Mate Creamer and Gerber entrees. So these match on NAME, and
+// d.category is deliberately not consulted.
+const MERCH_NAME = /\b(?:air fryer(?! ready)|toaster oven|microwave oven|refrigerator|air conditioner|dehumidifier|humidifier|vacuum cleaner|television|headphones?|earbuds?|laptop|gazebo|patio set|lawn mower|charcoal grill|gas grill|grill combo|furniture|mattress|recliner|stroller|wheelchair|bicycle|bike helmet|toys?|hot wheels|lego|trading cards?|action figure|backpacks?|school supplies|crayons?|t-?shirts?|sneakers|bedding|comforter|towel set|serveware|utensil set|storage (?:container|basket)|food container set|mason jars?|decorative|wreath|vase|picture frame|light bulb)\b/i;
+const GIFTCARD_NAME = /\bgift ?card|prepaid card|stored[- ]value\b/i;
+const FLORAL_NAME = /\b(?:bouquet|floral arrangement|rose bunch|\broses\b|tulips?|orchid|carnation|potted plant|houseplant|succulent|mulch|potting soil|seed packet)\b/i;
+// Pet requires explicit pet context. A bare \bdog\b / \bcat\b rejected Ball Park
+// Beef Hot Dogs, Corn Dogs, and Hot Dog Buns off the live corpus.
+const PET_NAME = /\b(?:dog|cat|puppy|kitten|pet)\s+(?:food|treats?|chow|biscuits?|litter|toy|bed|bowl|collar|leash|supplies)\b|\bcat litter\b|\b(?:milk[- ]bone|greenies|pedigree|purina|friskies|meow mix|iams|blue buffalo|rawhide|pig ears?)\b/i;
+// "vitamins?" is negative-lookahead'd off Vitamin Water, which is a beverage.
+// Similac / PediaSure / Gerber / Enfamil are consumable nutrition and are
+// deliberately absent from this pattern -- they must survive to reach recipes.
+const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex)\b/i;
+const CLEAN_NAME = /\b(?:paper towels?|bath tissue|toilet paper|toilet bowl|napkins?|paper plates?|plastic (?:cutlery|wrap)|trash bags?|garbage bags?|detergent|fabric softener|dryer sheets?|bleach|disinfect(?:ing|ant)|lysol|clorox|dish soap|sponges?|scrubber|charmin|bounty|quilted northern|cottonelle|\btide\b|downy|oxiclean|swiffer|air freshener|febreze|candles?)\b/i;
+
+// Alcohol and tobacco. Regulated advertising, so this group is handled by
+// segment (below) rather than by a whole-name match: it must never release an
+// actual bottle, can, or pack.
+const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
+
+// An edible noun beside the match means the brand is being used as a flavour,
+// not sold as itself: Jack Daniel's Sausage Links, bourbon-glazed salmon.
+const EDIBLE_VETO = /\b(?:sausages?|brats?|bratwurst|links?|salmon|cod|tilapia|shrimp|chicken|beef|pork|turkey|steak|ribs?|bacon|jerky|buns?|sauces?|marinade|mustard|dip|cheese|wings|popcorn|cake|pie|ice cream|coffee|creamer|chocolate|entr[eé]e|ready)\b/i;
+const CULINARY_USE = /\b(?:glazed?|battered|braised|infused|marinated|smoked|seasoned|flavou?red|barbecue|bbq|style)\b/i;
+const FOODY_SEGMENT = /\b(?:chicken|beef|pork|cheese|milk|bread|cereal|pasta|rice|apple|banana|salad|soup|sauce|juice|coffee|snack|cookie|pizza|sandwich|wings|yogurt|egg|butter|fruit|vegetable)\b/i;
+// Ad tiles list several products in one name: "White Castle, Twisted Tea, Bare
+// Republic or Snapple Beverages". Splitting lets one brand be judged without
+// condemning the other three.
+const SEGMENT_SPLIT = /\s*(?:,|\bor\b|\band\b|&|\/)\s*/i;
+
+// Returns {reject: reason} | {keep: note} | {}.
+function classifyNonFood(name) {
+  const segments = String(name).split(SEGMENT_SPLIT).map(s => s.trim()).filter(Boolean);
+
+  // Alcohol first, and exempt from the combo-tile keep below. The veto releases
+  // a bourbon glaze but never a bottle: it is applied per segment, so "Bell's
+  // Beer or Fresh from Meijer Brats" still rejects on its first segment even
+  // though "Brats" appears later in the name.
+  const alcoholSegments = segments.filter(s => ALCOHOL_NAME.test(s));
+  if (alcoholSegments.length) {
+    const standalone = alcoholSegments.filter(s => !EDIBLE_VETO.test(s) && !CULINARY_USE.test(s));
+    if (standalone.length) {
+      return { reject: segments.length >= 2 ? "alcohol in combo tile" : "alcohol" };
+    }
+  }
+
+  const groups = [
+    ["gift card", GIFTCARD_NAME],
+    ["pet", PET_NAME],
+    ["health and beauty", HBA_NAME],
+    ["cleaning and paper goods", CLEAN_NAME],
+    ["general merchandise", MERCH_NAME],
+    ["floral and plants", FLORAL_NAME],
+  ];
+  for (const [reason, re] of groups) {
+    if (!re.test(name)) continue;
+    if ((reason === "general merchandise" || reason === "floral and plants") && EDIBLE_VETO.test(name)) continue;
+    // Multi-product tile carrying real food alongside the match: keep the row
+    // and log why, rather than losing the food. Alcohol never reaches here.
+    if (segments.length >= 3 && segments.some(s => FOODY_SEGMENT.test(s))) {
+      return { keep: `combo tile kept (${reason})` };
+    }
+    return { reject: reason };
+  }
+  return {};
+}
+
+// Note attached to a row that was KEPT but is worth measuring. Null for the
+// ordinary case.
+function dealKeepNote(d) {
+  const name = String(d?.name ?? "").trim();
+  if (!name) return null;
+  return classifyNonFood(name).keep || null;
+}
+
 // Returns null when the row is storable, otherwise a short reason string.
 // Deliberately does NOT enforce curateChainDeals' salePrice < 40 ceiling: that
 // is a display-ranking judgement, and a $45 meat bundle is a real deal worth
@@ -1285,6 +1403,11 @@ function dealRejectReason(d) {
   if (name.length <= 2) return "name too short";
   if (PLACEHOLDER_NAME.test(name)) return "placeholder name";
   if (CATEGORY_ONLY_NAME.test(name)) return "bare category as name";
+  const nonFood = classifyNonFood(name);
+  if (nonFood.reject) return nonFood.reject;
+  // NON_FOOD_NAME stays as a backstop: it still carries charcoal, propane,
+  // greeting card and diaper, and curateChainDeals shares it for Kroger rows,
+  // which never pass through this write path.
   if (NON_FOOD_NAME.test(name)) return "non-food";
   if (JUNK_NAME.test(name)) return "junk phrase";
   if (BOILERPLATE_ONLY_NAME.test(name)) return "ad boilerplate as name";

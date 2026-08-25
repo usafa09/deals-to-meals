@@ -1677,9 +1677,14 @@ router.get("/api/deals/preview-recipe", async (req, res) => {
 // cacheKeys is an ordered fallback list — first non-empty cache wins. ALDI's
 // bespoke scraper was retired (May 2026); its deals now come from the OCR
 // pipeline under ad-extract:aldi, so aldi:national is empty in production.
+// weeklyAdSourced marks a chain whose rows are OCR'd from the pages of the
+// printed weekly ad. ALDI's are. Kroger's are not: they come from the Products
+// API filtered to items carrying a current promotional price, which overlaps
+// the ad but is not the same set and is never verified against it. The page
+// copy branches on this so Kroger is not described as an ad it may not match.
 export const SSR_CHAINS = {
-  kroger: { label: "Kroger", cacheKeys: () => [`kroger:${PREVIEW_KROGER_LOCATION}`] },
-  aldi:   { label: "ALDI",   cacheKeys: () => ["aldi:national", "ad-extract:aldi"] },
+  kroger: { label: "Kroger", weeklyAdSourced: false, cacheKeys: () => [`kroger:${PREVIEW_KROGER_LOCATION}`] },
+  aldi:   { label: "ALDI",   weeklyAdSourced: true,  cacheKeys: () => ["aldi:national", "ad-extract:aldi"] },
 };
 
 // TWIN OF dealUnitInfo() IN public/app.js — keep the two in sync.
@@ -2109,8 +2114,24 @@ function renderChainPage(bundle) {
     .join("\n  ");
 
   const note = CHAIN_NOTES[slug] || "";
-  const title = `${label} Weekly Ad: Featured Deals & Dinner Ideas for ${dateStr} | Dishcount`;
-  const desc = `This week's ${label} deals plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
+  const fromAd = SSR_CHAINS[slug]?.weeklyAdSourced !== false;
+  const title = fromAd
+    ? `${label} Weekly Ad: Featured Deals & Dinner Ideas for ${dateStr} | Dishcount`
+    : `${label} Deals: Current Promotions & Dinner Ideas for ${dateStr} | Dishcount`;
+  const desc = fromAd
+    ? `This week's ${label} deals plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`
+    : `${label}'s current promotional prices plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
+  const eyebrowText = fromAd ? "Weekly Ads" : `${label} Deals`;
+  const introLine = fromAd
+    ? `Week of ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them.`
+    : `Updated ${_esc(dateStr)}. Here's what's on promotion at ${_esc(label)} right now, and ${bundle.recipes.length} dinners you can build from them.`;
+  const featuredHeading = fromAd
+    ? `Featured ${_esc(label)} deals this week`
+    : `${_esc(label)} items on promotion now`;
+  const moreDinnersHeading = fromAd ? "More dinners from this week's ad" : "More dinners from these deals";
+  const footSourceLine = fromAd
+    ? `Prices are from the current ${_esc(label)} ad and may vary by store.`
+    : `Prices are current promotional prices at ${_esc(label)} and may vary by store.`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2196,9 +2217,9 @@ function renderChainPage(bundle) {
   ${SITE_HEADER}
   <div class="cp-hero">
     <div class="cp-wrap">
-      <div class="cp-eyebrow">Dishcount &middot; Weekly Ads</div>
+      <div class="cp-eyebrow">Dishcount &middot; ${_esc(eyebrowText)}</div>
       <h1>${_esc(label)}'s featured deals this week</h1>
-      <p>Week of ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them. Enter your zip for the full list at your store.</p>
+      <p>${introLine} Enter your zip for the full list at your store.</p>
     </div>
   </div>
 
@@ -2206,14 +2227,14 @@ function renderChainPage(bundle) {
     ${heroCard}
 
     <section class="cp-section">
-      <h2>Featured ${_esc(label)} deals this week</h2>
+      <h2>${featuredHeading}</h2>
       <div class="cd-grid">
 ${dealCards}
       </div>
     </section>
 
     <section class="cp-section">
-      <h2>More dinners from this week's ad</h2>
+      <h2>${_esc(moreDinnersHeading)}</h2>
       <div id="cr-list">
 ${recipeCards}
       </div>
@@ -2237,7 +2258,7 @@ ${recipeCards}
   </main>
 
   <div class="cp-foot">
-    Updated ${_esc(dateStr)}. Prices are from the current ${_esc(label)} ad and may vary by store.
+    Updated ${_esc(dateStr)}. ${footSourceLine}
   </div>
   ${SITE_FOOTER}
 

@@ -2123,7 +2123,7 @@ function renderChainPage(bundle) {
     : `${label}'s current promotional prices plus ${bundle.recipes.length} dinners you can build from them, with real prices and cost per serving. Updated weekly. Free, no signup.`;
   const eyebrowText = fromAd ? "Weekly Ads" : `${label} Deals`;
   const introLine = fromAd
-    ? `Week of ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them.`
+    ? `Updated ${_esc(dateStr)}. Here are this week's best ${_esc(label)} deals and ${bundle.recipes.length} dinners you can build from them.`
     : `Updated ${_esc(dateStr)}. Here's what's on promotion at ${_esc(label)} right now, and ${bundle.recipes.length} dinners you can build from them.`;
   const featuredHeading = fromAd
     ? `Featured ${_esc(label)} deals this week`

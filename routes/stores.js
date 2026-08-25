@@ -1070,6 +1070,8 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     //   grep '"evt":"DEAL_REJECT"' render.log | jq -r '[.store,.reason,.name,.salePrice]|@tsv'
     const rejectTally = {};
     const rejects = [];
+    const keepTally = {};
+    const keeps = [];
     // Held across the filter below: the OCR_QUALITY signal measures the raw
     // extraction, so it needs the rows as the model returned them, not the
     // survivors. `unique = unique.filter(...)` rebinds to a new array, so this
@@ -1078,7 +1080,18 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
     const beforeValidate = unique.length;
     unique = unique.filter(d => {
       const reason = dealRejectReason(d);
-      if (!reason) return true;
+      if (!reason) {
+        const note = dealKeepNote(d);
+        if (note) {
+          keepTally[note] = (keepTally[note] || 0) + 1;
+          keeps.push({
+            evt: "DEAL_KEEP_NOTE", store: storeName, storeId, note,
+            name: d?.name ?? null, salePrice: d?.salePrice ?? null,
+            category: d?.category ?? null,
+          });
+        }
+        return true;
+      }
       rejectTally[reason] = (rejectTally[reason] || 0) + 1;
       const row = {
         evt: "DEAL_REJECT",
@@ -1133,6 +1146,10 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       byReason: rejectTally,
       truncated: rejects.length > MAX_STORED_REJECTS,
       rows: rejects.slice(0, MAX_STORED_REJECTS),
+      // Rows we KEPT but flagged. Same key so the audit is one read, and the
+      // byNote tally is what tells us whether the combo-tile carve-out is
+      // earning its place or should be dropped.
+      kept: { byNote: keepTally, rows: keeps.slice(0, MAX_STORED_REJECTS) },
     });
 
     // Inverted-price sanitation. OCR sometimes maps an adjacent item's compare-at
@@ -1292,6 +1309,90 @@ const PLACEHOLDER_NAME = /^(?:product|item|deal|offer|sale item|unknown)\s*#?\s*
 // both ends on purpose: "Meat" is not a product, "Meat Lovers Pizza" is.
 const CATEGORY_ONLY_NAME = /^(?:meat|produce|dairy|bakery|frozen|pantry|snacks?|beverages?|deli|seafood|household|grocery|food|other|misc|assorted)$/i;
 
+
+// ---------------------------------------------------------------------------
+// Non-food category exclusion (write time).
+//
+// The extraction taxonomy cannot carry this filter. The Vision prompt offers
+// meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/
+// household/other and has no bucket for alcohol, merchandise, gift cards, pet,
+// HBA, or floral -- so scotch lands in "beverages", a gift card and an electric
+// wheelchair both land in "other", and an air fryer lands in "household". The
+// two catch-alls are not safely rejectable either: "other" also holds Boneless
+// Wings, Coffee Mate Creamer and Gerber entrees. So these match on NAME, and
+// d.category is deliberately not consulted.
+const MERCH_NAME = /\b(?:air fryer(?! ready)|toaster oven|microwave oven|refrigerator|air conditioner|dehumidifier|humidifier|vacuum cleaner|television|headphones?|earbuds?|laptop|gazebo|patio set|lawn mower|charcoal grill|gas grill|grill combo|furniture|mattress|recliner|stroller|wheelchair|bicycle|bike helmet|toys?|hot wheels|lego|trading cards?|action figure|backpacks?|school supplies|crayons?|t-?shirts?|sneakers|bedding|comforter|towel set|serveware|utensil set|storage (?:container|basket)|food container set|mason jars?|decorative|wreath|vase|picture frame|light bulb)\b/i;
+const GIFTCARD_NAME = /\bgift ?card|prepaid card|stored[- ]value\b/i;
+const FLORAL_NAME = /\b(?:bouquet|floral arrangement|rose bunch|\broses\b|tulips?|orchid|carnation|potted plant|houseplant|succulent|mulch|potting soil|seed packet)\b/i;
+// Pet requires explicit pet context. A bare \bdog\b / \bcat\b rejected Ball Park
+// Beef Hot Dogs, Corn Dogs, and Hot Dog Buns off the live corpus.
+const PET_NAME = /\b(?:dog|cat|puppy|kitten|pet)\s+(?:food|treats?|chow|biscuits?|litter|toy|bed|bowl|collar|leash|supplies)\b|\bcat litter\b|\b(?:milk[- ]bone|greenies|pedigree|purina|friskies|meow mix|iams|blue buffalo|rawhide|pig ears?)\b/i;
+// "vitamins?" is negative-lookahead'd off Vitamin Water, which is a beverage.
+// Similac / PediaSure / Gerber / Enfamil are consumable nutrition and are
+// deliberately absent from this pattern -- they must survive to reach recipes.
+const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex)\b/i;
+const CLEAN_NAME = /\b(?:paper towels?|bath tissue|toilet paper|toilet bowl|napkins?|paper plates?|plastic (?:cutlery|wrap)|trash bags?|garbage bags?|detergent|fabric softener|dryer sheets?|bleach|disinfect(?:ing|ant)|lysol|clorox|dish soap|sponges?|scrubber|charmin|bounty|quilted northern|cottonelle|\btide\b|downy|oxiclean|swiffer|air freshener|febreze|candles?)\b/i;
+
+// Alcohol and tobacco. Regulated advertising, so this group is handled by
+// segment (below) rather than by a whole-name match: it must never release an
+// actual bottle, can, or pack.
+const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
+
+// An edible noun beside the match means the brand is being used as a flavour,
+// not sold as itself: Jack Daniel's Sausage Links, bourbon-glazed salmon.
+const EDIBLE_VETO = /\b(?:sausages?|brats?|bratwurst|links?|salmon|cod|tilapia|shrimp|chicken|beef|pork|turkey|steak|ribs?|bacon|jerky|buns?|sauces?|marinade|mustard|dip|cheese|wings|popcorn|cake|pie|ice cream|coffee|creamer|chocolate|entr[eé]e|ready)\b/i;
+const CULINARY_USE = /\b(?:glazed?|battered|braised|infused|marinated|smoked|seasoned|flavou?red|barbecue|bbq|style)\b/i;
+const FOODY_SEGMENT = /\b(?:chicken|beef|pork|cheese|milk|bread|cereal|pasta|rice|apple|banana|salad|soup|sauce|juice|coffee|snack|cookie|pizza|sandwich|wings|yogurt|egg|butter|fruit|vegetable)\b/i;
+// Ad tiles list several products in one name: "White Castle, Twisted Tea, Bare
+// Republic or Snapple Beverages". Splitting lets one brand be judged without
+// condemning the other three.
+const SEGMENT_SPLIT = /\s*(?:,|\bor\b|\band\b|&|\/)\s*/i;
+
+// Returns {reject: reason} | {keep: note} | {}.
+function classifyNonFood(name) {
+  const segments = String(name).split(SEGMENT_SPLIT).map(s => s.trim()).filter(Boolean);
+
+  // Alcohol first, and exempt from the combo-tile keep below. The veto releases
+  // a bourbon glaze but never a bottle: it is applied per segment, so "Bell's
+  // Beer or Fresh from Meijer Brats" still rejects on its first segment even
+  // though "Brats" appears later in the name.
+  const alcoholSegments = segments.filter(s => ALCOHOL_NAME.test(s));
+  if (alcoholSegments.length) {
+    const standalone = alcoholSegments.filter(s => !EDIBLE_VETO.test(s) && !CULINARY_USE.test(s));
+    if (standalone.length) {
+      return { reject: segments.length >= 2 ? "alcohol in combo tile" : "alcohol" };
+    }
+  }
+
+  const groups = [
+    ["gift card", GIFTCARD_NAME],
+    ["pet", PET_NAME],
+    ["health and beauty", HBA_NAME],
+    ["cleaning and paper goods", CLEAN_NAME],
+    ["general merchandise", MERCH_NAME],
+    ["floral and plants", FLORAL_NAME],
+  ];
+  for (const [reason, re] of groups) {
+    if (!re.test(name)) continue;
+    if ((reason === "general merchandise" || reason === "floral and plants") && EDIBLE_VETO.test(name)) continue;
+    // Multi-product tile carrying real food alongside the match: keep the row
+    // and log why, rather than losing the food. Alcohol never reaches here.
+    if (segments.length >= 3 && segments.some(s => FOODY_SEGMENT.test(s))) {
+      return { keep: `combo tile kept (${reason})` };
+    }
+    return { reject: reason };
+  }
+  return {};
+}
+
+// Note attached to a row that was KEPT but is worth measuring. Null for the
+// ordinary case.
+function dealKeepNote(d) {
+  const name = String(d?.name ?? "").trim();
+  if (!name) return null;
+  return classifyNonFood(name).keep || null;
+}
+
 // Returns null when the row is storable, otherwise a short reason string.
 // Deliberately does NOT enforce curateChainDeals' salePrice < 40 ceiling: that
 // is a display-ranking judgement, and a $45 meat bundle is a real deal worth
@@ -1302,6 +1403,11 @@ function dealRejectReason(d) {
   if (name.length <= 2) return "name too short";
   if (PLACEHOLDER_NAME.test(name)) return "placeholder name";
   if (CATEGORY_ONLY_NAME.test(name)) return "bare category as name";
+  const nonFood = classifyNonFood(name);
+  if (nonFood.reject) return nonFood.reject;
+  // NON_FOOD_NAME stays as a backstop: it still carries charcoal, propane,
+  // greeting card and diaper, and curateChainDeals shares it for Kroger rows,
+  // which never pass through this write path.
   if (NON_FOOD_NAME.test(name)) return "non-food";
   if (JUNK_NAME.test(name)) return "junk phrase";
   if (BOILERPLATE_ONLY_NAME.test(name)) return "ad boilerplate as name";

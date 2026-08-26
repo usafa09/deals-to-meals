@@ -4,11 +4,11 @@ import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip, servableChainIds,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
-  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, WEEKLYAD_OCR_ONLY, parseAdValidity,
+  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, WEEKLYAD_OCR_ONLY, parseAdValidity, checkSourceTerms,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
-import { notifyStoreRequest } from "../lib/email.js";
+import { notifyStoreRequest , notifyTermsDrift } from "../lib/email.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -2338,6 +2338,36 @@ async function buildChainBundle(slug) {
 // Weekly: refresh the pinned Kroger store's deals, generate one recipe from the
 // fresh pool, map its used sale-items back to cards, backfill to 6, cache the
 // {recipe, cards} bundle. Called by the Wednesday cron (x-internal-token gated).
+// ══ SOURCE TERMS DRIFT ═══════════════════════════════════════════════════════
+// Runs on the weekly cron. Hashes each source's terms page and reports any
+// change. It does not block extraction and does not interpret the change: a
+// terms page can be reworded without altering what it permits, and only a
+// person can tell the difference.
+router.post("/api/cron/terms-drift", async (req, res) => {
+  const token = req.headers["x-internal-token"];
+  if (!token || token !== process.env.INTERNAL_API_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const results = await checkSourceTerms();
+  const changed = results.filter(r => r.status === "CHANGED");
+  for (const r of results) {
+    if (r.status === "CHANGED") {
+      console.error(JSON.stringify({ evt: "SOURCE_TERMS_CHANGED", ...r }));
+    } else if (r.status === "unreachable" || r.status === "error") {
+      console.warn(JSON.stringify({ evt: "SOURCE_TERMS_UNREACHABLE", ...r }));
+    } else {
+      console.log(`  terms ${r.id}: ${r.status}`);
+    }
+  }
+  if (changed.length) {
+    // Fire and forget. A mail failure must not fail the cron step, which would
+    // read as an extraction problem.
+    notifyTermsDrift(changed).catch(err =>
+      console.error(`notifyTermsDrift threw: ${err?.message || err}`));
+  }
+  res.json({ checked: results.length, changed: changed.length, results });
+});
+
 router.post("/api/cron/refresh-preview", async (req, res) => {
   const token = req.headers["x-internal-token"];
   if (!token || token !== process.env.INTERNAL_API_TOKEN) {

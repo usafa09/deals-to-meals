@@ -251,6 +251,21 @@ jobs:
             exit 1
           fi
 
+      # Notification only. Never fails the run: a terms change is something for a
+      # person to read, and it must not look like an extraction failure.
+      - name: Check source terms for drift
+        continue-on-error: true
+        run: |
+          BASE="https://dishcount.co/api"
+          RESP=$(curl -s --max-time 60 -X POST "$BASE/cron/terms-drift" \
+            -H "x-internal-token: $INTERNAL_TOKEN")
+          echo "Response: $RESP"
+          CHANGED=$(echo "$RESP" | grep -o '"changed":[0-9]*' | sed 's/.*://')
+          if [ "$CHANGED" != "0" ] && [ -n "$CHANGED" ]; then
+            echo "::warning::A source terms page changed. Bill has been emailed. Read it and decide whether the source can still be used, then update the baseline hash in lib/utils.js SOURCE_TERMS."
+          else
+            echo "No terms drift."
+          fi
       - name: Refresh homepage preview bundle (deals + recipe)
         run: |
           BASE="https://dishcount.co/api"

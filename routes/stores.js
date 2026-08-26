@@ -1363,38 +1363,62 @@ const stripCell = (s) => s
 // for the reject log.
 const NON_ABSOLUTE_PRICE = /\bfree\b|\bbogo\b|buy\s*\d*\s*get|\d\s*%\s*off|\boff\b/i;
 
-// "2 for $5" / "3/$5" state a real total. It is stored as the total, never
-// divided: a per-unit price would be our arithmetic, not the store's claim.
-const MULTI_BUY = /\b(\d+)\s*(?:for|\/)\s*\$?\s*(\d+(?:\.\d{1,2})?)/i;
+// Prices contingent on quantity: "2 for $5", "3/$5", "2$5 for Member Price",
+// "Mix & Match ... WHEN YOU BUY 6 OR MORE". The figure is a group total or a
+// bulk rate, not what one item costs, and we do not divide to find out.
+// Matched loosely on "for" because the source concatenates without spaces
+// ("2$6forMember Price"); a price cell has no other reason to contain the word.
+const MULTI_BUY = /for|\d\s*\/\s*\$?\d|when you buy|mix\s*&?\s*match/i;
+
+// Unit tokens, read only where they actually appear. The source concatenates
+// marketing text onto the price ("899Member Price"), so a naive "word after the
+// number" rule produced units of "Member" and "Mix" on 50 Safeway rows.
+function tableUnit(text) {
+  if (/(?:^|[^a-z])(?:lbs?|pounds?)\b/i.test(text)) return "lb";
+  return "";   // "ea"/"each" is the absence of a unit, like dealUnitInfo treats it
+}
 
 // Returns { salePrice, unit, promoText }. salePrice is null when the cell
 // carries no payable amount.
+//
+// The source encodes prices four different ways and getting this wrong ships
+// absurd numbers: "59¢" once parsed as $59.00, and Safeway writes its prices
+// with no decimal at all, so "899Member Price" parsed as $899.00 on 59 of its
+// 181 rows. Each form is matched explicitly rather than by grabbing the first
+// number in the string.
 function parseTablePrice(raw) {
   const text = stripCell(String(raw ?? ""));
-  if (!text) return { salePrice: null, unit: "", promoText: "" };
+  const none = { salePrice: null, unit: "", promoText: "" };
+  if (!text) return none;
   if (NON_ABSOLUTE_PRICE.test(text)) return { salePrice: null, unit: "", promoText: text };
-
-  // "2 for $5" names a group total, not the price of one item. Storing 5.00
-  // would tell a user one item costs $5.00 when it costs $2.50, and dividing
-  // to get 2.50 would be our arithmetic rather than the store's claim. So the
-  // row is treated as carrying no absolute price and rejected alongside BOGO,
-  // keeping the condition for the log. One line to reverse once promoText
-  // renders.
   if (MULTI_BUY.test(text)) return { salePrice: null, unit: "", promoText: text };
-  // Strip leading words ("sale 2.99 lb.") and any currency symbol, then take the
-  // first number and whatever unit suffix trails it ("10.99lb.", "1.99 EA").
-  const m = text.match(/(\d+(?:\.\d+)?)\s*([A-Za-z.\/]*)/);
-  if (!m) return { salePrice: null, unit: "", promoText: text };
-  const value = parseFloat(m[1]);
-  if (!Number.isFinite(value) || value <= 0) return { salePrice: null, unit: "", promoText: text };
 
-  let unit = (m[2] || "").replace(/\.$/, "").trim();
-  if (/^(?:ea|each)$/i.test(unit)) unit = "";           // "each" is the absence of a unit
-  else if (/^(?:lb|lbs|pound|pounds)$/i.test(unit)) unit = "lb";
-  else if (unit && !/^[A-Za-z]{1,6}$/.test(unit)) unit = "";
+  const unit = tableUnit(text);
+  const ok = (v) => (Number.isFinite(v) && v > 0 ? { salePrice: v.toFixed(2), unit, promoText: "" } : none);
 
-  return { salePrice: value.toFixed(2), unit, promoText: "" };
+  // 1. Cents: "59¢", "99¢ ea".
+  const cents = text.match(/(\d{1,3})\s*¢/);
+  if (cents) return ok(parseInt(cents[1], 10) / 100);
+
+  // 2. Explicit decimal, with or without a currency symbol: "$8.99", "2.99 lb",
+  //    "10.99lb.", "sale 2.99 lb.".
+  const dec = text.match(/\$?\s*(\d+\.\d{1,2})(?!\d)/);
+  if (dec) return ok(parseFloat(dec[1]));
+
+  // 3. Whole dollars, explicitly marked: "$5 Member Price".
+  const dollars = text.match(/\$\s*(\d+)(?!\d)/);
+  if (dollars) return ok(parseInt(dollars[1], 10));
+
+  // 4. No decimal and no currency symbol: the trailing two digits are cents.
+  //    "899Member Price" -> 8.99, "2069Mix & Match" -> 20.69, "1299lb" -> 12.99.
+  //    Bounded to 3-4 digits: every 1-2 digit bare cell in the corpus is a
+  //    percent-off, already rejected above, and 5+ digits is not a grocery price.
+  const bare = text.match(/^(\d{3,4})(?!\d)/);
+  if (bare) return ok(parseInt(bare[1], 10) / 100);
+
+  return { salePrice: null, unit: "", promoText: text };
 }
+
 
 const MONTHS_LONG = ["january","february","march","april","may","june","july","august","september","october","november","december"];
 // "Valid 26 August - 1 September" / "Valid 23 August – 29 August 2026". The year

@@ -78,12 +78,28 @@ measurement; this is what was done with them.
 Rows stored is post-gate: after the A1 non-food classifier and dealRejectReason,
 which is the same gate the OCR path feeds.
 
-| chain | OCR cache (food rows) | table, stored | gain | multi-buy rejected | ad window parsed |
+| chain | OCR cache (food rows) | table, stored | gain | promo rejected | ad window parsed |
 |---|---|---|---|---|---|
-| safeway | 71 | 138 | +67 | 23 | 26 Aug - 1 Sep |
+| safeway | 71 | 121 | +50 | 38 | 26 Aug - 1 Sep |
 | sprouts | 20 | 56 | +36 | 26 | none |
 | aldi | 67 | 85 | +18 | 0 | none |
-| **total** | **158** | **279** | **+121** | 49 | |
+| **total** | **158** | **262** | **+104** | 64 | |
+
+**Revised 2026-08-25**, after two parser corrections. The figures first recorded
+here were +67 for Safeway and +121 overall; both were inflated by parser defects,
+not by a change of policy.
+
+The larger cause was the price parser. It took the leading number in the price
+cell, which is wrong for most forms the source uses: "59¢" parsed as $59.00, and
+Safeway writes prices with no decimal point at all, so "899Member Price" parsed
+as $899.00 on 59 of its 181 rows. Fixing that also taught MULTI_BUY to recognise
+"2$5 for Member Price", "WHEN YOU BUY 6 OR MORE" and "Mix & Match" -- quantity
+conditions whose figure is a bulk rate rather than what one item costs. Those
+rows now correctly store no price, which moved Safeway from 138 stored to 122.
+
+The second cause was the alcohol list, which held named brands but not
+brand-only names. Adding Fireball, Tito's, Jameson, Bacardi, Patrón and similar
+rejected one further Safeway row, giving 121.
 
 Zero Vision calls for all three.
 

@@ -1489,11 +1489,11 @@ const CLEAN_NAME = /\b(?:paper towels?|bath tissue|toilet paper|toilet bowl|napk
 // Alcohol and tobacco. Regulated advertising, so this group is handled by
 // segment (below) rather than by a whole-name match: it must never release an
 // actual bottle, can, or pack.
-const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
+const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly|fireball|tito'?s|jameson|bacardi|patr[oó]n|absolut|grey goose|hennessy|crown royal|jim beam|maker'?s mark|johnnie walker|bombay|tanqueray|casamigos|cazadores|malibu|kahlua|bailey'?s|jose cuervo|svedka|apothic|yellow ?tail|la marca|veuve|josh cellars)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
 
 // An edible noun beside the match means the brand is being used as a flavour,
 // not sold as itself: Jack Daniel's Sausage Links, bourbon-glazed salmon.
-const EDIBLE_VETO = /\b(?:sausages?|brats?|bratwurst|links?|salmon|cod|tilapia|shrimp|chicken|beef|pork|turkey|steak|ribs?|bacon|jerky|buns?|sauces?|marinade|mustard|dip|cheese|wings|popcorn|cake|pie|ice cream|coffee|creamer|chocolate|entr[eé]e|ready)\b/i;
+const EDIBLE_VETO = /\b(?:sausages?|brats?|bratwurst|links?|salmon|cod|tilapia|shrimp|chicken|beef|pork|turkey|steak|ribs?|bacon|jerky|buns?|sauces?|marinade|mustard|dip|cheese|wings|popcorn|cake|pie|ice cream|coffee|creamer|chocolate|cand(?:y|ies)|entr[eé]e)\b/i;
 const CULINARY_USE = /\b(?:glazed?|battered|braised|infused|marinated|smoked|seasoned|flavou?red|barbecue|bbq|style)\b/i;
 const FOODY_SEGMENT = /\b(?:chicken|beef|pork|cheese|milk|bread|cereal|pasta|rice|apple|banana|salad|soup|sauce|juice|coffee|snack|cookie|pizza|sandwich|wings|yogurt|egg|butter|fruit|vegetable)\b/i;
 // Ad tiles list several products in one name: "White Castle, Twisted Tea, Bare

@@ -1378,6 +1378,38 @@ const BANNER_INFO = {
   "vons":{emoji:"🔴",color:"#E21836"},"carrs":{emoji:"🏪",color:"#E21836"},
   "whole foods":{emoji:"🌱",color:"#016936"},"foodtown":{emoji:"🛒",color:"#C8102E"},"drexel":{emoji:"🛒",color:"#C8102E"},
 };
+// Chains we deliberately show in the store selector but cannot supply deals for.
+// These are NOT sourced from Google Places. Walmart only appeared in the list at
+// all because a stale walmart:national row in deal_cache set hasDeals, and the
+// Places results are filtered to stores we can actually get ads for -- so once
+// that row went, the chain would have vanished and this state would never have
+// rendered. Listing them here makes the appearance deliberate and independent of
+// whatever Places happens to return.
+//
+// Adding a chain is one entry. If a regional chain is ever added, it will need a
+// flag to show only where Places actually returned it; Walmart is near-universal
+// in the US, so unconditional display is correct for it.
+const UNAVAILABLE_CHAINS = [
+  {
+    name: "Walmart",
+    label: "Not available",
+    body: "Walmart uses everyday low pricing instead of weekly ads, so there's less to plan around. We only show deals we can source and verify.",
+  },
+];
+
+// Appends the unavailable chains to a built brand list, replacing any same-named
+// entry so a stale cache cannot render the chain twice -- once selectable, once
+// disabled. Unavailable entries sort last.
+function withUnavailableChains(brands) {
+  const blocked = new Set(UNAVAILABLE_CHAINS.map(c => c.name.toLowerCase()));
+  const kept = brands.filter(b => !blocked.has(String(b.name).toLowerCase()));
+  const extra = UNAVAILABLE_CHAINS.map(c => {
+    const info = getBanner(c.name);
+    return { ...c, emoji: info.emoji, color: info.color, stores: [], hasDeals: false, unavailable: true };
+  });
+  return [...kept, ...extra];
+}
+
 // Hyphen/underscore normalized on both sides so keys like "save a lot" match
 // inputs like "Save-A-Lot" and vice-versa, and existing hyphenated keys
 // (h-e-b, hy-vee, winn-dixie) still match space-separated inputs.
@@ -1488,6 +1520,9 @@ async function findStores() {
       e.isZeroResult = true;
       throw e;
     }
+    // Deliberately after the zero-result throw above: injecting a chain we cannot
+    // serve must never make an empty result look populated.
+    state.storeBrands = withUnavailableChains(state.storeBrands);
     await renderStoreBrands(); goTo(2);
   } catch(err){
     if (err.isZeroResult) {
@@ -1507,7 +1542,18 @@ async function findStores() {
 async function renderStoreBrands() {
   await ensureAppScreens();
   document.getElementById("storesTitle").textContent=`Stores near ${state.zip}`;
-  document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>`
+  const unavailableCard = (b) => `
+    <div class="card card-unavailable" aria-disabled="true">
+      <div class="store-row">
+        <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(b.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(b.emoji)}</div>
+        <div style="flex:1">
+          <div class="store-name">${escapeHtml(b.name)}</div>
+          <div class="store-unavailable-label">${escapeHtml(b.label)}</div>
+          <div class="store-unavailable-body">${escapeHtml(b.body)}</div>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("storesList").innerHTML=state.storeBrands.map(b=>b.unavailable?unavailableCard(b):`
     <div class="card clickable" id="brand-${b.name.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleBrand('${escapeHtml(b.name).replace(/'/g,"\\'")}')">
       <div class="store-row">
         <div style="width:44px;height:44px;border-radius:12px;background:${escapeHtml(b.color)};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${escapeHtml(b.emoji)}</div>
@@ -1564,6 +1610,10 @@ function submitStoreRequest() {
     }).catch(()=>showToast("Something went wrong. Try again."));
 }
 async function toggleBrand(name) {
+  // Unreachable from the UI -- an unavailable card carries no handler -- but the
+  // guard also stops the on-demand extraction path below from firing for a chain
+  // we have no source for.
+  if (UNAVAILABLE_CHAINS.some(c => c.name.toLowerCase() === String(name).toLowerCase())) return;
   const brand=state.storeBrands.find(b=>b.name===name);
   const elId=`brand-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const addrId=`addr-${name.replace(/[^a-zA-Z0-9]/g,'_')}`;

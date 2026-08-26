@@ -795,9 +795,6 @@ router.post("/api/extract-store", async (req, res) => {
   try {
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { extractingStores.delete(storeId); return; }
-    await acquireExtractSlot(storeName);
-    slotAcquired = true;
-
     const pageRes = await fetch(adUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -816,10 +813,24 @@ router.post("/api/extract-store", async (req, res) => {
     let adValidFrom = null, adValidTo = null;
     try {
       ({ adValidFrom, adValidTo } = parseAdValidity(html));
-      if (adValidTo && new Date(adValidTo) < new Date()) {
-        console.warn(`On-demand: ${storeName} — source ad is EXPIRED (valid to ${adValidTo}). Extracting anyway; Friday re-pass will retry.`);
-      }
     } catch (e) { console.error("Ad validity parse error:", e.message); }
+
+    // Stale-write guard. An extraction off an already-expired source page used
+    // to run to completion and overwrite the cache row, and a source that has
+    // rotated its ad away yields few rows or none -- at which point the
+    // zero-deal branch below clears the row outright. Post region-scoping that
+    // turns one stale aggregator page into an empty market: a stale ALDI would
+    // zero Boston, which is served by ALDI alone. An expired source has nothing
+    // to contribute, so refuse before spending a concurrency slot or a Vision
+    // call and leave whatever is cached in place for the next cycle.
+    if (adValidTo && Date.parse(adValidTo) < Date.now()) {
+      console.warn(`${storeName}: source ad expired ${adValidTo.slice(0, 10)}, refusing to overwrite cache`);
+      extractingStores.delete(storeId);
+      return;
+    }
+
+    await acquireExtractSlot(storeName);
+    slotAcquired = true;
 
     // Table-sourced chains parse rows straight out of the served markup. The
     // rows are shaped exactly like the OCR path's, so everything downstream --

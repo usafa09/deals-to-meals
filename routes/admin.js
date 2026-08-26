@@ -417,13 +417,16 @@ router.post("/api/admin/cache-cleanup", adminAuth, async (req, res) => {
       if (error) throw new Error(error.message);
       res.json({ deleted: 1, message: `Removed ${key}` });
     } else {
-      // Delete all stale entries. ad-reject: rows are swept separately: they are
-      // a forensic record of what extraction refused to store, not a cache, so
-      // the 24h deal TTL would delete them the same day they were written.
+      // Delete all stale entries. Two prefixes are carved out because they are
+      // records rather than caches, and the 24h deal TTL would delete them the
+      // same day they were written: ad-reject: is the forensic record of what
+      // extraction refused to store, and xcheck: accumulates per-chain table-vs-OCR
+      // agreement rates, which are worthless if they cannot span runs.
       const cutoff = new Date(Date.now() - DEAL_CACHE_TTL).toISOString();
       const { data, error } = await supabase.from("deal_cache").delete()
         .lt("fetched_at", cutoff)
         .not("cache_key", "like", "ad-reject:%")
+        .not("cache_key", "like", "xcheck:%")
         .select("cache_key");
       if (error) throw new Error(error.message);
 

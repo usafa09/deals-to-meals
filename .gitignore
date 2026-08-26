@@ -18,3 +18,8 @@ scripts/analysis/output/
 # Exception: the ad_regions restore point is Dishcount's own metadata and is
 # the only copy of the 9,000 rows deleted on 2026-08-26. It stays committed.
 !migrations/*-backup*.json
+
+# Local data dumps. Third-party ad content, machine-local, never committed.
+.local-data/
+aldi-*.json
+.tmp-verify/

@@ -307,7 +307,7 @@ jobs:
           PREVIEW=$(curl -s --max-time 30 "$BASE/api/deals/preview")
           COUNT=$(echo "$PREVIEW" | grep -o '"count":[0-9]*' | head -1 | cut -d: -f2)
           if [ -z "$COUNT" ] || [ "$COUNT" -lt 1 ]; then
-            echo "::error::Homepage preview has NO deal cards. Response: $PREVIEW"
+            echo "::error::Homepage preview has NO deal cards. The preview section is invisible to every visitor. Response: $PREVIEW"
             FAILED=1
           else
             echo "  OK $COUNT deal cards"
@@ -317,7 +317,7 @@ jobs:
           if echo "$RECIPE" | grep -q '"title"'; then
             echo "  OK recipe: $(echo "$RECIPE" | grep -o '"title":"[^"]*"' | head -1 | cut -d'"' -f4)"
           else
-            echo "::error::Homepage preview recipe is MISSING. Response: $RECIPE"
+            echo "::error::Homepage preview recipe is MISSING. The recipe card is invisible. Response: $RECIPE"
             FAILED=1
           fi
 

@@ -67,3 +67,58 @@ Run 2026-08-25. Table only, no flyer images fetched. 1 req/sec, honest UA. No 40
 - 23 of 36 head-to-head chains have cache older than the 8-day serving TTL, so their OCR figures describe data that is not served today.
 - Only 13 chains are a fair like-for-like comparison. Table wins 7 of those 13.
 - food city returns a table with 0 rows.
+
+## Selection outcome
+
+Decided 2026-08-25, shipped in d008674. The numbers above are the raw
+measurement; this is what was done with them.
+
+### Shipped to TABLE_SOURCED
+
+Rows stored is post-gate: after the A1 non-food classifier and dealRejectReason,
+which is the same gate the OCR path feeds.
+
+| chain | OCR cache (food rows) | table, stored | gain | multi-buy rejected | ad window parsed |
+|---|---|---|---|---|---|
+| safeway | 71 | 138 | +67 | 23 | 26 Aug - 1 Sep |
+| sprouts | 20 | 56 | +36 | 26 | none |
+| aldi | 67 | 85 | +18 | 0 | none |
+| **total** | **158** | **279** | **+121** | 49 | |
+
+Zero Vision calls for all three.
+
+### Held
+
+| chain | OCR cache | table, stored | delta | multi-buy rejected |
+|---|---|---|---|---|
+| food lion | 167 | 149 | -18 | 59 |
+| winn dixie | 150 | 83 | -67 | 105 |
+| meijer | 187 | 115 | -72 | 106 |
+
+These three measured as wins on raw food rows and were dropped anyway. Under the
+multi-buy rule below they store fewer rows than their OCR cache -- but the
+comparison is not sound in either direction. The OCR prompt derives a per-unit
+price from a B1G1 offer at routes/stores.js:868 ("B1G1 on a $4 item -> 2.00"),
+which is exactly the inference the table path refuses. Part of OCR's higher count
+for these chains is therefore arithmetic we decided not to do, so the two numbers
+are not measuring the same thing.
+
+They stay on OCR pending a decision on whether OCR should keep deriving those
+prices. Adding each back is one line in TABLE_SOURCED.
+
+### The multi-buy rule
+
+Rows priced only as a multi-buy ("2 for $5") or B1G1 store no salePrice. They are
+rejected under "promo without absolute price" with the condition preserved in
+promoText, so the volume stays measurable.
+
+Storing 5.00 for "2 for $5" would tell a user one item costs $5.00 when it costs
+$2.50, and dividing to 2.50 would be our arithmetic rather than the store's
+claim. Neither is acceptable while the condition is invisible -- and it is
+invisible: the SSR bundle whitelist drops any field it does not name, and neither
+the SSR deal card nor public/app.js renders a promo condition. That gap predates
+this work; the OCR prompt has collected a dealType field ("sale/bogo/percent_off")
+for some time and nothing has ever rendered it either.
+
+This is a temporary constraint. Once a card shows the condition, multi-buy can
+store its total and the rule reverses in one line.

@@ -390,6 +390,18 @@ router.get("/api/deals/regional", async (req, res) => {
       ...adExtractDeals,
     ];
 
+    // Backfill priceType across every lane. Rows cached before this shipped lack
+    // the field, and Kroger and ALDI arrive on their own lanes that never touch
+    // the ad-extract merge, so a backfill applied only there left two thirds of a
+    // typical market untyped. Absent means absolute: all three lanes were written
+    // under a gate that refused to store an unpriced row. The renderer must never
+    // have to infer this.
+    allDeals = allDeals.map(d => {
+      const t = d.priceType;
+      if (t === "promo" || t === "multibuy" || t === "absolute") return d;
+      return { ...d, priceType: "absolute" };
+    });
+
     // Deduplicate: keep the one with better price data
     const beforeDedup = allDeals.length;
     const seen = new Map();
@@ -1323,7 +1335,30 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       image: getCategoryImage(d.category),
       adSourceUrl: adUrl,
       adValidFrom, adValidTo,
+      // Never absent. OCR-path rows are absolute by construction: that path has
+      // no offer branch and still refuses to store an unpriced row.
+      priceType: d.priceType === "promo" || d.priceType === "multibuy" ? d.priceType : "absolute",
     }));
+
+    // INVARIANT: a stored row carries a price or an offer, never neither. Without
+    // this, a regression in either branch ships rows that render as a name and
+    // nothing else, and the grid cannot tell that from a bug.
+    {
+      const mute = (d) => {
+        const noPrice = d.salePrice == null || String(d.salePrice).trim() === "";
+        const noPromo = typeof d.promoText !== "string" || d.promoText.trim() === "";
+        return noPrice && noPromo;
+      };
+      const violations = unique.filter(mute);
+      if (violations.length) {
+        console.error(JSON.stringify({
+          evt: "INVARIANT_VIOLATION", store: storeName, storeId,
+          detail: "row with null salePrice and empty promoText",
+          count: violations.length, sample: violations.slice(0, 3).map(d => d.name),
+        }));
+        unique = unique.filter(d => !mute(d));
+      }
+    }
 
     if (unique.length > 0) {
       await setCachedDeals(`ad-extract:${storeId}`, unique);
@@ -1467,8 +1502,15 @@ function tableUnit(text) {
   return "";   // "ea"/"each" is the absence of a unit, like dealUnitInfo treats it
 }
 
-// Returns { salePrice, unit, promoText }. salePrice is null when the cell
-// carries no payable amount.
+// Returns { salePrice, unit, promoText, priceType, groupCount?, groupTotal? }.
+//
+// priceType names what the cell actually said, because "no price" and "an offer
+// instead of a price" are different facts and the caller has to tell them apart.
+// "promo" is a discount with no payable amount ("Buy 1 Get 1 FREE"). "multibuy"
+// is a price contingent on quantity ("2 for $5"), and for those the group count
+// and total are captured as DATA where they parse cleanly. They are NOT divided:
+// what one item costs is not something the ad states, and deriving it is a
+// separate decision that stays open.
 //
 // The source encodes prices four different ways and getting this wrong ships
 // absurd numbers: "59¢" once parsed as $59.00, and Safeway writes its prices
@@ -1477,13 +1519,37 @@ function tableUnit(text) {
 // number in the string.
 function parseTablePrice(raw) {
   const text = stripCell(String(raw ?? ""));
-  const none = { salePrice: null, unit: "", promoText: "" };
+  const none = { salePrice: null, unit: "", promoText: "", priceType: "absolute" };
   if (!text) return none;
-  if (NON_ABSOLUTE_PRICE.test(text)) return { salePrice: null, unit: "", promoText: text };
-  if (MULTI_BUY.test(text)) return { salePrice: null, unit: "", promoText: text };
+  if (NON_ABSOLUTE_PRICE.test(text)) return { salePrice: null, unit: "", promoText: text, priceType: "promo" };
+  if (MULTI_BUY.test(text)) {
+    const out = { salePrice: null, unit: "", promoText: text, priceType: "multibuy" };
+    // Count and total are read separately, because the source states them with
+    // independent reliability. The count is always a plain leading integer
+    // ("2 for ...", "3/...", "2$5 for Member Price"). The total is captured ONLY
+    // when written unambiguously, with a currency symbol or a decimal point:
+    // this source also writes "2 for 800" meaning $8.00, the same no-decimal
+    // encoding handled below for absolute prices, and nothing distinguishes 800
+    // meaning $8.00 from 800 meaning $800 except guessing. So a bare total is
+    // dropped and the count is kept, rather than losing both or storing a wrong
+    // number. Neither is ever divided into a per-item price.
+    const gc = text.match(/^\s*(\d+)\s*(?:for\b|\/|\$)/i);
+    if (gc) {
+      const count = parseInt(gc[1], 10);
+      if (Number.isFinite(count) && count > 1) out.groupCount = count;
+    }
+    const gt = text.match(/(?:\$\s*(\d+(?:\.\d{1,2})?)|(?<![\d.])(\d+\.\d{1,2}))(?!\d)/);
+    if (gt && out.groupCount) {
+      const total = parseFloat(gt[1] ?? gt[2]);
+      if (Number.isFinite(total) && total > 0) out.groupTotal = total.toFixed(2);
+    }
+    return out;
+  }
 
   const unit = tableUnit(text);
-  const ok = (v) => (Number.isFinite(v) && v > 0 ? { salePrice: v.toFixed(2), unit, promoText: "" } : none);
+  const ok = (v) => (Number.isFinite(v) && v > 0
+    ? { salePrice: v.toFixed(2), unit, promoText: "", priceType: "absolute" }
+    : none);
 
   // 1. Cents: "59¢", "99¢ ea".
   const cents = text.match(/(\d{1,3})\s*¢/);
@@ -1505,7 +1571,7 @@ function parseTablePrice(raw) {
   const bare = text.match(/^(\d{3,4})(?!\d)/);
   if (bare) return ok(parseInt(bare[1], 10) / 100);
 
-  return { salePrice: null, unit: "", promoText: text };
+  return { salePrice: null, unit: "", promoText: text, priceType: "promo" };
 }
 
 
@@ -1516,7 +1582,7 @@ function parseWeeklyAdTable(html) {
     const cells = [...match[1].matchAll(TABLE_CELL_RE)].map(c => stripCell(c[1]));
     const name = cells[0] || "";
     if (!name) continue;
-    const { salePrice, unit, promoText } = parseTablePrice(cells[2]);
+    const { salePrice, unit, promoText, priceType, groupCount, groupTotal } = parseTablePrice(cells[2]);
     out.push({
       name,
       brand: cells[1] || "",
@@ -1525,6 +1591,9 @@ function parseWeeklyAdTable(html) {
       regularPrice: null,
       category: cells[4] || "",
       promoText: promoText || "",
+      priceType: priceType || "absolute",
+      ...(groupCount ? { groupCount } : {}),
+      ...(groupTotal ? { groupTotal } : {}),
     });
   }
   return out;
@@ -1633,12 +1702,17 @@ function dealRejectReason(d) {
   if (JUNK_NAME.test(name)) return "junk phrase";
   if (BOILERPLATE_ONLY_NAME.test(name)) return "ad boilerplate as name";
   const raw = d?.salePrice;
-  // A table row whose price cell states a discount rather than a payable amount
-  // ("Buy 1 Get 1 FREE", "$5 Off"). It is rejected like any unpriced row, but
-  // under its own reason so the volume stays measurable, and promoText rides
-  // into the ad-reject: row. The shared gate is NOT relaxed: nothing with a null
-  // salePrice is stored, on this path or the OCR one.
-  if ((raw == null || String(raw).trim() === "") && d?.promoText) return "promo without absolute price";
+  // A row is valid with an absolute price OR with an offer stated in words. A
+  // cell reading "Buy 1 Get 1 FREE" is real information about a real deal, and
+  // refusing it threw away 81 of Publix's 127 rows. What we still refuse to do
+  // is invent a per-unit number for it, so the row is stored with a null
+  // salePrice and renders as its offer text.
+  //
+  // Every name-based rejection above runs FIRST and is unchanged, so alcohol,
+  // health and beauty, merchandise and floral still reject before price is
+  // considered. Offer rows inherit all of it.
+  const hasPromo = typeof d?.promoText === "string" && d.promoText.trim() !== "";
+  if ((raw == null || String(raw).trim() === "") && hasPromo) return null;
   if (raw == null || String(raw).trim() === "") return "empty salePrice";
   const sale = parseFloat(String(raw).replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(sale) || sale <= 0) return "zero or unparseable salePrice";

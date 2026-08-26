@@ -421,6 +421,29 @@ async function handleRecipeGeneration(req, res) {
   let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
+
+  // An offer row states a deal, not a price, so it cannot take part in cost
+  // math. It is dropped here, before the savings arithmetic and before the
+  // model sees anything.
+  //
+  // This is not belt-and-braces with the client filter, it is the load-bearing
+  // one. The cost math coerces a missing price with parseFloat(x || "0") || 0,
+  // so an offer row does not error, it prices at $0.00 and quietly inflates the
+  // savings figure. The client can be stale, bypassed, or replaced. This cannot.
+  {
+    const isAbsolute = (i) => {
+      const t = i && i.priceType;
+      return t === undefined || t === null || t === "absolute";
+    };
+    const before = ingredients.length;
+    ingredients = ingredients.filter(isAbsolute);
+    if (ingredients.length !== before) {
+      console.log(`  recipe ingredients: ${before} -> ${ingredients.length} (dropped ${before - ingredients.length} offer rows with no unit price)`);
+    }
+    if (!ingredients.length) {
+      return res.status(400).json({ error: "None of the selected deals have a per-item price, so we cannot cost a recipe from them. Pick a few priced deals as well." });
+    }
+  }
   if (ingredients.length > 500) return res.status(400).json({ error: "Too many ingredients — please select fewer deals or stores." });
   // Smart selection: if too many ingredients, pick the best ones for recipes
   if (ingredients.length > 100) {

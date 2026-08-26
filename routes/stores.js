@@ -4,7 +4,7 @@ import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
-  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores,
+  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
@@ -606,7 +606,11 @@ router.post("/api/extract-store", async (req, res) => {
     return res.json({ status: "extracting", message: "Deal extraction in progress" });
   }
 
-  const adUrl = findIgroceryadsUrl(storeName);
+  // A table-sourced chain is read from its weeklyad.us.com products table
+  // instead of the OCR path, so its ad URL is that subdomain rather than the
+  // aggregator page findIgroceryadsUrl would return.
+  const tableSlug = TABLE_SOURCED[String(storeName).trim().toLowerCase()] || null;
+  const adUrl = tableSlug ? `https://${tableSlug}.weeklyad.us.com/` : findIgroceryadsUrl(storeName);
   if (!adUrl) {
     return res.json({ status: "not-found", message: "No ad source found for this store. Upload a photo of their weekly ad to add deals." });
   }
@@ -658,6 +662,17 @@ router.post("/api/extract-store", async (req, res) => {
         console.warn(`On-demand: ${storeName} — source ad is EXPIRED (valid to ${adValidTo}). Extracting anyway; Friday re-pass will retry.`);
       }
     } catch (e) { console.error("Ad validity parse error:", e.message); }
+
+    // Table-sourced chains parse rows straight out of the served markup. The
+    // rows are shaped exactly like the OCR path's, so everything downstream --
+    // the A1 classifier, dealRejectReason, the rejectTally, the ad-reject: row
+    // and the cache write -- is the same code on the same data.
+    const tableRows = tableSlug ? parseWeeklyAdTable(html) : null;
+    if (tableRows) {
+      const v = parseTableValidity(html);
+      if (v.adValidFrom) { adValidFrom = v.adValidFrom; adValidTo = v.adValidTo; }
+      console.log(`On-demand: ${storeName} — weeklyad table: ${tableRows.length} rows parsed, no Vision calls`);
+    }
 
     const isLadySavings = adUrl.includes("ladysavings.com");
     const isWeeklyAdUS = adUrl.includes("weeklyad.us.com");
@@ -780,7 +795,7 @@ router.post("/api/extract-store", async (req, res) => {
     console.log(`On-demand extraction for ${storeName}: ${images.length} pages found`);
     images.forEach((u, i) => console.log(`  [ad-image] ${storeName} ${i + 1}/${images.length} ${u}`));
 
-    if (images.length === 0) {
+    if (!tableRows?.length && images.length === 0) {
       // 0 discovered images means the source page fetch failed or was blocked
       // (observed: ladysavings serving a 12KB stub with HTTP 200 to Render's IP
       // on 2026-07-08). This is a fetch failure, not an empty ad — leave any
@@ -810,7 +825,7 @@ router.post("/api/extract-store", async (req, res) => {
       return;
     }
 
-    const allDeals = [];
+    const allDeals = tableRows ? [...tableRows] : [];
     // Budget math, measured 2026-08-19: pages tile into 1-3 images each, so the
     // call count is what matters, not the page count.
     //   Meijer 31 pages x 1 tile = 31 calls  (fits)
@@ -820,7 +835,9 @@ router.post("/api/extract-store", async (req, res) => {
     // pages. Haiku vision runs ~$0.003/page, so a worst-case 80-call chain is
     // ~$0.24/chain/week — still pennies against losing half an ad. maxPages
     // stays 40, so the page count remains the outer bound.
-    const maxPages = Math.min(images.length, 40);
+    // 0 pages for a table-sourced chain: the loop below never runs and no
+    // Vision call is billed.
+    const maxPages = tableRows ? 0 : Math.min(images.length, 40);
     const MAX_VISION_CALLS = 80;
     let visionCalls = 0;
     // Per-chain OCR observability. apiOkCount tallies Anthropic 2xx; apiNon2xxCount
@@ -1103,6 +1120,7 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
         regularPrice: d?.regularPrice ?? null,
         unit: d?.unit ?? null,
         category: d?.category ?? null,
+        promoText: d?.promoText ?? null,
         adPage: d?.adPage ?? null,
         adImage: d?.adImage ?? null,
       };
@@ -1310,6 +1328,101 @@ const PLACEHOLDER_NAME = /^(?:product|item|deal|offer|sale item|unknown)\s*#?\s*
 const CATEGORY_ONLY_NAME = /^(?:meat|produce|dairy|bakery|frozen|pantry|snacks?|beverages?|deli|seafood|household|grocery|food|other|misc|assorted)$/i;
 
 
+// ── weeklyad.us.com structured-table source ────────────────────────────────
+// Some chains serve a server-rendered <table class="wa-products-table"> with
+// Product / Brand / Price / Unit / Category columns. Where measurement shows it
+// beats OCR (see TABLE_SOURCED), it is read directly: no flyer images, no Vision
+// calls, and no decimal-drop class of error, since the numbers are text.
+
+const TABLE_ROW_RE = /<tr class="wa-prod-row"[^>]*>([\s\S]*?)<\/tr>/g;
+const TABLE_CELL_RE = /<td[^>]*>([\s\S]*?)<\/td>/g;
+const stripCell = (s) => s
+  .replace(/<[^>]*>/g, "")
+  .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+  .replace(/\s+/g, " ").trim();
+
+// A price cell that expresses a discount rather than a payable amount: "Buy 1
+// Get 1 FREE", "5.00 Off", "$5 OFF", "20% off". These carry no absolute price
+// and we refuse to invent one, so the row is rejected and the condition is kept
+// for the reject log.
+const NON_ABSOLUTE_PRICE = /\bfree\b|\bbogo\b|buy\s*\d*\s*get|\d\s*%\s*off|\boff\b/i;
+
+// "2 for $5" / "3/$5" state a real total. It is stored as the total, never
+// divided: a per-unit price would be our arithmetic, not the store's claim.
+const MULTI_BUY = /\b(\d+)\s*(?:for|\/)\s*\$?\s*(\d+(?:\.\d{1,2})?)/i;
+
+// Returns { salePrice, unit, promoText }. salePrice is null when the cell
+// carries no payable amount.
+function parseTablePrice(raw) {
+  const text = stripCell(String(raw ?? ""));
+  if (!text) return { salePrice: null, unit: "", promoText: "" };
+  if (NON_ABSOLUTE_PRICE.test(text)) return { salePrice: null, unit: "", promoText: text };
+
+  // "2 for $5" names a group total, not the price of one item. Storing 5.00
+  // would tell a user one item costs $5.00 when it costs $2.50, and dividing
+  // to get 2.50 would be our arithmetic rather than the store's claim. So the
+  // row is treated as carrying no absolute price and rejected alongside BOGO,
+  // keeping the condition for the log. One line to reverse once promoText
+  // renders.
+  if (MULTI_BUY.test(text)) return { salePrice: null, unit: "", promoText: text };
+  // Strip leading words ("sale 2.99 lb.") and any currency symbol, then take the
+  // first number and whatever unit suffix trails it ("10.99lb.", "1.99 EA").
+  const m = text.match(/(\d+(?:\.\d+)?)\s*([A-Za-z.\/]*)/);
+  if (!m) return { salePrice: null, unit: "", promoText: text };
+  const value = parseFloat(m[1]);
+  if (!Number.isFinite(value) || value <= 0) return { salePrice: null, unit: "", promoText: text };
+
+  let unit = (m[2] || "").replace(/\.$/, "").trim();
+  if (/^(?:ea|each)$/i.test(unit)) unit = "";           // "each" is the absence of a unit
+  else if (/^(?:lb|lbs|pound|pounds)$/i.test(unit)) unit = "lb";
+  else if (unit && !/^[A-Za-z]{1,6}$/.test(unit)) unit = "";
+
+  return { salePrice: value.toFixed(2), unit, promoText: "" };
+}
+
+const MONTHS_LONG = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+// "Valid 26 August - 1 September" / "Valid 23 August – 29 August 2026". The year
+// is usually absent; it is taken from the capture date and rolled back a year if
+// that would place the start in the future (a late-December ad running into
+// January). Anything that does not parse cleanly yields nulls rather than a guess.
+function parseTableValidity(html, now = new Date()) {
+  const m = html.match(/valid\s+(\d{1,2})\s+([A-Za-z]+)\s*[–—-]\s*(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/i);
+  if (!m) return { adValidFrom: null, adValidTo: null };
+  const mo1 = MONTHS_LONG.indexOf(String(m[2]).toLowerCase());
+  const mo2 = MONTHS_LONG.indexOf(String(m[4]).toLowerCase());
+  if (mo1 < 0 || mo2 < 0) return { adValidFrom: null, adValidTo: null };
+  let year = m[5] ? parseInt(m[5], 10) : now.getUTCFullYear();
+  let from = new Date(Date.UTC(year, mo1, parseInt(m[1], 10)));
+  let to = new Date(Date.UTC(mo2 < mo1 ? year + 1 : year, mo2, parseInt(m[3], 10), 23, 59, 59));
+  if (!m[5] && from.getTime() - now.getTime() > 180 * 864e5) {
+    from = new Date(Date.UTC(year - 1, mo1, parseInt(m[1], 10)));
+    to = new Date(Date.UTC(mo2 < mo1 ? year : year - 1, mo2, parseInt(m[3], 10), 23, 59, 59));
+  }
+  return { adValidFrom: from.toISOString(), adValidTo: to.toISOString() };
+}
+
+// Rows in the shape the OCR path emits, so both feed the same validation gate.
+function parseWeeklyAdTable(html) {
+  const out = [];
+  for (const match of html.matchAll(TABLE_ROW_RE)) {
+    const cells = [...match[1].matchAll(TABLE_CELL_RE)].map(c => stripCell(c[1]));
+    const name = cells[0] || "";
+    if (!name) continue;
+    const { salePrice, unit, promoText } = parseTablePrice(cells[2]);
+    out.push({
+      name,
+      brand: cells[1] || "",
+      salePrice,
+      unit: unit || cells[3] || "",
+      regularPrice: null,
+      category: cells[4] || "",
+      promoText: promoText || "",
+    });
+  }
+  return out;
+}
+
+
 // ---------------------------------------------------------------------------
 // Non-food category exclusion (write time).
 //
@@ -1412,6 +1525,12 @@ function dealRejectReason(d) {
   if (JUNK_NAME.test(name)) return "junk phrase";
   if (BOILERPLATE_ONLY_NAME.test(name)) return "ad boilerplate as name";
   const raw = d?.salePrice;
+  // A table row whose price cell states a discount rather than a payable amount
+  // ("Buy 1 Get 1 FREE", "$5 Off"). It is rejected like any unpriced row, but
+  // under its own reason so the volume stays measurable, and promoText rides
+  // into the ad-reject: row. The shared gate is NOT relaxed: nothing with a null
+  // salePrice is stored, on this path or the OCR one.
+  if ((raw == null || String(raw).trim() === "") && d?.promoText) return "promo without absolute price";
   if (raw == null || String(raw).trim() === "") return "empty salePrice";
   const sale = parseFloat(String(raw).replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(sale) || sale <= 0) return "zero or unparseable salePrice";

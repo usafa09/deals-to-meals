@@ -54,6 +54,20 @@ function formatPriceDisplay(p) {
   return s.startsWith("$") ? s : "$" + s;
 }
 
+// Option C: a row may carry an offer instead of a price -- "2 for $5", "Buy 1
+// Get 1 FREE" -- because the table source states the offer and not what one item
+// costs, and we refuse to derive a per-unit figure we cannot verify. Such a row
+// has salePrice null and priceType "multibuy" or "promo".
+//
+// priceType is absent on every row written before this shipped, and absent means
+// absolute. Read it only through this function so a stray value cannot reach the
+// renderer as a third state.
+function dealPriceType(d) {
+  const t = String((d && d.priceType) || "absolute").trim().toLowerCase();
+  return (t === "multibuy" || t === "promo") ? t : "absolute";
+}
+function isAbsolutePrice(d) { return dealPriceType(d) === "absolute"; }
+
 // Resolve a deal's price unit for display, plus whether it's a per-pound price.
 // Same shape mismatch as formatPriceDisplay above: the Kroger path emits a
 // display-ready `priceUnit` ("/lb", "/ea", ""), while ad-extract/OCR deals carry
@@ -2089,21 +2103,28 @@ async function renderSaleItems() {
     const cls=ds==="include"?"include":ds==="exclude"?"exclude":"";
     const badge=ds==="include"?"✓ Include":ds==="exclude"?"✗ Exclude":"";
     const ariaState=ds==="include"?"currently included":ds==="exclude"?"currently excluded":"not selected";
-    const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
-    const store=d.storeName||d.source||""; const pct=(d.pctOff>0&&!isBogoRow(d))?`${d.pctOff}%`:"";
+    // An offer row has no number to show. Everything numeric is suppressed --
+    // price, struck-through regular, percent badge, stock-up badge -- and the
+    // offer text is printed verbatim in the price slot instead. Nothing here can
+    // emit "$null" or "$0": the numeric branch is not reached at all.
+    const ptype=dealPriceType(d); const offer=ptype!=='absolute';
+    const offerText=String(d.promoText||"").trim();
+    const price=offer?"":(d.salePrice||""); const reg=offer?"":(d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"");
+    const store=d.storeName||d.source||""; const pct=(!offer&&d.pctOff>0&&!isBogoRow(d))?`${d.pctOff}%`:"";
     const unit=dealUnitInfo(d).unit;
-    const cond=promoConditionText(d);
+    const cond=offer?"":promoConditionText(d);
+    const priceLabel=offer?(offerText||"Offer"):formatPriceDisplay(price);
     const nameCls=String(d.name||"").length>60?" sale-card-name--long":"";
     const hasCoupon = findMatchingCoupon(d.name);
-    return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${escapeHtml(formatPriceDisplay(price))}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
+    return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${escapeHtml(priceLabel)}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
-      ${d.pctOff>=40&&!isBogoRow(d)&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
+      ${!offer&&d.pctOff>=40&&!isBogoRow(d)&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.source==="kroger"&&typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}" style="display:none"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`:`<div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`}
       <div class="sale-card-body">
         <div class="sale-card-name${nameCls}" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
-        <div class="sale-card-price">${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}</div>
+        <div class="sale-card-price">${offer?`<span class="sale-card-offer"><span class="sale-card-offer-tag">Offer</span>${escapeHtml(offerText||"See ad for price")}</span>`:`${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}`}</div>
         ${cond?`<div class="sale-card-cond">${escapeHtml(cond)}</div>`:""}
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
         <div class="sale-card-store">${escapeHtml(store)}${store?` · <a href="#" onclick="event.preventDefault();event.stopPropagation();openStoreAd('${escapeHtml(store).replace(/'/g,"&#039;")}')" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
@@ -2123,7 +2144,7 @@ async function renderSaleItems() {
 }
 function showMoreDeals() { state.dealsDisplayed = (state.dealsDisplayed || 50) + 50; renderSaleItems(); }
 function cycleDealState(id){const c=state.dealStates[id]||null;if(c===null)state.dealStates[id]="include";else if(c==="include")state.dealStates[id]="exclude";else delete state.dealStates[id];renderSaleItems();}
-function addDealToList(id){const d=state.deals.find(x=>x.id===id);if(!d)return;const added=slAddItem({name:d.name,price:d.salePrice||"",store:d.storeName||d.source||"",source:"deal",recipeTitle:"",upc:d.upc||"",category:d.category||""});if(added)showToast("Added to list!","success");else showToast("Already in list","success");}
+function addDealToList(id){const d=state.deals.find(x=>x.id===id);if(!d)return;const _pt=dealPriceType(d);const added=slAddItem({name:d.name,price:_pt==="absolute"?(d.salePrice||""):"",promoText:_pt==="absolute"?"":String(d.promoText||""),priceType:_pt,store:d.storeName||d.source||"",source:"deal",recipeTitle:"",upc:d.upc||"",category:d.category||""});if(added)showToast("Added to list!","success");else showToast("Already in list","success");}
 function filterSaleStore(s){state.saleStoreFilter=s;state.dealsDisplayed=50;renderSaleItems();}
 function filterSaleCategory(c){state.saleCategoryFilter=c;state.dealsDisplayed=50;renderSaleItems();}
 
@@ -2141,7 +2162,11 @@ function toggleFilter(el,f){el.classList.toggle("selected");const i=state.select
 function getRecipePayload(offset) {
   const excluded=new Set(Object.entries(state.dealStates).filter(([,v])=>v==="exclude").map(([k])=>k));
   const mustInclude=new Set(Object.entries(state.dealStates).filter(([,v])=>v==="include").map(([k])=>k));
-  const selectedDeals=state.deals.filter(d=>!excluded.has(d.id));
+  // Offer rows never reach the recipe model. They have no per-unit price, and the
+  // server-side cost math coerces a missing price with `parseFloat(x||"0")||0`,
+  // which would price them at $0.00 and inflate the savings figure rather than
+  // erroring. The server filters them too; this is the belt to that pair of braces.
+  const selectedDeals=state.deals.filter(d=>!excluded.has(d.id)&&isAbsolutePrice(d));
   if(!selectedDeals.length) return null;
   const mustFirst=[...selectedDeals.filter(d=>mustInclude.has(d.id)).map(d=>({...d,mustInclude:true})),...selectedDeals.filter(d=>!mustInclude.has(d.id))];
   const wantItems=(document.getElementById("wantItems")?.value||"").trim();
@@ -3482,6 +3507,7 @@ async function addListToKrogerCart() {
   // differ from the actual Kroger checkout total (e.g., Kroger price
   // changes, items added/removed in the Kroger cart, taxes, fees).
   const totalValue = (state.shoppingList || []).reduce((sum, i) => {
+    if (i.priceType && i.priceType !== "absolute") return sum;   // an offer has no number to add
     const p = parseFloat(String(i.price || "").replace(/[^0-9.]/g, "")) || 0;
     return sum + p;
   }, 0);

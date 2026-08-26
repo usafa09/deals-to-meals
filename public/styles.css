@@ -407,6 +407,11 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
 .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
 .sale-card-cond { font-size: 11px; font-weight: 700; color: var(--orange); margin-top: 2px; }
+/* Offer rows (priceType multibuy/promo): the flyer states the offer, not a unit
+   price, so the card prints the offer text where the price would go. Neutral
+   weight so it reads as a claim about the deal rather than a number. */
+.sale-card-offer { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.sale-card-offer-tag { flex: none; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--green-dark); background: var(--green-light); border-radius: var(--r-sm); padding: 1px 5px; }
 .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--r-sm); }
 .sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--orange); }

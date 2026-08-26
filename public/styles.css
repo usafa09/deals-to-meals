@@ -400,6 +400,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
 .sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
 .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
+.sale-card-cond { font-size: 11px; font-weight: 700; color: var(--orange); margin-top: 2px; }
 .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--r-sm); }
 .sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--orange); }

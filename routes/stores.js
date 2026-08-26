@@ -4,7 +4,7 @@ import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
-  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED,
+  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, parseAdValidity,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
@@ -764,30 +764,15 @@ router.post("/api/extract-store", async (req, res) => {
     });
     const html = await pageRes.text();
 
-    // Parse the ad validity window from the page headline. igroceryads and
-    // iweeklyads print "June 10 - June 16, 2026"; some pages use "through
-    // June 16". ladysavings and weeklyad.us.com pages often lack dates, so
-    // both fields stay null there (unknown is treated as not-expired).
+    // Parse the ad validity window from the page headline. One parser handles
+    // every shape the aggregators print -- month-first or day-first, abbreviated
+    // or spelled out, with or without the word "valid" -- across all sources. A
+    // page with no parseable range leaves both fields null, which downstream
+    // treats as unknown rather than expired.
     let adValidFrom = null, adValidTo = null;
     try {
-      const MONTHS = { january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11 };
-      const plain = html.replace(/<[^>]+>/g, " ").replace(/&#8211;|&#x2013;|&ndash;|&#8212;|&#x2014;|&mdash;/gi, "-").replace(/&nbsp;|&#160;/gi, " ");
-      const rangeM = plain.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*[–—-]\s*(?:(January|February|March|April|May|June|July|August|September|October|November|December)\s+)?(\d{1,2})(?:,?\s*(\d{4}))?/i);
-      const now = new Date();
-      if (rangeM) {
-        const y = rangeM[5] ? parseInt(rangeM[5]) : now.getFullYear();
-        const m1 = MONTHS[rangeM[1].toLowerCase()];
-        const m2 = rangeM[3] ? MONTHS[rangeM[3].toLowerCase()] : m1;
-        const from = new Date(Date.UTC(y, m1, parseInt(rangeM[2])));
-        let to = new Date(Date.UTC(m2 < m1 ? y + 1 : y, m2, parseInt(rangeM[4]), 23, 59, 59));
-        adValidFrom = from.toISOString(); adValidTo = to.toISOString();
-      } else {
-        const throughM = plain.match(/through\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/i);
-        if (throughM) {
-          adValidTo = new Date(Date.UTC(now.getUTCFullYear(), MONTHS[throughM[1].toLowerCase()], parseInt(throughM[2]), 23, 59, 59)).toISOString();
-        }
-      }
-      if (adValidTo && new Date(adValidTo) < now) {
+      ({ adValidFrom, adValidTo } = parseAdValidity(html));
+      if (adValidTo && new Date(adValidTo) < new Date()) {
         console.warn(`On-demand: ${storeName} — source ad is EXPIRED (valid to ${adValidTo}). Extracting anyway; Friday re-pass will retry.`);
       }
     } catch (e) { console.error("Ad validity parse error:", e.message); }
@@ -798,8 +783,6 @@ router.post("/api/extract-store", async (req, res) => {
     // and the cache write -- is the same code on the same data.
     const tableRows = tableSlug ? parseWeeklyAdTable(html) : null;
     if (tableRows) {
-      const v = parseTableValidity(html);
-      if (v.adValidFrom) { adValidFrom = v.adValidFrom; adValidTo = v.adValidTo; }
       console.log(`On-demand: ${storeName} — weeklyad table: ${tableRows.length} rows parsed, no Vision calls`);
     }
 
@@ -1448,27 +1431,6 @@ function parseTablePrice(raw) {
   return { salePrice: null, unit: "", promoText: text };
 }
 
-
-const MONTHS_LONG = ["january","february","march","april","may","june","july","august","september","october","november","december"];
-// "Valid 26 August - 1 September" / "Valid 23 August – 29 August 2026". The year
-// is usually absent; it is taken from the capture date and rolled back a year if
-// that would place the start in the future (a late-December ad running into
-// January). Anything that does not parse cleanly yields nulls rather than a guess.
-function parseTableValidity(html, now = new Date()) {
-  const m = html.match(/valid\s+(\d{1,2})\s+([A-Za-z]+)\s*[–—-]\s*(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/i);
-  if (!m) return { adValidFrom: null, adValidTo: null };
-  const mo1 = MONTHS_LONG.indexOf(String(m[2]).toLowerCase());
-  const mo2 = MONTHS_LONG.indexOf(String(m[4]).toLowerCase());
-  if (mo1 < 0 || mo2 < 0) return { adValidFrom: null, adValidTo: null };
-  let year = m[5] ? parseInt(m[5], 10) : now.getUTCFullYear();
-  let from = new Date(Date.UTC(year, mo1, parseInt(m[1], 10)));
-  let to = new Date(Date.UTC(mo2 < mo1 ? year + 1 : year, mo2, parseInt(m[3], 10), 23, 59, 59));
-  if (!m[5] && from.getTime() - now.getTime() > 180 * 864e5) {
-    from = new Date(Date.UTC(year - 1, mo1, parseInt(m[1], 10)));
-    to = new Date(Date.UTC(mo2 < mo1 ? year : year - 1, mo2, parseInt(m[3], 10), 23, 59, 59));
-  }
-  return { adValidFrom: from.toISOString(), adValidTo: to.toISOString() };
-}
 
 // Rows in the shape the OCR path emits, so both feed the same validation gate.
 function parseWeeklyAdTable(html) {
@@ -2340,7 +2302,7 @@ router.post("/api/cron/xcheck", async (req, res) => {
       const html = await pageRes.text();
 
       const tableRows = parseWeeklyAdTable(html);
-      const validity = parseTableValidity(html);
+      const validity = parseAdValidity(html);
       const images = weeklyAdPageImages(html, slug);
       if (!images.length) {
         result.error = "no flyer pages found";

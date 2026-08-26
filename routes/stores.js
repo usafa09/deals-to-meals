@@ -533,6 +533,20 @@ function releaseExtractSlot() {
 //
 // `label` carries the caller's "page N tile M" wording so the log lines read
 // exactly as they did before.
+// Every weeklyad.us.com page image the served markup lists, in page order.
+// Shared by the extract handler and the cross-check audit so the URL pattern
+// lives in exactly one place -- the regex is easy to get subtly wrong, and a
+// second copy that quietly matched nothing would look like an empty flyer.
+function weeklyAdPageImages(html, slug) {
+  const viewRegex = new RegExp(`https?://${slug}\\.weeklyad\\.us\\.com/images/${slug}/view/[^"'\\s)]+\\.webp`, "gi");
+  const pageNum = (u) => {
+    const m = u.split("/").pop().match(/(\d+)\D*\.webp$/i);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+  const images = [...new Set(html.match(viewRegex) || [])].sort((a, b) => pageNum(a) - pageNum(b));
+  return images;
+}
+
 async function ocrTileDeals(tileBuffer, storeName, label) {
   const base64 = tileBuffer.toString("base64");
   if (base64.length < 1000) return { deals: [], outcome: "skipped", status: 0 };
@@ -814,12 +828,7 @@ router.post("/api/extract-store", async (req, res) => {
       // for ALDI, 38 for Lidl and 31 for Meijer; those are a sample of one run,
       // not fixed expectations.
       const slug = new URL(adUrl).hostname.split(".")[0];
-      const viewRegex = new RegExp(`https?://${slug}\\.weeklyad\\.us\\.com/images/${slug}/view/[^"'\\s)]+\\.webp`, "gi");
-      const pageNum = (u) => {
-        const m = u.split("/").pop().match(/(\d+)\D*\.webp$/i);
-        return m ? parseInt(m[1], 10) : 0;
-      };
-      images = [...new Set(html.match(viewRegex) || [])].sort((a, b) => pageNum(a) - pageNum(b));
+      images = weeklyAdPageImages(html, slug);
       console.log(`On-demand: ${storeName} — weeklyad.us.com slug "${slug}", markup scan found ${images.length} pages`);
     } else if (isLadySavings) {
       const looksLikeChallenge = html.length < 50000 && /Just a moment|cf-chl-bypass|cloudflare/i.test(html);
@@ -2196,6 +2205,248 @@ router.post("/api/cron/refresh-ssr", async (req, res) => {
   }
   res.json({ ok: true, results });
 });
+
+// ── table vs OCR cross-check ───────────────────────────────────────────────
+// Measures per-chain agreement between the weeklyad.us.com structured table and
+// Vision OCR of the same flyer. The output is an agreement rate over time, not a
+// per-row verdict, and nothing here changes what any user is served.
+//
+// Neither source is ground truth. The table has malformed cells (a cent suffix
+// once parsed as $59.00, and Safeway writes prices with no decimal at all); OCR
+// has a 26% null-price rate and a decimal-drop fault. A disagreement is a signal
+// about source quality for that chain, not a price dispute to adjudicate -- so
+// the table value is kept, always, and the disagreement is recorded.
+//
+// Runs as its own job, never inside /api/extract-store: chains were moved to the
+// table path precisely to stop paying for Vision, and folding this into their
+// normal extraction would hand that cost straight back.
+const XCHECK_PAGES = 2;              // fixed sample, same pages every run
+const VISION_CALL_COST = 0.003;      // measured ~$0.003/call, Haiku vision
+const XCHECK_FUZZY_THRESHOLD = 0.6;  // Jaccard over significant tokens
+const XCHECK_MAX_DISAGREEMENTS = 100;
+const XCHECK_HISTORY_MAX = 200;
+
+// Table cells and OCR reads of the same tile diverge structurally: the table
+// keeps Brand and Unit in their own columns while OCR folds brand, size and
+// "select varieties" into one name string. Normalisation strips what the two
+// sources disagree about by construction, so matching is judged on the product
+// words that remain.
+function xcheckNormName(s) {
+  return String(s ?? "").toLowerCase()
+    .replace(/[®™,.()"']/g, " ")
+    .replace(/\b\d+(\.\d+)?\s*(oz|lb|lbs|ct|pk|pack|fl|g|kg|ml|l|count|inch|in)\b/g, " ")
+    .replace(/\b(select varieties|assorted|varieties|each|ea)\b/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+function xcheckTokens(s) {
+  return new Set(xcheckNormName(s).split(" ").filter(w => w.length > 2));
+}
+function xcheckJaccard(a, b) {
+  const A = xcheckTokens(a), B = xcheckTokens(b);
+  if (!A.size || !B.size) return 0;
+  let hit = 0;
+  for (const t of A) if (B.has(t)) hit++;
+  return hit / (A.size + B.size - hit);
+}
+
+// Four tiers, each pair labelled with what resolved it. The distribution is the
+// headline result: if `none` dominates, matching is not viable for that chain
+// and the agreement rate below it is computed on an unrepresentative subset.
+function xcheckMatch(tableRows, ocrRows) {
+  const tiers = { exact: 0, brandToken: 0, fuzzy: 0, none: 0 };
+  const pairs = [];
+  const used = new Set();
+  for (const t of tableRows) {
+    let hit = -1, tier = "none";
+    for (let i = 0; i < ocrRows.length; i++) {
+      if (used.has(i)) continue;
+      if (xcheckNormName(ocrRows[i].name) === xcheckNormName(t.name)) { hit = i; tier = "exact"; break; }
+    }
+    if (hit < 0 && String(t.brand ?? "").trim()) {
+      const brand = xcheckNormName(t.brand);
+      for (let i = 0; i < ocrRows.length; i++) {
+        if (used.has(i)) continue;
+        const o = ocrRows[i];
+        if (!xcheckNormName(o.name).includes(brand) && xcheckNormName(o.brand) !== brand) continue;
+        const A = xcheckTokens(t.name), B = xcheckTokens(o.name);
+        let shared = 0;
+        for (const tok of A) if (B.has(tok)) shared++;
+        if (shared >= 2) { hit = i; tier = "brandToken"; break; }
+      }
+    }
+    if (hit < 0) {
+      let best = -1, bestScore = 0;
+      for (let i = 0; i < ocrRows.length; i++) {
+        if (used.has(i)) continue;
+        const s = xcheckJaccard(t.name, ocrRows[i].name);
+        if (s > bestScore) { bestScore = s; best = i; }
+      }
+      if (bestScore >= XCHECK_FUZZY_THRESHOLD) { hit = best; tier = "fuzzy"; }
+    }
+    tiers[tier]++;
+    if (hit >= 0) { used.add(hit); pairs.push({ table: t, ocr: ocrRows[hit], tier }); }
+  }
+  return { tiers, pairs };
+}
+
+const xcheckNum = (v) => {
+  if (v === null || v === undefined || String(v).trim() === "") return null;
+  const n = parseFloat(String(v).replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+// Prices agree within a cent. Either side missing a value is not a disagreement
+// about the number -- it is a coverage difference, recorded under its own field
+// so it cannot be mistaken for the two sources contradicting each other. Unit is
+// compared and recorded but does not decide agreement: the table carries a size
+// column OCR has no equivalent for, so unit divergence is expected by design.
+function xcheckComparePair(p) {
+  const out = [];
+  for (const field of ["salePrice", "regularPrice"]) {
+    const a = xcheckNum(p.table[field]), b = xcheckNum(p.ocr[field]);
+    if (a === null && b === null) continue;
+    if (a === null || b === null) { out.push({ field: field + ":missing", tableValue: a, ocrValue: b }); continue; }
+    if (Math.abs(a - b) > 0.01) out.push({ field, tableValue: a, ocrValue: b });
+  }
+  const tu = String(p.table.unit ?? "").trim().toLowerCase();
+  const ou = String(p.ocr.unit ?? "").trim().toLowerCase();
+  if (tu && ou && tu !== ou) out.push({ field: "unit", tableValue: tu, ocrValue: ou, advisory: true });
+  return out;
+}
+
+// POST /api/cron/xcheck — audit only. Writes xcheck: keys and nothing else.
+router.post("/api/cron/xcheck", async (req, res) => {
+  const token = req.headers["x-internal-token"];
+  if (!token || token !== process.env.INTERNAL_API_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (!ANTHROPIC_KEY) return res.status(503).json({ error: "ANTHROPIC_API_KEY not configured" });
+
+  const UA = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" };
+  const summaries = [];
+  let totalVisionCalls = 0;
+
+  for (const [storeKey, slug] of Object.entries(TABLE_SOURCED)) {
+    const started = Date.now();
+    const result = { chain: storeKey, slug, checkedAt: new Date().toISOString() };
+    try {
+      await new Promise(r => setTimeout(r, 1100));   // 1 req/sec per host
+      const pageRes = await fetch(`https://${slug}.weeklyad.us.com/`, { headers: UA });
+      if (pageRes.status === 403 || pageRes.status === 429) {
+        result.stopped = `HTTP ${pageRes.status} on the ad page`;
+        summaries.push(result);
+        continue;
+      }
+      const html = await pageRes.text();
+
+      const tableRows = parseWeeklyAdTable(html);
+      const validity = parseTableValidity(html);
+      const images = weeklyAdPageImages(html, slug);
+      if (!images.length) {
+        result.error = "no flyer pages found";
+        result.tableRows = tableRows.length;
+        summaries.push(result);
+        continue;
+      }
+
+      const sample = images.slice(0, XCHECK_PAGES);
+      const ocrRows = [];
+      let visionCalls = 0, stopped = null;
+      for (let i = 0; i < sample.length && !stopped; i++) {
+        await new Promise(r => setTimeout(r, 1100));
+        const buf = await fetchBestImage(sample[i], UA);
+        if (!buf) continue;
+        const tiles = await tileImage(buf);
+        for (let t = 0; t < tiles.length; t++) {
+          const out = await ocrTileDeals(tiles[t], storeKey, `xcheck ${slug} page ${i + 1} tile ${t + 1}`);
+          if (out.outcome === "skipped") continue;
+          visionCalls++;
+          if (out.status === 403 || out.status === 429) { stopped = `HTTP ${out.status} from Vision`; break; }
+          ocrRows.push(...out.deals);
+        }
+      }
+      totalVisionCalls += visionCalls;
+
+      const { tiers, pairs } = xcheckMatch(tableRows, ocrRows);
+      const disagreements = [];
+      let agreed = 0, disagreed = 0, conflicts = 0, coverageGaps = 0;
+      for (const p of pairs) {
+        const diffs = xcheckComparePair(p);
+        const deciding = diffs.filter(d => !d.advisory);
+        if (deciding.length) disagreed++; else agreed++;
+        // A conflict is the two sources naming different numbers. A coverage gap
+        // is one of them having no number at all -- usually OCR's null-price rate.
+        // Lumping them produces a low agreement rate that reads as contradiction
+        // when it is mostly absence, so they are counted apart.
+        if (deciding.some(d => !d.field.endsWith(":missing"))) conflicts++;
+        else if (deciding.length) coverageGaps++;
+        for (const d of diffs) {
+          if (disagreements.length >= XCHECK_MAX_DISAGREEMENTS) break;
+          disagreements.push({ name: p.table.name, tier: p.tier, ...d });
+        }
+      }
+
+      Object.assign(result, {
+        adWeek: validity.adValidFrom ? `${validity.adValidFrom.slice(0, 10)}..${validity.adValidTo.slice(0, 10)}` : null,
+        pagesSampled: sample.length,
+        tableRows: tableRows.length,
+        ocrRows: ocrRows.length,
+        matched: tiers,
+        agreed,
+        disagreed,
+        conflicts,
+        coverageGaps,
+        conflictRate: (agreed + disagreed) ? +(conflicts / (agreed + disagreed)).toFixed(3) : null,
+        matchRate: tableRows.length ? +(1 - tiers.none / tableRows.length).toFixed(3) : 0,
+        agreementRate: (agreed + disagreed) ? +(agreed / (agreed + disagreed)).toFixed(3) : null,
+        disagreements,
+        truncated: disagreements.length >= XCHECK_MAX_DISAGREEMENTS,
+        visionCalls,
+        estimatedCost: +(visionCalls * VISION_CALL_COST).toFixed(4),
+        stopped,
+        elapsedMs: Date.now() - started,
+      });
+      await setCachedDeals(`xcheck:${storeKey}`, result);
+      console.log(JSON.stringify({ evt: "XCHECK", ...result, disagreements: undefined }));
+    } catch (e) {
+      result.error = e.message;
+      console.error(`xcheck ${slug} failed:`, e.message);
+    }
+    summaries.push(result);
+  }
+
+  // Compact history so rates accumulate rather than only showing the latest run.
+  // This is why xcheck: is carved out of the cache sweep.
+  try {
+    const prior = await getCachedDeals("xcheck:history");
+    const entries = Array.isArray(prior) ? prior : [];
+    for (const s of summaries) {
+      entries.push({
+        chain: s.chain, checkedAt: s.checkedAt, adWeek: s.adWeek ?? null,
+        tableRows: s.tableRows ?? 0, ocrRows: s.ocrRows ?? 0, matched: s.matched ?? null,
+        agreed: s.agreed ?? 0, disagreed: s.disagreed ?? 0,
+        conflicts: s.conflicts ?? 0, coverageGaps: s.coverageGaps ?? 0, conflictRate: s.conflictRate ?? null,
+        matchRate: s.matchRate ?? null, agreementRate: s.agreementRate ?? null,
+        visionCalls: s.visionCalls ?? 0, error: s.error ?? null, stopped: s.stopped ?? null,
+      });
+    }
+    await setCachedDeals("xcheck:history", entries.slice(-XCHECK_HISTORY_MAX));
+  } catch (e) { console.error("xcheck history write failed:", e.message); }
+
+  res.json({
+    ok: true,
+    chains: summaries.length,
+    visionCalls: totalVisionCalls,
+    estimatedCost: +(totalVisionCalls * VISION_CALL_COST).toFixed(4),
+    results: summaries.map(s => ({
+      chain: s.chain, tableRows: s.tableRows, ocrRows: s.ocrRows,
+      matched: s.matched, matchRate: s.matchRate, agreementRate: s.agreementRate,
+      agreed: s.agreed, disagreed: s.disagreed, conflicts: s.conflicts, coverageGaps: s.coverageGaps, conflictRate: s.conflictRate,
+      error: s.error ?? null, stopped: s.stopped ?? null,
+    })),
+  });
+});
+
 
 // Read a chain's SSR bundle (used by the page renderer in Session 2; also
 // handy for verification).

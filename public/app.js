@@ -2746,6 +2746,21 @@ function renderModal(r){
         const regPrice=(!ing.isPerLb&&regScaled>actualNum+0.009)?`<span class="ing-reg-price">$${regScaled.toFixed(2)}</span>`:"";
         return `<div class="ing-row on-sale"><span>✅ ${escapeHtml(ing.name)}${ing.storeName?` <span style="font-size:9px;color:#999">(${escapeHtml(ing.storeName)})</span>`:""}</span><div style="text-align:right"><span class="ing-sale-price">${escapeHtml(cost)}</span>${regPrice}${perLbLine}${qtyNote}${pkgNote}</div></div>`;
       }).join("")}</div></div>`:""}
+      ${(()=>{
+        // The cost chip is saleCost + additionalCost, but only the sale items get
+        // rows, so the header always exceeded the visible list by a multiple of
+        // $2.50 with nothing on screen to account for it. This is that line. It is
+        // display only: it reads additionalCost, it never computes or changes it.
+        // Rendered as its own block rather than a row inside the sale list, so it
+        // still shows on a recipe that matched no sale items at all.
+        const addl = Number(r.additionalCost) || 0;
+        if (!(addl > 0)) return "";
+        const all = r.allIngredients || r.ingredients || [];
+        let n = all.filter(i => String(i.type || "").toUpperCase() === "ADDITIONAL").length;
+        if (!n) n = Math.max(1, Math.round(addl / 2.5));
+        const word = n === 1 ? "ingredient" : "ingredients";
+        return `<div class="modal-section" style="padding-top:0"><div class="ing-list"><div class="ing-row"><span style="color:var(--muted)">\u2795 plus ${n} ${word} not on sale this week</span><div style="text-align:right"><span style="font-weight:700">about $${addl.toFixed(2)}</span><div style="font-size:10px;color:#999">estimated at $2.50 each</div></div></div></div></div>`;
+      })()}
       ${r.couponsToClip?.length?`<div class="modal-section"><div class="modal-section-title">🎟️ Digital Coupons</div><div style="display:flex;flex-direction:column;gap:8px">${r.couponsToClip.map(c=>`<div class="coupon-card"><div><span style="font-size:13px">${c.clipped?"✅":"🎟️"} ${escapeHtml(c.description)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${c.clipped?"Already clipped":"Clip in Kroger app to save"}</div></div>`).join("")}</div></div>`:""}
       <div class="modal-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">

@@ -5,7 +5,7 @@ const router = Router();
 
 // ALDI deals come from the ad-aggregator OCR pipeline (cache_key=ad-extract:aldi),
 // populated weekly by the GH Action POST /api/extract-store. Same path as the
-// 80+ other chains we OCR — no bespoke ALDI scraper anymore. Cutover May 2026
+// other chains we source — no bespoke ALDI scraper anymore. Cutover May 2026
 // (see commit "Replace broken ALDI scraper with OCR via aldi.weeklyad.us.com").
 router.get("/api/aldi/deals", async (req, res) => {
   try {

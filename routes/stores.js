@@ -303,7 +303,7 @@ router.get("/api/deals/regional", async (req, res) => {
       }
       // ALDI deals come from the ad-aggregator OCR pipeline (ad-extract:aldi cache),
       // populated weekly by the GH Action POST /api/extract-store. Same path as the
-      // 80+ other chains we OCR — no bespoke ALDI scraper anymore. Cutover May 2026
+      // other chains we source — no bespoke ALDI scraper anymore. Cutover May 2026
       // (see commit "Replace broken ALDI scraper with OCR via aldi.weeklyad.us.com").
       const adCached = await getCachedDeals("ad-extract:aldi");
       if (adCached && adCached.length > 0) {
@@ -2887,7 +2887,7 @@ router.get("/deals", async (req, res, next) => {
     if (!cards.length) { res.set("Retry-After", "3600"); return res.status(503).send("<!DOCTYPE html><html><body><p>Deals are refreshing. Check back shortly.</p></body></html>"); }
 
     const title = "Grocery Weekly Ads and Dinner Ideas | Dishcount";
-    const desc = "This week's grocery deals from Kroger, ALDI, and 80+ regional chains, plus dinners you can build from them. Real prices, updated weekly. Free, no signup.";
+    const desc = "This week's grocery deals from Kroger, ALDI, and 15 other supported chains, plus dinners you can build from them. Real prices, updated weekly. Free, no signup.";
     res.set("Cache-Control", "public, max-age=1800");
     res.type("html").send(`<!DOCTYPE html>
 <html lang="en">
@@ -2941,7 +2941,7 @@ router.get("/deals", async (req, res, next) => {
   </div>
   <main class="hb-wrap">
     ${cards.join("\n")}
-    <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from every store near you.</div>
+    <div class="hb-cta">Shop somewhere else? <a href="/">Enter your zip</a> and Dishcount pulls the ads from supported stores near you.</div>
     <nav class="more-ads" aria-label="More weekly ads" style="max-width:760px;margin:24px auto 0;padding:0 20px;font-size:14px;line-height:1.9;">
       <h2 style="font-size:18px;margin:0 0 6px;">More weekly ads</h2>
       <p>${chainCrossLinks(null)} &middot; <a href="/blog/meal-plan-around-deals.html">How to plan meals around deals</a> &middot; <a href="/blog/dishcount-vs-flipp.html">Dishcount vs Flipp</a> &middot; <a href="/blog/kroger-weekly-ad-meal-plan.html">Kroger meal plan guide</a></p>

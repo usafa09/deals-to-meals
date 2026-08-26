@@ -307,47 +307,88 @@ jobs:
           PREVIEW=$(curl -s --max-time 30 "$BASE/api/deals/preview")
           COUNT=$(echo "$PREVIEW" | grep -o '"count":[0-9]*' | head -1 | cut -d: -f2)
           if [ -z "$COUNT" ] || [ "$COUNT" -lt 1 ]; then
-            echo "::error::Homepage preview has NO deal cards. The preview section is invisible to every visitor. Response: $PREVIEW"
+            echo "::error::Homepage preview has NO deal cards. Response: $PREVIEW"
             FAILED=1
           else
-            echo "  ✅ $COUNT deal cards"
+            echo "  OK $COUNT deal cards"
           fi
 
           RECIPE=$(curl -s --max-time 30 "$BASE/api/deals/preview-recipe")
           if echo "$RECIPE" | grep -q '"title"'; then
-            TITLE=$(echo "$RECIPE" | grep -o '"title":"[^"]*"' | head -1 | cut -d'"' -f4)
-            echo "  ✅ recipe: $TITLE"
+            echo "  OK recipe: $(echo "$RECIPE" | grep -o '"title":"[^"]*"' | head -1 | cut -d'"' -f4)"
           else
-            echo "::error::Homepage preview recipe is MISSING. The recipe card is invisible. Response: $RECIPE"
+            echo "::error::Homepage preview recipe is MISSING. Response: $RECIPE"
             FAILED=1
           fi
 
           echo "── SSR chain pages ──"
-          for CHAIN in kroger aldi; do
+          # A 503 is the graceful empty-bundle page. It is only a failure when the
+          # chain actually has servable data. Purging a chain on purpose must not
+          # raise an error, or the first alert we get is a lie about our own decision.
+          #
+          # Two source types, so two probes. Kroger comes from the licensed API and
+          # has no ad-extract row, so extract-status reports "none" for it even when
+          # healthy. Do not use extract-status for Kroger.
+          check_chain () {
+            CHAIN="$1"; PROBE="$2"
             CODE=$(curl -s --max-time 30 -o /dev/null -w "%{http_code}" "$BASE/deals/$CHAIN")
+            HAVE=$(eval "$PROBE")
+            [ -z "$HAVE" ] && HAVE=0
+
             if [ "$CODE" = "200" ]; then
-              echo "  ✅ /deals/$CHAIN → 200"
+              echo "  OK /deals/$CHAIN -> 200 (source has $HAVE rows)"
+            elif [ "$CODE" = "503" ] && [ "$HAVE" -eq 0 ]; then
+              echo "::notice::/deals/$CHAIN is dark and its source has 0 rows. Expected if the chain was purged. Not a failure."
+            elif [ "$CODE" = "503" ]; then
+              echo "::error::/deals/$CHAIN returned 503 but its source has $HAVE rows. The bundle is stale or missing while data exists."
+              FAILED=1
             else
-              echo "::error::/deals/$CHAIN returned $CODE (503 = empty bundle, the page is dark). This page is in the sitemap and linked from the nav."
+              echo "::error::/deals/$CHAIN returned $CODE. Expected 200, or 503 with an empty source."
               FAILED=1
             fi
-          done
+          }
+
+          check_chain kroger 'curl -s --max-time 30 "$BASE/api/deals/regional?zip=45402&brands=Kroger&locationId=01400705" | grep -o "\"totalDeals\":[0-9]*" | cut -d: -f2'
+          check_chain aldi   'curl -s --max-time 30 "$BASE/api/extract-status?store=aldi" | grep -o "\"deals\":[0-9]*" | cut -d: -f2'
 
           CODE=$(curl -s --max-time 30 -o /dev/null -w "%{http_code}" "$BASE/deals")
           if [ "$CODE" = "200" ]; then
-            echo "  ✅ /deals hub → 200"
+            echo "  OK /deals hub -> 200"
           else
-            echo "::error::/deals hub returned $CODE. The nav's Featured Deals link is broken."
+            echo "::error::/deals hub returned $CODE."
             FAILED=1
           fi
 
-          if [ "$FAILED" = "1" ]; then
-            echo ""
-            echo "One or more live surfaces have no data. The site is degraded but will NOT look broken to visitors — empty sections hide themselves and the deal pages 503. Re-run the refresh steps, or trigger them manually:"
-            echo "  curl -X POST -H \"x-internal-token: \$TOKEN\" https://dishcount.co/api/cron/refresh-preview"
-            echo "  curl -X POST -H \"x-internal-token: \$TOKEN\" \"https://dishcount.co/api/cron/refresh-ssr?chain=kroger\"   # and aldi"
-            exit 1
-          fi
+          echo "── Price plausibility ──"
+          # The old check only asked whether data existed. On 2026-08-26 ShopRite
+          # served a $199 median across four states and ALDI served a 55% price
+          # error rate, and both passed a presence check. This is the cheapest
+          # correctness signal that would have caught either.
+          #
+          # The reducer is one line on purpose. A multi-line python3 -c heredoc
+          # cannot live in a YAML block scalar: its lines sit at column 0, which
+          # ends the block, and indenting them instead relies on the runner's
+          # python tolerating leading whitespace in -c, which is version dependent.
+          # Verified to produce identical output to the multi-line form across all
+          # ten markets on 2026-08-26.
+          REDUCE="import sys,json,statistics,re;d=json.load(sys.stdin);p=[float(m.group()) for m in (re.search(r'[0-9]+(?:\.[0-9]+)?',str(r.get('salePrice') or '')) for r in d['deals']) if m];print('EMPTY 0 0 0' if not p else '%.2f %.2f %d %d'%(statistics.median(p),max(p),sum(1 for x in p if x>=50),len(p)))"
+          for Z in 45402 02108 98101 33101 30303 07001; do
+            OUT=$(curl -s --max-time 60 "$BASE/api/deals/regional?zip=$Z" | python3 -c "$REDUCE")
+            MED=$(echo "$OUT" | cut -d" " -f1); MAX=$(echo "$OUT" | cut -d" " -f2)
+            HI=$(echo "$OUT" | cut -d" " -f3);  N=$(echo "$OUT" | cut -d" " -f4)
+            if [ "$MED" = "EMPTY" ]; then
+              echo "::warning::$Z served 0 priced rows."
+              continue
+            fi
+            BAD=$(python3 -c "print(1 if float('$MED')>15 else 0)")
+            if [ "$BAD" = "1" ]; then
+              echo "::error::$Z median sale price is \$$MED across $N rows. A grocery ad does not have a \$15 median. Prices are being decoded wrong."
+              FAILED=1
+            elif [ "$HI" -gt 12 ]; then
+              echo "::warning::$Z has $HI rows at \$50 or more (max \$$MAX). Check for non-food or a price-encoding bug."
+            else
+              echo "  OK $Z median \$$MED, max \$$MAX, $HI rows >= \$50"
+            fi
+          done
 
-          echo ""
-          echo "All live surfaces have data."
+          if [ "$FAILED" = "1" ]; then exit 1; fi

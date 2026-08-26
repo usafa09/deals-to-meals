@@ -334,6 +334,34 @@ router.get("/api/deals/regional", async (req, res) => {
           }
         }
       }
+      // Region scope. ad_regions is the authority on which chains serve a zip3,
+      // and until now it was computed for the Kroger banner label and then thrown
+      // away: every cached chain was merged into every response, so all ZIPs got
+      // the same ~2,300-deal bundle. Key on the banner, not the store slug --
+      // ad_regions stores underscored slugs (save_a_lot) that cannot canonicalize,
+      // while the banner is the display name (Save-A-Lot) and lands on save-a-lot
+      // from both sides. ALDI is national and absent from many zip3 rows, so it is
+      // admitted explicitly rather than through ad_regions.
+      const allowed = new Set(summary.map(s => canonicalizeStoreId(s.banner)));
+      allowed.add("aldi");
+      const beforeScope = adExtractDeals.length;
+      adExtractDeals = adExtractDeals.filter(
+        d => allowed.has(canonicalizeStoreId(d.storeName))
+      );
+      console.log(`  region scope: ${beforeScope} -> ${adExtractDeals.length}`);
+
+      // Expiry. Only a row whose adValidTo parses to a date strictly before today
+      // UTC is dropped. Null, absent, empty and unparseable all survive: an ad we
+      // could not date is unknown, not expired, and treating it otherwise would
+      // delete Meijer, ALDI and Grocery Outlet outright.
+      const todayUTC = new Date();
+      todayUTC.setUTCHours(0, 0, 0, 0);
+      const beforeExpiry = adExtractDeals.length;
+      adExtractDeals = adExtractDeals.filter(d => {
+        const t = Date.parse(d.adValidTo);
+        return Number.isNaN(t) || t >= todayUTC.getTime();
+      });
+      console.log(`  expired rows dropped: ${beforeExpiry - adExtractDeals.length}`);
       if (adExtractDeals.length > 0) {
         // Don't assign category images — let frontend use emoji fallback instead of unreliable URLs
         adExtractDeals = adExtractDeals.map(d => d.image ? d : { ...d, image: null });
@@ -475,12 +503,28 @@ router.get("/api/deals/regional", async (req, res) => {
     if (total > 1000) console.warn(`⚠️ Large deals pool: ${total} deals (${Math.round(JSON.stringify(allDeals).length / 1024)}KB)`);
     console.log(`  Serving: ${paged.length} of ${total} deals (${Math.round(JSON.stringify(paged).length / 1024)}KB) [limit=${limit} offset=${offset}]`);
 
+    // availableChains was summary.map(s => s.banner) -- every chain ad_regions
+    // lists for the zip3, sourced or not, which is why Walmart, Costco, Target,
+    // Dollar General and Trader Joes appeared everywhere with nothing behind
+    // them. Report the chains actually served instead. Kroger is exempt because
+    // its deals arrive on their own lane and only when a locationId is supplied;
+    // the test is on s.store so every Kroger banner (Fred Meyer, QFC, Ralphs,
+    // King Soopers) is kept, not just the one literally named Kroger.
+    const servedIds = new Set(
+      adExtractDeals.map(d => canonicalizeStoreId(d.storeName))
+    );
+    const chains = summary
+      .filter(s => s.store !== "walmart")
+      .filter(s => servedIds.has(canonicalizeStoreId(s.banner)) || s.store === "kroger")
+      .map(s => s.banner);
+    if (servedIds.has("aldi") && !chains.includes("ALDI")) chains.push("ALDI");
+
     res.json({
       zip3,
       totalDeals: total,
       deals: paged,
       sources: results.sources,
-      availableChains: summary.map(s => s.banner),
+      availableChains: chains,
       dealsUpdatedAt,
       limit,
       offset,

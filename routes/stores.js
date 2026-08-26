@@ -1620,7 +1620,20 @@ const PET_NAME = /\b(?:dog|cat|puppy|kitten|pet)\s+(?:food|treats?|chow|biscuits
 // "vitamins?" is negative-lookahead'd off Vitamin Water, which is a beverage.
 // Similac / PediaSure / Gerber / Enfamil are consumable nutrition and are
 // deliberately absent from this pattern -- they must survive to reach recipes.
-const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex)\b/i;
+// Ensure Nutrition Shake is the same class and is likewise absent.
+//
+// supplements/melatonin/acne/retinol/hair care/glucose monitor were added after
+// admitting offer rows made them visible. They were never caught by name: the
+// price rejection was hiding them, so this is a pre-existing gap rather than a
+// regression. Every term was checked against all 1,154 served rows across six
+// markets and rejects only the seven non-food rows below.
+//
+// "probiotic" was tried and dropped: it rejected Organic Probiotic Beverages,
+// a drink in the Dairy category. So was "collagen". Terms live here only when
+// they cost no food on the real corpus, which is also why this is not simply
+// keyed on the category field: Publix files Ice Cream under a category naming
+// itself, and a naive /cream/ would take 34 food rows with it.
+const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex|supplements?|melatonin|fish oil|omega[- ]3|biotin|acne|retinol|hair care|glucose monitor)\b/i;
 const CLEAN_NAME = /\b(?:paper towels?|bath tissue|toilet paper|toilet bowl|napkins?|paper plates?|plastic (?:cutlery|wrap)|trash bags?|garbage bags?|detergent|fabric softener|dryer sheets?|bleach|disinfect(?:ing|ant)|lysol|clorox|dish soap|sponges?|scrubber|charmin|bounty|quilted northern|cottonelle|\btide\b|downy|oxiclean|swiffer|air freshener|febreze|candles?)\b/i;
 
 // Alcohol and tobacco. Regulated advertising, so this group is handled by

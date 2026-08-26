@@ -62,6 +62,20 @@ function formatPriceDisplay(p) {
 //
 // A non-empty priceUnit is returned untouched so Kroger output stays exactly as
 // it was — notably "/ea", which must NOT collapse to "" the way a raw "each" does.
+// TWIN OF promoConditionText() IN routes/stores.js — keep the two in sync.
+// Returns the condition attached to a price, or "" when the price stands alone.
+// Only bogo/free are labelled: their price assumes more than one item, so shown
+// bare it misstates what one costs. percent_off is a real single-item price and
+// already carries the % badge.
+function promoConditionText(d) {
+  const promo = String((d && d.promoText) || "").trim();
+  if (promo) return promo;
+  const type = String((d && d.dealType) || "").trim().toLowerCase();
+  if (type === "bogo") return "Buy 1 Get 1 Free";
+  if (type === "free") return "Free item offer";
+  return "";
+}
+
 function dealUnitInfo(d) {
   const pre = d && d.priceUnit != null ? String(d.priceUnit) : "";
   if (pre !== "") return { unit: pre, isPerLb: !!(d && d.isPerLb) || pre === "/lb" };
@@ -2015,6 +2029,7 @@ async function renderSaleItems() {
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
     const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
     const unit=dealUnitInfo(d).unit;
+    const cond=promoConditionText(d);
     const nameCls=String(d.name||"").length>60?" sale-card-name--long":"";
     const hasCoupon = findMatchingCoupon(d.name);
     return `<div class="sale-card ${cls}" role="button" tabindex="0" aria-label="${escapeHtml(d.name)}, ${escapeHtml(formatPriceDisplay(price))}, ${ariaState}" onclick="cycleDealState('${escapeHtml(d.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cycleDealState('${escapeHtml(d.id)}')}">
@@ -2026,6 +2041,7 @@ async function renderSaleItems() {
       <div class="sale-card-body">
         <div class="sale-card-name${nameCls}" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
         <div class="sale-card-price">${price!=null&&price!==""?`<span class="sale-card-sale">${escapeHtml(formatPriceDisplay(price))}${escapeHtml(unit)}</span>`:""} ${reg!=null&&reg!==""?`<span class="sale-card-reg">${escapeHtml(formatPriceDisplay(reg))}${escapeHtml(unit)}</span>`:""}</div>
+        ${cond?`<div class="sale-card-cond">${escapeHtml(cond)}</div>`:""}
         ${d.saleStory?`<div class="sale-card-store" style="color:var(--orange);font-weight:600">${escapeHtml(d.saleStory)}</div>`:""}
         <div class="sale-card-store">${escapeHtml(store)}${store?` · <a href="#" onclick="event.preventDefault();event.stopPropagation();openStoreAd('${escapeHtml(store).replace(/'/g,"&#039;")}')" style="color:var(--green-mid);text-decoration:none;font-size:11px">📰 View Ad</a>`:""}</div>
         ${ds==="include"?`<button onclick="event.stopPropagation();addDealToList('${escapeHtml(d.id)}')" style="margin-top:4px;padding:3px 8px;border:1px solid var(--green-mid);border-radius:6px;background:var(--green-light);color:var(--green-dark);font-size:10px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">🛒 Add to List</button>`:""}

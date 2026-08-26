@@ -1829,6 +1829,26 @@ function dealUnitInfo(d) {
   return { unit: "/" + raw, isPerLb: !!(d && d.isPerLb) };
 }
 
+// The condition attached to a price, or "" when the price stands alone.
+//
+// TWIN OF promoConditionText() IN public/app.js — keep the two in sync, for the
+// same reason dealUnitInfo is twinned: app.js is a plain browser script, not a
+// module this file can import from.
+//
+// promoText is the store's own wording and wins when present. Otherwise the
+// OCR dealType decides. Only bogo and free are labelled: the price on those is
+// contingent on taking more than one, so showing it bare misstates what one
+// item costs. percent_off is deliberately NOT labelled -- its price is simply
+// the marked-down price of a single item, and the % badge already says so.
+function promoConditionText(d) {
+  const promo = String(d?.promoText ?? "").trim();
+  if (promo) return promo;
+  const type = String(d?.dealType ?? "").trim().toLowerCase();
+  if (type === "bogo") return "Buy 1 Get 1 Free";
+  if (type === "free") return "Free item offer";
+  return "";
+}
+
 // Display unit for a row that came out of a cached SSR bundle. Bundles cached
 // before priceUnit was carried through hold only isPerLb, so fall back to that
 // rather than dropping the "/lb" Kroger rows already show.
@@ -1929,6 +1949,13 @@ async function buildChainBundle(slug) {
         name: d.name, salePrice: d._sale, regularPrice: d._reg,
         pctOff: d._pct, image: d.image || null, category: d.category || "",
         isPerLb: u.isPerLb, priceUnit: u.unit,
+        // Carried so a conditional price can be labelled at render. dealType has
+        // been collected on every row for months and displayed nowhere, which is
+        // how 110 live B1G1 rows came to show a halved per-unit price with no
+        // sign it needs two. adValid* ride along for the same reason: the data
+        // exists and this map is where it was being thrown away.
+        promoText: d.promoText || "", dealType: d.dealType || "",
+        adValidFrom: d.adValidFrom || null, adValidTo: d.adValidTo || null,
       };
     }),
     recipes: outRecipes,
@@ -2168,6 +2195,10 @@ function renderChainPage(bundle) {
       ? `<span class="cd-reg">$${Number(d.regularPrice).toFixed(2)}</span>` : "";
     const pct = d.pctOff ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
     const unitText = bundleUnitText(d);
+    // Rendered under the price, not beside it: the condition qualifies the
+    // number and must not be readable apart from it.
+    const condText = promoConditionText(d);
+    const cond = condText ? `<div class="cd-cond">${_esc(condText)}</div>` : "";
     // Escaped now that the text can be arbitrary OCR ("12 pk"), not a literal "/lb".
     const unit = unitText ? ` <span class="cd-unit">${_esc(unitText)}</span>` : "";
     const img = isProductPhoto(d.image)
@@ -2178,6 +2209,7 @@ function renderChainPage(bundle) {
       ${img}
       <div class="cd-name">${_esc(d.name)}</div>
       <div class="cd-price">$${Number(d.salePrice).toFixed(2)}${unit} ${reg}</div>
+      ${cond}
     </div>`;
   }).join("\n");
 
@@ -2286,6 +2318,7 @@ function renderChainPage(bundle) {
     .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
     .cd-card { position: relative; background: #fff; border: 1px solid #EDE6D4; border-radius: 12px; padding: 12px 12px 10px; }
     .cd-pct { position: absolute; top: 8px; right: 8px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+    .cd-cond { font-size: 12px; font-weight: 700; color: var(--orange, #d97706); margin-top: 2px; }
     .cd-img { width: 100%; height: 120px; max-height: 120px; object-fit: contain; background: #fff; display: block; padding: 6px 0 8px; box-sizing: border-box; }
     .cd-name { font-size: 13px; font-weight: 600; line-height: 1.3; padding-right: 44px; min-height: 34px; }
     .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: var(--green-dark, #1a2e1f); }

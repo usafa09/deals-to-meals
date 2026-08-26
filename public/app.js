@@ -1822,19 +1822,24 @@ async function loadDealsAndShow() {
 
     let allDeals = data.deals || [];
 
-    // Filter to only selected brands
-    const selectedLower = state.selectedBrands.map(b => b.toLowerCase());
+    // Filter to only selected brands.
+    //
+    // Compared with punctuation stripped from both sides: the picker carries the
+    // Google Places brand name ("Shaw's", "Save-A-Lot") and the rows carry the name
+    // the ad source prints ("Shaws", "Save A Lot"). Raw substring matching missed
+    // both, so selecting Shaw's in Boston emptied a screen holding 146 of its rows.
+    const normBrand = b => String(b || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const selectedNorm = state.selectedBrands.map(normBrand).filter(Boolean);
     const hasKrogerFamilySelected = state.selectedBrands.some(b => isKrogerFamily(b));
     allDeals = allDeals.filter(d => {
-      const store = (d.storeName || d.source || "").toLowerCase();
+      const store = normBrand(d.storeName || d.source || "");
       // Kroger family: if user selected ANY Kroger-family brand, include all kroger-source deals
       if (d.source === "kroger" && hasKrogerFamilySelected) return true;
       // ALDI
-      if (d.source === "aldi" && selectedLower.includes("aldi")) return true;
-      // Ad-extracted deals: match by storeName
-      if (d.source === "ad-extract") return selectedLower.some(b => store.includes(b) || b.includes(store));
-      // Fallback
-      return selectedLower.some(b => store.includes(b) || b.includes(store));
+      if (d.source === "aldi" && selectedNorm.includes("aldi")) return true;
+      if (!store) return false;
+      // Ad-extracted deals and everything else: match by storeName
+      return selectedNorm.some(b => store.includes(b) || b.includes(store));
     });
 
     // Show deal freshness timestamp

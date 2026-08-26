@@ -2,7 +2,7 @@ import { Router } from "express";
 import fetch from "node-fetch";
 import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
-  getAdRegions, summarizeRegions, geocodeZip,
+  getAdRegions, summarizeRegions, geocodeZip, servableChainIds,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, parseAdValidity,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
@@ -74,55 +74,53 @@ router.get("/api/nearby-stores", async (req, res) => {
   if (!validateZip(zip)) return res.status(400).json({ error: "Valid 5-digit zip is required" });
   const miles = parseInt(radiusMiles) || 10;
   const radiusMeters = Math.min(miles * 1609, 48000);
-  // v2 cache key: invalidates pre-fix entries that contained phantom Walmart/Kroger/ALDI
-  // entries injected unconditionally regardless of proximity.
-  const cacheKey = `nearby-stores:v2:${zip}:${miles}mi`;
+  // v3 cache key: v2 rows stored hasDeals/canExtract next to the address, so a
+  // 30-day-old entry asserted 30-day-old deal availability. v3 caches only what
+  // Google Places told us; the two volatile fields are recomputed below on every
+  // response, cache hit and miss alike.
+  const cacheKey = `nearby-stores:v3:${zip}:${miles}mi`;
 
   try {
-    const cached = await getCachedStores(zip, cacheKey);
-    if (cached) {
-      const filtered = cached.filter(s => s.hasDeals || s.canExtract || findIgroceryadsUrl(s.name));
-      console.log(`Nearby stores for ${zip} (${miles}mi): ${filtered.length} stores [cached]`);
-      logSearch(zip, filtered.length, 0);
-      return res.json({ stores: filtered, cached: true });
-    }
+    let baseStores = await getCachedStores(zip, cacheKey);
+    const fromCache = !!baseStores;
 
-    if (!GOOGLE_MAPS_KEY) {
+    if (!baseStores && !GOOGLE_MAPS_KEY) {
       console.log("Google Maps API key not configured, falling back to ad_regions");
       return res.json({ stores: [], error: "Google Maps API key not configured" });
     }
 
-    const location = await geocodeZip(zip);
-    if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
+    if (!baseStores) {
+      const location = await geocodeZip(zip);
+      if (!location) return res.status(400).json({ error: "Could not geocode zip code" });
 
-    const searches = [
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&type=supermarket&key=${GOOGLE_MAPS_KEY}`,
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&keyword=grocery+store&key=${GOOGLE_MAPS_KEY}`,
-    ];
-    const allPlaces = [];
-    const seenIds = new Set();
-    for (const url of searches) {
-      let nextUrl = url;
-      let pages = 0;
-      while (nextUrl && pages < 2) {
-        const placesRes = await fetch(nextUrl);
-        const placesData = await placesRes.json();
-        if (placesData.status === "OK" && placesData.results) {
-          for (const p of placesData.results) {
-            if (!seenIds.has(p.place_id)) {
-              seenIds.add(p.place_id);
-              allPlaces.push(p);
+      const searches = [
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&type=supermarket&key=${GOOGLE_MAPS_KEY}`,
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=${radiusMeters}&keyword=grocery+store&key=${GOOGLE_MAPS_KEY}`,
+      ];
+      const allPlaces = [];
+      const seenIds = new Set();
+      for (const url of searches) {
+        let nextUrl = url;
+        let pages = 0;
+        while (nextUrl && pages < 2) {
+          const placesRes = await fetch(nextUrl);
+          const placesData = await placesRes.json();
+          if (placesData.status === "OK" && placesData.results) {
+            for (const p of placesData.results) {
+              if (!seenIds.has(p.place_id)) {
+                seenIds.add(p.place_id);
+                allPlaces.push(p);
+              }
             }
           }
+          if (placesData.next_page_token) {
+            await new Promise(r => setTimeout(r, 2000));
+            nextUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${placesData.next_page_token}&key=${GOOGLE_MAPS_KEY}`;
+          } else {
+            nextUrl = null;
+          }
+          pages++;
         }
-        if (placesData.next_page_token) {
-          await new Promise(r => setTimeout(r, 2000));
-          nextUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${placesData.next_page_token}&key=${GOOGLE_MAPS_KEY}`;
-        } else {
-          nextUrl = null;
-        }
-        pages++;
-      }
     }
 
     const brandMap = new Map();
@@ -179,25 +177,39 @@ router.get("/api/nearby-stores", async (req, res) => {
       brandMap.get(brand).count++;
     }
 
-    const stores = [...brandMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+    // Places facts only. Nothing here goes stale inside 30 days.
+    baseStores = [...brandMap.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(s => ({ ...s, krogerFamily: isKrogerFamilyBrand(s.name) }));
+    await setCachedStores(zip, baseStores, cacheKey);
+    console.log(`Nearby stores for ${zip} (${miles}mi): ${baseStores.length} brands from ${allPlaces.length} places [live]`);
+    }   // end places fetch (cache miss only)
 
-    // Use in-memory storesWithDealsCache instead of querying Supabase
-    const normalizeName = (n) => n.toLowerCase().replace(/['\s-]/g, "");
-    const enrichedStores = stores
-      .map(s => ({
-        ...s,
-        hasDeals: storesWithDealsCache.has(normalizeName(s.name))
-          || isKrogerFamilyBrand(s.name) || s.name === "ALDI",
-        canExtract: !!findIgroceryadsUrl(s.name) || isKrogerFamilyBrand(s.name) || s.name === "ALDI",
-        krogerFamily: isKrogerFamilyBrand(s.name),
-      }))
+    // Recomputed on every response, hit and miss alike.
+    //   hasDeals   this chain returns rows from /api/deals/regional today.
+    //   canExtract we have a source for it AND the zip3's ad_regions lists it, so
+    //              an extraction would produce rows the region filter keeps. Without
+    //              the region test this meant only 'the chain is in the source map',
+    //              which is how Boston came to offer five chains that all return zero.
+    const servable = await servableChainIds(zip);
+    const inRegion = new Set(summarizeRegions(await getAdRegions(zip)).map(s => canonicalizeStoreId(s.banner)));
+    inRegion.add("aldi");
+    const enrichedStores = baseStores
+      .map(s => {
+        const id = canonicalizeStoreId(s.name);
+        const kroger = isKrogerFamilyBrand(s.name);
+        return {
+          ...s,
+          krogerFamily: kroger,
+          hasDeals: servable.has(id) || kroger,
+          canExtract: ((!!findIgroceryadsUrl(s.name) || s.name === "ALDI") && inRegion.has(id)) || kroger,
+        };
+      })
       .filter(s => s.hasDeals || s.canExtract);
 
-    await setCachedStores(zip, enrichedStores, cacheKey);
-    console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} brands (${enrichedStores.filter(s=>s.hasDeals).length} with deals) from ${allPlaces.length} places [live]`);
-
+    console.log(`Nearby stores for ${zip} (${miles}mi): ${enrichedStores.length} offered (${enrichedStores.filter(s=>s.hasDeals).length} with deals) [${fromCache ? "cached" : "live"}]`);
     logSearch(zip, enrichedStores.length, 0);
-    res.json({ stores: enrichedStores, cached: false });
+    res.json({ stores: enrichedStores, cached: fromCache });
   } catch (err) {
     console.error("Nearby stores error:", err.message);
     res.status(500).json({ error: "Something went wrong. Please try again." });
@@ -439,17 +451,27 @@ router.get("/api/deals/regional", async (req, res) => {
     });
 
     // Server-side brand filtering (if brands param provided)
+    //
+    // Punctuation is stripped from both sides before comparing. The picker offers
+    // the brand name Google Places returns and the deal rows carry the name the ad
+    // source prints, and those disagree on punctuation: Places says "Shaw's" where
+    // the rows say "Shaws", and "Save-A-Lot" where the rows say "Save A Lot".
+    // Substring matching on the raw strings fails both ways, so selecting Shaw's in
+    // Boston returned nothing out of 146 matching rows.
     const brandsParam = req.query.brands;
     if (brandsParam) {
+      const normBrand = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const requestedBrands = brandsParam.split(",").map(b => b.trim().toLowerCase());
+      const requestedNorm = requestedBrands.map(normBrand).filter(Boolean);
       const hasKrogerBrand = requestedBrands.some(b => isKrogerFamilyBrand(b));
       const beforeBrandFilter = allDeals.length;
       allDeals = allDeals.filter(d => {
-        const store = (d.storeName || d.source || "").toLowerCase();
+        const store = normBrand(d.storeName || d.source || "");
         // Kroger family expansion: if any Kroger banner requested, include all kroger-source deals
         if (hasKrogerBrand && d.source === "kroger") return true;
+        if (!store) return false;
         // Direct match: storeName or source contains a requested brand (or vice versa)
-        return requestedBrands.some(b => store.includes(b) || b.includes(store));
+        return requestedNorm.some(b => store.includes(b) || b.includes(store));
       });
       console.log(`  Brand filter: ${beforeBrandFilter} → ${allDeals.length} (brands: ${brandsParam})`);
     }
@@ -510,14 +532,14 @@ router.get("/api/deals/regional", async (req, res) => {
     // its deals arrive on their own lane and only when a locationId is supplied;
     // the test is on s.store so every Kroger banner (Fred Meyer, QFC, Ralphs,
     // King Soopers) is kept, not just the one literally named Kroger.
-    const servedIds = new Set(
-      adExtractDeals.map(d => canonicalizeStoreId(d.storeName))
-    );
+    // availableChains and the store picker's hasDeals answer the same question,
+    // so both read servableChainIds and cannot drift apart. Checked against the
+    // previous inline computation across six metros: identical sets.
+    const servable = await servableChainIds(zip);
     const chains = summary
-      .filter(s => s.store !== "walmart")
-      .filter(s => servedIds.has(canonicalizeStoreId(s.banner)) || s.store === "kroger")
+      .filter(s => servable.has(canonicalizeStoreId(s.banner)))
       .map(s => s.banner);
-    if (servedIds.has("aldi") && !chains.includes("ALDI")) chains.push("ALDI");
+    if (servable.has("aldi") && !chains.includes("ALDI")) chains.push("ALDI");
 
     res.json({
       zip3,

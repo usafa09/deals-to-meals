@@ -4,7 +4,7 @@ import {
   supabase, validateZip, validateStoreName, isKrogerFamilyBrand,
   getAdRegions, summarizeRegions, geocodeZip, servableChainIds,
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
-  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, parseAdValidity,
+  getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, WEEKLYAD_OCR_ONLY, parseAdValidity,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
@@ -65,6 +65,11 @@ const MAX_PLAUSIBLE_PCT_OFF = 60;
 // not 7.99; Hass Avocados carry sale == regular == $5), so the real discount is
 // unknown, not merely mis-scaled. "Buy 1 Get 1 Free" now renders under the
 // price and states the offer exactly, which is the honest version of the claim.
+// Canonical ids of the chains that are supposed to arrive from a products
+// table. Used at serve time to decide whether an undated row is suspicious.
+const TABLE_SOURCED_IDS = new Set(Object.keys(TABLE_SOURCED).map(canonicalizeStoreId));
+const OCR_ONLY_IDS = new Set([...WEEKLYAD_OCR_ONLY].map(canonicalizeStoreId));
+
 const isBogoRow = (d) => String(d?.dealType ?? "").trim().toLowerCase() === "bogo";
 
 // ══ NEARBY GROCERY STORES (Google Places API with 30-day cache) ═══════════════
@@ -374,6 +379,24 @@ router.get("/api/deals/regional", async (req, res) => {
         return Number.isNaN(t) || t >= todayUTC.getTime();
       });
       console.log(`  expired rows dropped: ${beforeExpiry - adExtractDeals.length}`);
+
+      // Undated used to mean two different things and now means one. The date
+      // parser resolves 46 of the 48 chains surveyed, so a row from a chain that
+      // is supposed to come from a products table carrying no adValidTo is not an
+      // undated ad, it is evidence the table path did not run. ALDI served 75 such
+      // rows for five days, every one of them undated, every one of them OCR.
+      //
+      // WEEKLYAD_OCR_ONLY chains are exempt: Meijer's flyer images legitimately
+      // carry no date and its 225 rows are correct.
+      const beforeUndated = adExtractDeals.length;
+      adExtractDeals = adExtractDeals.filter(d => {
+        if (d.adValidTo) return true;
+        const id = canonicalizeStoreId(d.storeName);
+        if (OCR_ONLY_IDS.has(id)) return true;
+        return !TABLE_SOURCED_IDS.has(id);
+      });
+      const undatedDropped = beforeUndated - adExtractDeals.length;
+      if (undatedDropped > 0) console.warn(`  undated rows dropped from table-sourced chains: ${undatedDropped}`);
       if (adExtractDeals.length > 0) {
         // Don't assign category images — let frontend use emoji fallback instead of unreliable URLs
         adExtractDeals = adExtractDeals.map(d => d.image ? d : { ...d, image: null });
@@ -396,10 +419,15 @@ router.get("/api/deals/regional", async (req, res) => {
     // typical market untyped. Absent means absolute: all three lanes were written
     // under a gate that refused to store an unpriced row. The renderer must never
     // have to infer this.
+    // extractMethod is backfilled by the same fingerprint that exposed ALDI:
+    // adPage is set by the Vision path and by nothing else. This is the last
+    // time it is inferred. Every row written from here on carries it, and the
+    // Kroger lane is neither, so it is left alone.
     allDeals = allDeals.map(d => {
       const t = d.priceType;
-      if (t === "promo" || t === "multibuy" || t === "absolute") return d;
-      return { ...d, priceType: "absolute" };
+      const out = (t === "promo" || t === "multibuy" || t === "absolute") ? d : { ...d, priceType: "absolute" };
+      if (out.source !== "ad-extract" || out.extractMethod) return out;
+      return { ...out, extractMethod: out.adPage != null ? "ocr" : "table" };
     });
 
     // Deduplicate: keep the one with better price data
@@ -625,6 +653,14 @@ function weeklyAdPageImages(html, slug) {
   return images;
 }
 
+// ocrTileDeals reads this, and so does the xcheck cron. Both are module-level,
+// but the constant used to be declared inside the extract-store handler, so both
+// threw ReferenceError on every call from 3706b9a (2026-08-25) until this fix.
+// Vision was 100% broken for that window and the failure was silent: the page
+// loop catches per-page errors, so extraction degraded to the text fallback and
+// still wrote. Meijer read 232 rows before and 30 after.
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
 async function ocrTileDeals(tileBuffer, storeName, label) {
   const base64 = tileBuffer.toString("base64");
   if (base64.length < 1000) return { deals: [], outcome: "skipped", status: 0 };
@@ -827,7 +863,6 @@ router.post("/api/extract-store", async (req, res) => {
 
   let slotAcquired = false;
   try {
-    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { extractingStores.delete(storeId); return; }
     const pageRes = await fetch(adUrl, {
       headers: {
@@ -863,17 +898,39 @@ router.post("/api/extract-store", async (req, res) => {
       return;
     }
 
-    await acquireExtractSlot(storeName);
-    slotAcquired = true;
-
     // Table-sourced chains parse rows straight out of the served markup. The
     // rows are shaped exactly like the OCR path's, so everything downstream --
     // the A1 classifier, dealRejectReason, the rejectTally, the ad-reject: row
     // and the cache write -- is the same code on the same data.
     const tableRows = tableSlug ? parseWeeklyAdTable(html) : null;
-    if (tableRows) {
+    if (tableRows?.length) {
       console.log(`On-demand: ${storeName} — weeklyad table: ${tableRows.length} rows parsed, no Vision calls`);
     }
+
+    // A chain declared TABLE_SOURCED whose table came back empty has had a source
+    // change, which is not a reason to fall back to a less accurate method or to
+    // treat the ad as empty. Both of those are silent: the fallback would swap in
+    // OCR output nothing records the provenance of, and the empty reading would
+    // reach the zero-deal branch and clear a good cache row.
+    //
+    // Refuse before the concurrency slot, like the stale-write guard above, so a
+    // broken table costs one HTTP GET and nothing else. WEEKLYAD_OCR_ONLY chains
+    // never reach here because they carry no tableSlug, so Meijer is unaffected.
+    if (tableSlug && tableRows && tableRows.length === 0) {
+      console.error(JSON.stringify({
+        evt: "TABLE_SOURCE_EMPTY", store: storeName, storeId, slug: tableSlug,
+        detail: "declared TABLE_SOURCED but the products table parsed to 0 rows",
+        action: "refused: no Vision fallback, no write, existing cache left in place",
+        pageBytes: html.length,
+      }));
+      extractingStores.delete(storeId);
+      return;
+    }
+
+    await acquireExtractSlot(storeName);
+    slotAcquired = true;
+
+
 
     const isLadySavings = adUrl.includes("ladysavings.com");
     const isWeeklyAdUS = adUrl.includes("weeklyad.us.com");
@@ -1338,6 +1395,11 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       // Never absent. OCR-path rows are absolute by construction: that path has
       // no offer branch and still refuses to store an unpriced row.
       priceType: d.priceType === "promo" || d.priceType === "multibuy" ? d.priceType : "absolute",
+      // Which path produced this row. ALDI served five-day-old OCR output for a
+      // chain that had since moved to the table, and the only way anyone could
+      // tell was fingerprinting adPage after the fact. Recorded now, never
+      // inferred again.
+      extractMethod: tableRows?.length ? "table" : "ocr",
     }));
 
     // INVARIANT: a stored row carries a price or an offer, never neither. Without
@@ -1358,6 +1420,23 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
         }));
         unique = unique.filter(d => !mute(d));
       }
+    }
+
+    // The sibling of the empty-table refusal above. If pages were fetched and
+    // every single Vision call failed, what remains is the text fallback, which
+    // is a different and much worse source. Writing it silently replaces a good
+    // catalogue with a thin one: that is exactly how Meijer went from 232 rows
+    // to 30 while reporting success. An Anthropic outage reproduces it, so the
+    // refusal stays even now the ReferenceError is fixed.
+    if (maxPages > 0 && apiOkCount === 0) {
+      console.error(JSON.stringify({
+        evt: "VISION_TOTAL_FAILURE", store: storeName, storeId,
+        detail: "every Vision call failed; refusing to write the text-fallback result",
+        pages: maxPages, apiOk: apiOkCount, apiNon2xx: apiNon2xxCount, parseFail: parseFailCount,
+        wouldHaveWritten: unique.length,
+        action: "refused: existing cache left in place",
+      }));
+      return;
     }
 
     if (unique.length > 0) {

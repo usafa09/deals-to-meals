@@ -52,6 +52,21 @@ const router = Router();
 // with no badge. A number we do not trust should not be published at all.
 const MAX_PLAUSIBLE_PCT_OFF = 60;
 
+// A percent-off badge is never shown on a B1G1 row. The percentage is computed
+// as 1 - sale/regular, but on a bogo row salePrice is a DERIVED per-unit figure
+// (the OCR prompt instructs Vision to halve B1G1 pricing) while regularPrice is
+// the single-unit price -- so the badge compares a two-item average against a
+// one-item price and overstates the discount. Publix Sugarbee Apples read
+// "56% off" ($3.50 vs $7.99) when a true buy-one-get-one-free is 50% at most.
+//
+// Capping at 50 was considered and rejected: it would print a confident number
+// over a derivation we cannot verify. 17 of 71 cached bogo rows carrying both
+// prices do not reconcile as sale x 2 = regular (Sugarbee: 3.495 x 2 = 6.99,
+// not 7.99; Hass Avocados carry sale == regular == $5), so the real discount is
+// unknown, not merely mis-scaled. "Buy 1 Get 1 Free" now renders under the
+// price and states the offer exactly, which is the honest version of the claim.
+const isBogoRow = (d) => String(d?.dealType ?? "").trim().toLowerCase() === "bogo";
+
 // ══ NEARBY GROCERY STORES (Google Places API with 30-day cache) ═══════════════
 
 router.get("/api/nearby-stores", async (req, res) => {
@@ -375,6 +390,7 @@ router.get("/api/deals/regional", async (req, res) => {
     // pages and the homepage preview apply. This used to cap at 90, which is why
     // a 75%-off OCR row showed "75% off" here and no discount on /deals/{chain}.
     allDeals = allDeals.map(d => {
+      if (isBogoRow(d)) return { ...d, pctOff: 0 };
       if (Number(d.pctOff) > 0) return d;
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
       const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
@@ -1547,7 +1563,7 @@ function curateFreshDeals(raw, limit) {
     .map(d => {
       const s = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
       const r = parseFloat(String(d.regularPrice || "").replace(/[^0-9.]/g, ""));
-      const pct = Number(d.pctOff) > 0
+      const pct = isBogoRow(d) ? 0 : Number(d.pctOff) > 0
         ? Number(d.pctOff)
         : (Number.isFinite(s) && Number.isFinite(r) && r > 0 && s > 0 && s < r
             ? Math.round(((r - s) / r) * 100) : 0);
@@ -1653,7 +1669,7 @@ function curateChainDeals(raw, limit) {
       // just refuse to make the suspect discount claim, so we zero the percent
       // AND drop the struck-through regular price.
       const plausible = Number.isFinite(r) && r > s && r > 0 && r <= s * 2.5;
-      const rawPct = Number(d.pctOff) > 0
+      const rawPct = isBogoRow(d) ? 0 : Number(d.pctOff) > 0
         ? Number(d.pctOff)
         : (plausible ? Math.round(((r - s) / r) * 100) : 0);
       const pct = (rawPct > 0 && rawPct <= MAX_PLAUSIBLE_PCT_OFF && plausible) ? rawPct : 0;
@@ -2193,7 +2209,7 @@ function renderChainPage(bundle) {
   const dealCards = bundle.deals.map(d => {
     const reg = d.regularPrice && d.regularPrice > d.salePrice
       ? `<span class="cd-reg">$${Number(d.regularPrice).toFixed(2)}</span>` : "";
-    const pct = d.pctOff ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
+    const pct = (d.pctOff && !isBogoRow(d)) ? `<span class="cd-pct">${d.pctOff}% off</span>` : "";
     const unitText = bundleUnitText(d);
     // Rendered under the price, not beside it: the condition qualifies the
     // number and must not be readable apart from it.
@@ -2503,7 +2519,7 @@ router.get("/deals", async (req, res, next) => {
         const unit = unitText ? `<span class="hb-unit">${_esc(unitText)}</span>` : "";
         // Only badge a REAL discount. Items whose regular price failed the H6
         // plausibility guard carry pctOff 0 and correctly show no badge.
-        const pct = Number(d.pctOff) > 0
+        const pct = (Number(d.pctOff) > 0 && !isBogoRow(d))
           ? `<span class="hb-thumb-pct">${Number(d.pctOff)}% off</span>` : "";
         return `<div class="hb-thumb">
           ${pct}

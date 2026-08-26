@@ -62,6 +62,14 @@ function formatPriceDisplay(p) {
 //
 // A non-empty priceUnit is returned untouched so Kroger output stays exactly as
 // it was — notably "/ea", which must NOT collapse to "" the way a raw "each" does.
+// TWIN OF isBogoRow() IN routes/stores.js — keep the two in sync.
+// No percent-off badge on a B1G1 row: the percentage compares a derived
+// per-unit sale price against a single-unit regular price and overstates the
+// discount. The "Buy 1 Get 1 Free" line states the offer exactly instead.
+function isBogoRow(d) {
+  return String((d && d.dealType) || "").trim().toLowerCase() === "bogo";
+}
+
 // TWIN OF promoConditionText() IN routes/stores.js — keep the two in sync.
 // Returns the condition attached to a price, or "" when the price stands alone.
 // Only bogo/free are labelled: their price assumes more than one item, so shown
@@ -2027,7 +2035,7 @@ async function renderSaleItems() {
     const badge=ds==="include"?"✓ Include":ds==="exclude"?"✗ Exclude":"";
     const ariaState=ds==="include"?"currently included":ds==="exclude"?"currently excluded":"not selected";
     const price=d.salePrice||""; const reg=d.regularPrice&&d.regularPrice!==d.salePrice?d.regularPrice:"";
-    const store=d.storeName||d.source||""; const pct=d.pctOff>0?`${d.pctOff}%`:"";
+    const store=d.storeName||d.source||""; const pct=(d.pctOff>0&&!isBogoRow(d))?`${d.pctOff}%`:"";
     const unit=dealUnitInfo(d).unit;
     const cond=promoConditionText(d);
     const nameCls=String(d.name||"").length>60?" sale-card-name--long":"";
@@ -2036,7 +2044,7 @@ async function renderSaleItems() {
       ${pct?`<div class="sale-card-pct">${escapeHtml(pct)} off</div>`:""}
       ${badge?`<div class="sale-card-badge">${badge}</div>`:""}
       ${hasCoupon?`<div class="sale-card-coupon">🎟️ Coupon</div>`:""}
-      ${d.pctOff>=40&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
+      ${d.pctOff>=40&&!isBogoRow(d)&&!/dessert|snack|candy|cookie|bakery|soda|beverage|chip/i.test(String(d.category||""))?`<div style="position:absolute;top:4px;left:4px;background:#A85D05;color:white;font-size:10px;padding:2px 6px;border-radius:var(--r-sm);font-weight:600;z-index:1;">STOCK UP</div>`:""}
       ${d.source==="kroger"&&typeof d.image==="string"&&d.image.startsWith("http")?`<img class="sale-card-img" src="${escapeHtml(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}" style="display:none"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`:`<div class="sale-card-tile ${dealTintClass(d.category||d.name||"")}"><span class="sale-card-tile-icon">${dealCatIcon(d.category||d.name||"")}</span></div>`}
       <div class="sale-card-body">
         <div class="sale-card-name${nameCls}" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>

@@ -518,6 +518,105 @@ function releaseExtractSlot() {
   else extractSlotsInUse = Math.max(0, extractSlotsInUse - 1);
 }
 
+// Runs one image tile through Claude Vision and returns the rows it yielded.
+//
+// Lifted verbatim out of the /api/extract-store tile loop so the cross-check
+// audit measures the SAME prompt and the same parse and recovery behaviour that
+// production runs. A second copy of the prompt would have measured something no
+// user is served, which would make any disagreement it reported meaningless.
+//
+// Loop control and per-run bookkeeping stay with the caller: the vision-call
+// cap, the apiOk/apiNon2xx/parseFail counters, perPageOutcome, and the
+// adImage/adPage stamping, which needs page context a single tile does not have.
+// The returned outcome is what lets the caller keep those counters without this
+// function needing to know they exist.
+//
+// `label` carries the caller's "page N tile M" wording so the log lines read
+// exactly as they did before.
+async function ocrTileDeals(tileBuffer, storeName, label) {
+  const base64 = tileBuffer.toString("base64");
+  if (base64.length < 1000) return { deals: [], outcome: "skipped", status: 0 };
+
+  const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 8000,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+          { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
+
+Output shape per item:
+{"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","requiresCoupon":false,"category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
+
+salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
+- "$3.99" -> 3.99
+- "5 for $10" or "5/$10" -> 2.00. Put "5 for $10" in notes.
+- "2/$5" -> 2.50. Put "2 for $5" in notes.
+- B1G1 on a $4 item -> 2.00. Set dealType to "bogo".
+- B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
+- B1G1 where the only figure shown is a savings amount (however it is worded — "Save 7.09", "Save up to 7.09"): on a buy-one-get-one that figure IS one item's price, so salePrice is half of it -> 3.55. This rule sets salePrice ONLY. It is the single exception to "hedged savings wording is unusable", and it does not extend to regularPrice: for BOGO, regularPrice comes from a listed single-item price or is null.
+- Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
+- "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
+- "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
+- "When You Buy N", "Must Buy N", "Limit N" are purchase conditions, not prices. Put them in notes; never use N or the bundle total as the per-unit salePrice.
+- requiresCoupon: set true when the price needs a digital coupon, store app, loyalty card, or membership (wording like "Digital Coupon", "with card", "for U", "mPerks", "Member Price"). Otherwise false.
+- Large featured price circles and bubbles are deals, often the best on the page. Always include them.
+- If you cannot determine a per-unit price, omit the row.
+
+regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit reference price or an EXACT stated savings amount:
+- "Was $5.99", "Reg. $5.99", "Regularly $5.99" -> 5.99
+- "SAVE $2" or "$2 off" (exact amount) -> salePrice + 2
+- "SAVE $1.50 PER LB" on a $0.79/lb item -> 2.29
+- For BOGO, regularPrice is the listed single-item price.
+- "SAVE UP TO $X" and "SAVE UP TO 80¢" are ceilings advertised across a group of items, NOT this item's savings. Set regularPrice to null. Do NOT add the amount to salePrice. Do NOT treat it as an upper bound.
+- Any hedged savings wording ("up to", "as much as", "save big") -> regularPrice is null.
+- If the ad shows no reference price and no exact savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
+
+unit: "lb" if priced per pound; otherwise "each" or the package unit ("12 pk", "case").
+dealType: "sale" for marked-down items, "bogo" for buy-one-get-one (any percentage), "percent_off" for "20% off" markdowns.
+
+Use JSON null (not "") for unknown numeric fields. Return [] if the page has no extractable items.` }
+        ]
+      }]
+    })
+  });
+
+  if (!aiRes.ok) {
+    const errBody = await aiRes.text().catch(() => "");
+    console.error(`Vision API non-2xx for ${storeName} ${label}: HTTP ${aiRes.status} — ${errBody.substring(0, 200)}`);
+    await new Promise(r => setTimeout(r, 500));
+    return { deals: [], outcome: "api_non2xx", status: aiRes.status };
+  }
+
+  const aiData = await aiRes.json();
+  const text = aiData.content?.map(c => c.text || "").join("") || "";
+  let cleaned = text.replace(/```json|```/g, "").trim();
+  let rows = null;
+  try {
+    rows = JSON.parse(cleaned);
+  } catch (e) {
+    console.error(`OCR ${label} JSON parse error:`, e.message);
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (lastBrace > 0) {
+      try {
+        rows = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
+      } catch (e2) { console.error(`OCR ${label} recovery parse error:`, e2.message); }
+    }
+  }
+  await new Promise(r => setTimeout(r, 500));
+  return rows
+    ? { deals: rows, outcome: "ok", status: aiRes.status }
+    : { deals: [], outcome: "parse_fail", status: aiRes.status };
+}
+
 async function fetchBestImage(url, headers) {
   // WordPress appends -scaled to large uploads; the original usually exists
   // at the same URL without the suffix. Verified June 11: 4.6-6.4x the pixels.
@@ -872,103 +971,24 @@ router.post("/api/extract-store", async (req, res) => {
         console.log(`${storeName} page ${i+1}: ${tiles.length} tiles`);
 
         for (let t = 0; t < tiles.length; t++) {
-          const base64 = tiles[t].toString("base64");
-          if (base64.length < 1000) continue;
-
-          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": ANTHROPIC_KEY,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 8000,
-              messages: [{
-                role: "user",
-                content: [
-                  { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
-                  { type: "text", text: `Extract grocery deals from this ${storeName} weekly ad image. Return ONLY a valid JSON array. No markdown, no commentary. Include every item that shows a price.
-
-Output shape per item:
-{"name":"","brand":"","salePrice":null,"unit":"","regularPrice":null,"dealType":"sale/bogo/percent_off","requiresCoupon":false,"category":"meat/produce/dairy/bakery/frozen/pantry/snacks/beverages/deli/seafood/household/other","size":"","notes":""}
-
-salePrice: the per-unit price the shopper pays. Always a number; never a phrase.
-- "$3.99" -> 3.99
-- "5 for $10" or "5/$10" -> 2.00. Put "5 for $10" in notes.
-- "2/$5" -> 2.50. Put "2 for $5" in notes.
-- B1G1 on a $4 item -> 2.00. Set dealType to "bogo".
-- B1G1 50%-off on a $4 item -> 3.00. Set dealType to "bogo".
-- B1G1 where the only figure shown is a savings amount (however it is worded — "Save 7.09", "Save up to 7.09"): on a buy-one-get-one that figure IS one item's price, so salePrice is half of it -> 3.55. This rule sets salePrice ONLY. It is the single exception to "hedged savings wording is unusable", and it does not extend to regularPrice: for BOGO, regularPrice comes from a listed single-item price or is null.
-- Never output 0 for salePrice. If no per-unit price can be determined, omit the row entirely.
-- "Final Price" beats "Sale Price": when an item shows both (digital-coupon ads), salePrice is the FINAL price after the coupon, and set requiresCoupon to true.
-- "N for $X" means salePrice is X divided by N. "4 for $8" -> 2.00. "2/$10" -> 5.00. "5/$5" -> 1.00.
-- "When You Buy N", "Must Buy N", "Limit N" are purchase conditions, not prices. Put them in notes; never use N or the bundle total as the per-unit salePrice.
-- requiresCoupon: set true when the price needs a digital coupon, store app, loyalty card, or membership (wording like "Digital Coupon", "with card", "for U", "mPerks", "Member Price"). Otherwise false.
-- Large featured price circles and bubbles are deals, often the best on the page. Always include them.
-- If you cannot determine a per-unit price, omit the row.
-
-regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit reference price or an EXACT stated savings amount:
-- "Was $5.99", "Reg. $5.99", "Regularly $5.99" -> 5.99
-- "SAVE $2" or "$2 off" (exact amount) -> salePrice + 2
-- "SAVE $1.50 PER LB" on a $0.79/lb item -> 2.29
-- For BOGO, regularPrice is the listed single-item price.
-- "SAVE UP TO $X" and "SAVE UP TO 80¢" are ceilings advertised across a group of items, NOT this item's savings. Set regularPrice to null. Do NOT add the amount to salePrice. Do NOT treat it as an upper bound.
-- Any hedged savings wording ("up to", "as much as", "save big") -> regularPrice is null.
-- If the ad shows no reference price and no exact savings amount, set regularPrice to null. Do NOT guess. Do NOT copy salePrice.
-
-unit: "lb" if priced per pound; otherwise "each" or the package unit ("12 pk", "case").
-dealType: "sale" for marked-down items, "bogo" for buy-one-get-one (any percentage), "percent_off" for "20% off" markdowns.
-
-Use JSON null (not "") for unknown numeric fields. Return [] if the page has no extractable items.` }
-                ]
-              }]
-            })
-          });
+          const label = `page ${i+1} tile ${t+1}`;
+          const tileResult = await ocrTileDeals(tiles[t], storeName, label);
+          if (tileResult.outcome === "skipped") continue;
           visionCalls++;
-
-          if (!aiRes.ok) {
+          if (tileResult.outcome === "api_non2xx") {
             apiNon2xxCount++;
-            const errBody = await aiRes.text().catch(() => "");
-            console.error(`Vision API non-2xx for ${storeName} page ${i+1} tile ${t+1}: HTTP ${aiRes.status} — ${errBody.substring(0, 200)}`);
-            perPageOutcome.push({ page: i+1, tile: t+1, status: aiRes.status, kind: "api_non2xx" });
-            await new Promise(r => setTimeout(r, 500));
+            perPageOutcome.push({ page: i+1, tile: t+1, status: tileResult.status, kind: "api_non2xx" });
             continue;
           }
           apiOkCount++;
-
-          const aiData = await aiRes.json();
-          const text = aiData.content?.map(c => c.text || "").join("") || "";
-          let cleaned = text.replace(/```json|```/g, "").trim();
-          let parsedOk = false;
-          let tileDeals = 0;
-          try {
-            const deals = JSON.parse(cleaned);
-            deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
-            allDeals.push(...deals);
-            parsedOk = true;
-            tileDeals = deals.length;
-          } catch (e) {
-            console.error(`OCR page ${i+1} tile ${t+1} JSON parse error:`, e.message);
-            const lastBrace = cleaned.lastIndexOf("}");
-            if (lastBrace > 0) {
-              try {
-                const recovered = JSON.parse(cleaned.substring(0, lastBrace + 1) + "]");
-                recovered.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
-                allDeals.push(...recovered);
-                parsedOk = true;
-                tileDeals = recovered.length;
-              } catch (e2) { console.error(`OCR page ${i+1} tile ${t+1} recovery parse error:`, e2.message); }
-            }
-          }
-          if (parsedOk) {
-            perPageOutcome.push({ page: i+1, tile: t+1, ok: true, deals: tileDeals });
+          if (tileResult.outcome === "ok") {
+            tileResult.deals.forEach(d => { d.adImage = images[i]; d.adPage = i + 1; });
+            allDeals.push(...tileResult.deals);
+            perPageOutcome.push({ page: i+1, tile: t+1, ok: true, deals: tileResult.deals.length });
           } else {
             parseFailCount++;
             perPageOutcome.push({ page: i+1, tile: t+1, kind: "parse_fail" });
           }
-          await new Promise(r => setTimeout(r, 500));
         }
       } catch (e) {
         console.error(`  Page ${i+1} error: ${e.message}`);

@@ -311,20 +311,75 @@ function hardcodedQtyForDeal(matchedDeal) {
 // DELIBERATELY NOT staples (consumed in meaningful recipe quantities):
 // vinegars, condiments (soy sauce, hot sauce, ketchup, mustard, mayo,
 // worcestershire), flour, sugar, honey, maple syrup, broths/stocks, butter.
+// "pepper" on its own is a vegetable far more often than a spice. The bare
+// /\b(salt|pepper)\b/ that used to live here matched Bell Pepper, Red Bell
+// Pepper, Poblano, Sweet Pepper, Chili Pepper, Pepper Jack Cheese and Salt
+// Pork, and zeroed every one of them out of the recipe total while still
+// displaying its price. Plurals escaped the same pattern, which is why the
+// understatement looked intermittent rather than constant.
+//
+// A pepper is a spice only when it is named as one, so the qualifier is
+// required. Salt is the reverse: bare "salt" is nearly always the seasoning,
+// so it matches unless it is the cured-meat sense.
 const _PANTRY_STAPLE_PATTERNS = [
   /\boil\b/i,                              // olive, canola, vegetable, coconut, avocado, sesame, peanut
-  /\b(salt|pepper)\b/i,                    // catches "kosher salt", "black pepper", etc.
+  /\bsalt\b(?!\s*[- ]?\s*(?:pork|cod|fish|beef|cured))/i,   // kosher/sea/table salt, but not salt pork
+  /\b(?:black|white|ground|cracked|coarse|lemon|cayenne)\s+peppers?\b/i,  // the spice, never the vegetable
+  /\bpeppercorns?\b/i,
   /\b(paprika|cumin|oregano|basil|thyme|rosemary|sage|cinnamon|nutmeg|clove|cardamom|turmeric|coriander|cayenne|chili powder|garlic powder|onion powder|red pepper flake|italian seasoning|herbs de provence|bay leaf)\b/i,
   /\bvanilla extract\b/i,
   /\bbaking (powder|soda)\b/i,
   /\byeast\b/i,
   /\bcornstarch\b/i,
-  /\bbutter\b/i,   // shared staple: bought once, not billed to a single recipe
+  // butter is intentionally absent. The DELIBERATELY NOT list above names it,
+  // and a stick of butter is consumed in recipe quantities. The old
+  // /\bbutter\b/ contradicted that comment and zeroed Salted Butter.
 ];
+// Returns { name, pattern } for the first match, or null. The caller logs it:
+// a staple contributes $0 while still displaying its price, so a wrong match
+// silently understates the meal and nothing in the output says which item did
+// it or why.
+function pantryStapleMatch(...names) {
+  for (const name of names.filter(Boolean)) {
+    for (const re of _PANTRY_STAPLE_PATTERNS) {
+      if (re.test(String(name))) return { name: String(name), pattern: String(re) };
+    }
+  }
+  return null;
+}
 function isPantryStaple(...names) {
-  return names.filter(Boolean).some(name =>
-    _PANTRY_STAPLE_PATTERNS.some(re => re.test(String(name)))
-  );
+  return pantryStapleMatch(...names) !== null;
+}
+
+// ── CHANGE 2: assert the classification at module load ────────────────────
+// Zeroing a genuine spice from a per-recipe total is correct. Getting the
+// membership wrong is not, and it fails silently: the row still shows its
+// price, so the only symptom is a header that reads low. Both directions are
+// asserted, and a pattern edit that breaks either one fails the boot. Same
+// shape as the parseTablePrice ordering assertion in routes/stores.js.
+{
+  const MUST_BE_STAPLE = [
+    "black pepper", "Ground Black Pepper", "freshly cracked pepper", "white pepper",
+    "Lemon Pepper Seasoning", "whole peppercorns",
+    "kosher salt", "sea salt", "table salt", "Salt and pepper to taste",
+    "olive oil", "extra virgin olive oil", "canola oil",
+    "ground cumin", "bay leaf", "smoked paprika", "garlic powder",
+    "baking powder", "vanilla extract", "cornstarch",
+  ];
+  const MUST_NOT_BE_STAPLE = [
+    "Bell Pepper", "Red Bell Pepper", "Green Bell Peppers", "Poblano Pepper",
+    "Sweet Pepper", "Chili Pepper", "Jalapeno Pepper", "Banana Peppers",
+    "Pepper Jack Cheese", "Pepperoni", "Salt Pork", "Salted Butter",
+    "Unsalted Butter", "Butter", "Peanut Butter",
+    "Chicken Breast", "Ground Beef", "Roma Tomatoes",
+  ];
+  for (const n of MUST_BE_STAPLE) {
+    if (!isPantryStaple(n)) throw new Error(`pantry staple regression: ${JSON.stringify(n)} should be a staple and is not`);
+  }
+  for (const n of MUST_NOT_BE_STAPLE) {
+    const m = pantryStapleMatch(n);
+    if (m) throw new Error(`pantry staple regression: ${JSON.stringify(n)} must NOT be a staple, matched ${m.pattern}`);
+  }
 }
 
 // ── Profile dietary normalization ───────────────────────────────────────────
@@ -993,6 +1048,10 @@ IMPORTANT ingredient type rules:
       let aiQtyCount = 0;
       let fbQtyCount = 0;
       let stapleExcludedCount = 0;
+      // What was excluded and why. The count alone cannot distinguish "three
+      // spices, correctly zeroed" from "three bell peppers, wrongly zeroed",
+      // and the second understates the meal while still showing the prices.
+      const stapleExclusions = [];
 
       const ingredientLookup = ingredients.map(ing => ({
         ...ing,
@@ -1078,7 +1137,8 @@ IMPORTANT ingredient type rules:
           // staple (oils, dried spices, salt/pepper, baking essentials). The matched
           // deal still appears in usedSaleItems with full identity (price, store, upc)
           // so the Kroger cart-add path keeps working; only the cost roll-up is zeroed.
-          const isStaple = isPantryStaple(ing && ing.item, ing && ing.matchName, matchedDeal.name);
+          const stapleMatch = pantryStapleMatch(ing && ing.item, ing && ing.matchName, matchedDeal.name);
+          const isStaple = stapleMatch !== null;
           // Validation gate: per-each non-produce ingredient charging >4 packages
           // or >$20 is a units error, not a real basket. Clamp and log.
           if (!isPerLb && qty > 4 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
@@ -1095,7 +1155,15 @@ IMPORTANT ingredient type rules:
           const itemRegCost = isStaple ? 0 : itemRegCost_raw;
           const savings = itemRegCost > itemSaleCost && itemSaleCost > 0 ? itemRegCost - itemSaleCost : 0;
           itemActualCost = isStaple ? "0.00" : itemSaleCost.toFixed(2);
-          if (isStaple) stapleExcludedCount++;
+          if (isStaple) {
+            stapleExcludedCount++;
+            stapleExclusions.push({
+              item: matchedDeal.name,
+              matchedOn: stapleMatch.name,
+              pattern: stapleMatch.pattern,
+              excluded: itemSaleCost_raw.toFixed(2),
+            });
+          }
 
           usedSaleItems.push({
             name: matchedDeal.name,
@@ -1147,7 +1215,14 @@ IMPORTANT ingredient type rules:
       // The AI's costPerServing is still discarded for display; this is monitoring only.
       console.log(`Recipe "${r.title}": qty source ai=${aiQtyCount} fallback=${fbQtyCount}`);
       if (stapleExcludedCount > 0) {
-        console.log(`Recipe "${r.title}": pantry staples excluded from cost: ${stapleExcludedCount}`);
+        const dropped = stapleExclusions.reduce((t, x) => t + parseFloat(x.excluded), 0);
+        console.log(JSON.stringify({
+          evt: "PANTRY_STAPLES_EXCLUDED",
+          recipe: r.title,
+          count: stapleExcludedCount,
+          totalExcluded: dropped.toFixed(2),
+          items: stapleExclusions,
+        }));
       }
       const aiClaimed = parseFloat(r.costPerServing);
       const servings = r.servings || 4;

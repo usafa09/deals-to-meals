@@ -10,3 +10,11 @@ public/images/**/*.webp
 *.pfx
 scripts/migrations/
 scripts/analysis/output/
+
+# Local data backups taken before destructive cache/table operations.
+# Third-party ad content, machine-local only, not for the repo.
+*-backup*.json
+*-backup*.csv
+# Exception: the ad_regions restore point is Dishcount's own metadata and is
+# the only copy of the 9,000 rows deleted on 2026-08-26. It stays committed.
+!migrations/*-backup*.json

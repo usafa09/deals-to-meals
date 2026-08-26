@@ -457,7 +457,18 @@ router.get("/api/deals/regional", async (req, res) => {
     allDeals = allDeals.filter(d => {
       if (!d.name || d.name.trim() === "") return false;
       const price = parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, ""));
-      if (price > 500) return false; // data error
+      // A ceiling only ever catches the tail. At 500 it dropped ShopRite's
+      // $999 rows and let its 124 rows between $100 and $499 through, which is
+      // the worst of both: the evidence was suppressed and the errors shipped.
+      // The real defence is the write-time median check; this stays as a last
+      // resort and now says what it dropped.
+      if (price > 500) {
+        console.warn(JSON.stringify({
+          evt: "IMPLAUSIBLE_PRICE_DROPPED", store: d.storeName || d.source,
+          name: d.name, salePrice: d.salePrice,
+        }));
+        return false;
+      }
       return true;
     });
     const removed = beforeDedup - allDeals.length;
@@ -1439,6 +1450,32 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       return;
     }
 
+    // A grocery ad has a median price in single dollars. ShopRite's cached median
+    // was $199 and its maximum was $99,910, and it served 219 rows into four
+    // states for a day because nothing looked at the distribution -- only at
+    // individual rows, against a ceiling high enough to miss almost all of them.
+    // A median above $20 means the decoder misread the whole cell format, not
+    // that a few rows are odd, so the right response is to refuse the batch.
+    {
+      const prices = unique
+        .map(d => parseFloat(String(d.salePrice || "").replace(/[^0-9.]/g, "")))
+        .filter(v => Number.isFinite(v) && v > 0)
+        .sort((a, b) => a - b);
+      if (prices.length >= 10) {
+        const median = prices[Math.floor(prices.length / 2)];
+        if (median > 20) {
+          console.error(JSON.stringify({
+            evt: "IMPLAUSIBLE_PRICE_DISTRIBUTION", store: storeName, storeId,
+            detail: "median price is not a grocery ad; the price cell format was probably misread",
+            median: +median.toFixed(2), max: +prices[prices.length - 1].toFixed(2),
+            priced: prices.length, of: unique.length,
+            action: "refused: existing cache left in place",
+          }));
+          return;
+        }
+      }
+    }
+
     if (unique.length > 0) {
       await setCachedDeals(`ad-extract:${storeId}`, unique);
       console.log(`On-demand: ${storeName} — ${unique.length} deals cached`);
@@ -1567,11 +1604,13 @@ const stripCell = (s) => s
 const NON_ABSOLUTE_PRICE = /\bfree\b|\bbogo\b|buy\s*\d*\s*get|\d\s*%\s*off|\boff\b/i;
 
 // Prices contingent on quantity: "2 for $5", "3/$5", "2$5 for Member Price",
-// "Mix & Match ... WHEN YOU BUY 6 OR MORE". The figure is a group total or a
-// bulk rate, not what one item costs, and we do not divide to find out.
+// "2 $1", "Mix & Match ... WHEN YOU BUY 6 OR MORE". The figure is a group total
+// or a bulk rate, not what one item costs, and we do not divide to find out.
 // Matched loosely on "for" because the source concatenates without spaces
 // ("2$6forMember Price"); a price cell has no other reason to contain the word.
-const MULTI_BUY = /for|\d\s*\/\s*\$?\d|when you buy|mix\s*&?\s*match/i;
+// The leading "count then $amount" form carries no such word at all, so it is
+// matched on shape and anchored, which keeps it off "$499" and "$5 Member Price".
+const MULTI_BUY = /for|\d\s*\/\s*\$?\d|when you buy|mix\s*&?\s*match|^\s*\d+\s*\$\s*\d/i;
 
 // Unit tokens, read only where they actually appear. The source concatenates
 // marketing text onto the price ("899Member Price"), so a naive "word after the
@@ -1639,20 +1678,79 @@ function parseTablePrice(raw) {
   const dec = text.match(/\$?\s*(\d+\.\d{1,2})(?!\d)/);
   if (dec) return ok(parseFloat(dec[1]));
 
-  // 3. Whole dollars, explicitly marked: "$5 Member Price".
+  // 3. No decimal point: the trailing two digits are cents. "899Member Price"
+  //    -> 8.99, "1299lb" -> 12.99, "$499" -> 4.99.
+  //
+  //    THIS MUST STAY AHEAD OF THE WHOLE-DOLLAR RULE. Ordering is the whole bug:
+  //    Publix and Safeway write this form bare ("599", "899Member Price") and it
+  //    parsed correctly, while ShopRite writes the identical form with a dollar
+  //    sign ("$499" meaning $4.99) on 193 of its 350 price cells. With the
+  //    whole-dollar rule first, every one of those became a hundredfold
+  //    overstatement: Italian Bread at $199, a median ShopRite price of $199, and
+  //    219 rows live in four states.
+  //
+  //    Bounded to 3-4 digits, which is what separates the two forms. A 1-2 digit
+  //    run is genuinely whole dollars ("$5 Member Price", "$12") and falls
+  //    through to rule 4. 5+ digits is not a grocery price in either reading.
+  //    Anchored, so it reads the price at the start of the cell and not a number
+  //    buried in marketing text.
+  //    A digit run of 5 or more has no sane reading in either form. ShopRite
+  //    serves one ("$99910" on a skirt steak). Storing it as $99,910 pollutes
+  //    the cache and the max even though the serve-time ceiling hides it, so it
+  //    is refused here and the row is dropped as unpriced.
+  if (/^\s*\$?\s*\d{5,}/.test(text)) return none;
+
+  //    Two shapes carry this form. Bare or dollar-prefixed at the start
+  //    ("599", "$499"), and introduced by a dollar sign after marketing text
+  //    ("FINAL PRICE $399", "ONLY$899$1798"). The second needs the dollar sign:
+  //    without it, an unanchored 3-4 digit match would read quantities and pack
+  //    sizes out of the middle of a cell. Where two amounts follow ("ONLY$899
+  //    $1798" is the sale price then the regular) the first is the one to take.
+  const noDecimal = text.match(/^\s*\$?\s*(\d{3,4})(?!\d)/)
+                 || text.match(/^[^\d$]*\$\s*(\d{3,4})(?!\d)/);
+  if (noDecimal) return ok(parseInt(noDecimal[1], 10) / 100);
+
+  // 4. Whole dollars, explicitly marked and short: "$5 Member Price", "$12".
   const dollars = text.match(/\$\s*(\d+)(?!\d)/);
   if (dollars) return ok(parseInt(dollars[1], 10));
-
-  // 4. No decimal and no currency symbol: the trailing two digits are cents.
-  //    "899Member Price" -> 8.99, "2069Mix & Match" -> 20.69, "1299lb" -> 12.99.
-  //    Bounded to 3-4 digits: every 1-2 digit bare cell in the corpus is a
-  //    percent-off, already rejected above, and 5+ digits is not a grocery price.
-  const bare = text.match(/^(\d{3,4})(?!\d)/);
-  if (bare) return ok(parseInt(bare[1], 10) / 100);
 
   return { salePrice: null, unit: "", promoText: text, priceType: "promo" };
 }
 
+
+// Price-cell decoding is ordering-sensitive and the ordering is not obvious, so
+// it is asserted at module load rather than left to a test nobody runs. Rule 3
+// ahead of rule 4 is the entire fix for the ShopRite hundredfold overstatement;
+// swapping them back passes every other case here and silently breaks that one.
+// A future reorder fails the boot.
+{
+  const CASES = [
+    ["$499", 4.99],              // ShopRite: no-decimal WITH a dollar sign
+    ["$9.99", 9.99],
+    ["599", 5.99],               // Publix: no-decimal, bare
+    ["899Member Price", 8.99],   // Safeway: no-decimal with trailing marketing
+    ["$5 Member Price", 5],      // genuinely whole dollars, 1-2 digits
+    ["$12", 12],
+    ["2 $1", "multibuy"],
+    ["22.99 ea", 22.99],
+    ["$1299", 12.99],
+    ["FINAL PRICE $399", 3.99],  // ShopRite: price behind marketing text
+    ["ONLY$899$1798", 8.99],     // sale then regular; take the first
+    ["FINAL PRICE $1.75", 1.75],
+    ["$99910", "absolute"],      // 5+ digits: refused, stored as no price
+    ["59\u00a2", 0.59],
+    ["Buy 1 Get 1 FREE", "promo"],
+  ];
+  for (const [cell, want] of CASES) {
+    const r = parseTablePrice(cell);
+    const got = r.priceType !== "absolute" ? r.priceType
+              : r.salePrice == null ? "absolute"
+              : Number(r.salePrice);
+    if (String(got) !== String(want)) {
+      throw new Error(`parseTablePrice(${JSON.stringify(cell)}) = ${got}, expected ${want}`);
+    }
+  }
+}
 
 // Rows in the shape the OCR path emits, so both feed the same validation gate.
 function parseWeeklyAdTable(html) {

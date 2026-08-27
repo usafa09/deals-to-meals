@@ -328,8 +328,8 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .modal-img-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, var(--green-light), var(--cream)); display: flex; align-items: center; justify-content: center; font-size: 64px; border-radius: 22px 22px 0 0; }
 .modal-body { padding: 24px; }
 .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.modal-title { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700; color: var(--green-dark); line-height: 1.3; }
-.modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--sand); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+.modal-title { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700; color: var(--dark); line-height: 1.3; }
+.modal-close { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border-strong); background: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
 .modal-close:hover { background: #F5F0E8; }
 .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .stat-pill { padding: 8px 14px; border-radius: var(--r-sm); font-size: 13px; font-weight: 700; }
@@ -339,13 +339,13 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .stat-servings { background: #f0fdf4; color: var(--green-dark); }
 
 .modal-section { margin-bottom: 20px; }
-.modal-section-title { font-size: 12px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.modal-section-title { font-size: 12px; font-weight: 700; color: #767676; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
 .ing-list { display: flex; flex-direction: column; gap: 6px; }
 .ing-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: var(--r-sm); font-size: 13px; }
 .ing-row.on-sale { background: var(--green-light); border: 1px solid #A5D6A7; }
 .ing-row.pantry  { background: #FAFAFA; border: 1px solid #F0E8D0; color: #666; }
 .ing-sale-price { font-weight: 800; color: var(--orange-text); }
-.ing-reg-price  { font-size: 11px; color: #CCC; text-decoration: line-through; margin-left: 4px; }
+.ing-reg-price  { font-size: 11px; color: #5f6b5f; text-decoration: line-through; margin-left: 4px; }
 
 .coupon-list { display: flex; flex-direction: column; gap: 6px; }
 .coupon-row { background: var(--blue-light); border: 1px solid #90CAF9; border-radius: var(--r-sm); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
@@ -362,10 +362,12 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .modal-btn { flex: 1; min-width: 140px; padding: 12px; border: none; border-radius: var(--r-md); font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
 .modal-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .modal-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-.modal-btn-save  { background: var(--orange-light); color: var(--orange-text); border: 2px solid #FFB74D; }
-.modal-btn-save.saved { background: var(--orange); color: white; }
-.modal-btn-list  { background: var(--green-light); color: var(--green-dark); border: 2px solid #A5D6A7; }
-.modal-btn-cart  { background: var(--blue); color: white; }
+/* One primary per view, amber with a dark label. Everything else is a
+   dark-green outline. Green survives only as a state (saved), never as a
+   plain button fill. .modal-btn-cart deleted: it had zero uses. */
+.modal-btn-primary   { background: var(--orange); color: var(--dark); border: 2px solid var(--orange); }
+.modal-btn-secondary { background: transparent; color: var(--dark); border: 2px solid var(--dark); }
+.modal-btn-save.saved { background: var(--green-light); color: var(--dark); border-color: var(--green-mid); }
 .cart-success-msg { background: var(--green-light); border: 2px solid #A5D6A7; border-radius: var(--r-sm); padding: 10px; text-align: center; font-weight: 700; color: var(--green-dark); font-size: 13px; margin-top: 8px; display: none; }
 
 /* ── Loading & Toast ── */

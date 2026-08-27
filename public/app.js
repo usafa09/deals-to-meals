@@ -1085,7 +1085,7 @@ async function ensureAppScreens() {
     // Populate shopping list slideout panel
     const panel = document.getElementById("slideoutPanel");
     if (panel && !panel.children.length) {
-      panel.innerHTML = '<div class="slideout-header"><div style="font-family:\'Outfit\',sans-serif;font-size:18px;font-weight:700;color:var(--green-dark)">\u{1F6D2} Shopping List</div><button onclick="closeSlideout()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px">\u2715</button></div><div class="slideout-body" id="slideoutBody"></div><div class="slideout-footer"><button id="krogerCartBtn" onclick="addListToKrogerCart()" class="btn btn-primary" style="font-size:14px;padding:12px;border-radius:12px;display:none">\u{1F6D2} Add to Kroger Cart</button><div style="display:flex;gap:8px"><button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4CB} Copy</button><button onclick="emailSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4E7} Email</button><button onclick="saveSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4BE} Save</button></div><div style="text-align:center"><button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;padding:6px">Clear All</button></div></div>';
+      panel.innerHTML = '<div class="slideout-header"><div style="font-family:\'Outfit\',sans-serif;font-size:18px;font-weight:700;color:var(--dark)">\u{1F6D2} Shopping List</div><button onclick="closeSlideout()" aria-label="Close shopping list" style="background:none;border:none;font-size:20px;cursor:pointer;color:#767676;padding:4px">\u2715</button></div><div class="slideout-body" id="slideoutBody"></div><div class="slideout-footer"><button id="krogerCartBtn" onclick="addListToKrogerCart()" class="btn btn-primary" style="font-size:14px;padding:12px;border-radius:12px;display:none">\u{1F6D2} Add to Kroger Cart</button><div style="display:flex;gap:8px"><button onclick="copySlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4CB} Copy</button><button onclick="emailSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4E7} Email</button><button onclick="saveSlideoutList()" class="btn btn-outline" style="font-size:12px;padding:10px;flex:1;min-height:44px">\u{1F4BE} Save</button></div><div style="text-align:center"><button onclick="slClear()" style="background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;padding:6px">Clear All</button></div></div>';
     }
     _appScreensLoaded = true;
   })();
@@ -2804,11 +2804,11 @@ function renderModal(r){
       <p style="font-size:12px;color:#999;font-style:italic;margin:16px 0 8px;line-height:1.5">⚠️ Always check ingredient labels for allergens. Recipes are suggestions based on preferences, not medical or allergy-safe guidance.</p>
       <div id="ratingFormArea"></div>
       <div class="modal-actions">
-        <button class="modal-btn modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
-        <button class="modal-btn modal-btn-list" onclick="showShoppingList()">${icon('list')} Shopping List</button>
-        <button class="modal-btn" onclick="showRatingForm()" style="background:#FEF3C7;color:#92400E;border:2px solid #FCD34D">👨‍🍳 I Made This</button>
-        <button class="modal-btn" onclick="printRecipe()" style="background:none;border:2px solid #d0c5a0;color:#666">🖨️ Print</button>
-        <button class="modal-btn" onclick="shareRecipe('${escapeHtml(r.title).replace(/'/g,"\\'")}')" style="background:#E8F0F8;color:#2D4A6A;border:2px solid #90CAF9">🔗 Share</button>
+        <button class="modal-btn modal-btn-secondary modal-btn-save ${isSaved?"saved":""}" id="saveBtn" onclick="saveRecipe()">${isSaved?"❤️ Saved!":"🤍 Save Recipe"}</button>
+        <button class="modal-btn modal-btn-primary" onclick="showShoppingList()">${icon('list')} Shopping List</button>
+        <button class="modal-btn modal-btn-secondary" onclick="showRatingForm()">👨‍🍳 I Made This</button>
+        <button class="modal-btn modal-btn-secondary" onclick="printRecipe()">🖨️ Print</button>
+        <button class="modal-btn modal-btn-secondary" onclick="shareRecipe('${escapeHtml(r.title).replace(/'/g,"\\'")}')">🔗 Share</button>
       </div></div>`;
 }
 
@@ -3742,8 +3742,8 @@ function showShoppingList() {
         <span style="font-size:10px;color:var(--muted)">${ing.type||"PANTRY"}</span></div>`;
     }).join("")}</div>
     <div class="modal-actions" style="margin-top:16px">
-      <button class="modal-btn modal-btn-list" onclick="renderModal(state.currentRecipe)">&#8592; Back</button>
-      <button class="modal-btn modal-btn-save" onclick="addCheckedToList()" style="background:var(--green-mid);color:white;border:none">Add Selected to List</button>
+      <button class="modal-btn modal-btn-secondary" onclick="renderModal(state.currentRecipe)">&#8592; Back</button>
+      <button class="modal-btn modal-btn-primary" onclick="addCheckedToList()">Add Selected to List</button>
     </div></div>`;
 }
 function toggleShoppingCheck(idx) {

@@ -8,6 +8,14 @@
   --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc; --green-bright: #52b788;
   --orange: #D97706; --orange-light: #fef3c7; --orange-text: #8a4a04;
   --cream: #fffdf7; --sand-light: #F0E9D9; --sand: #e8e0d0; --text: #2d3a2e; --muted: #5A6859;
+  /* Phase 1: --text-2 is the subordinate body tone on cream (9.16:1); --canvas-warm
+     separates white cards from the page (1.13 vs 1.02); --border-strong is the only
+     border that carries a UI-component boundary (3.77:1 on cream). */
+  --text-2: #3d4a41; --canvas-warm: #f4f1e8; --border-strong: #8d816a;
+  /* One job each: --dark is all text and structure, --orange is the single call to
+     action, --orange-text is amber that has to carry a label, --green-bright is
+     decorative fill only, --green-dark is link text and nothing else. */
+  --link: #2d6a4f;
   --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
   --dark: #1a2e1f;
 }
@@ -38,7 +46,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
    (rare in 2026) parse the first and use the JPG. Modern browsers parse both
    and the second one wins, choosing WebP when supported, JPG otherwise. */
 .landing-hero {
-  background: linear-gradient(165deg, #1a2e1f 0%, #24402c 55%, #2d6a4f 140%);
+  background: var(--cream);
   position: relative;
   min-height: 600px;
   display: flex;
@@ -46,31 +54,33 @@ body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(
   justify-content: center;
   padding: 90px 24px 64px;
 }
-.landing-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(217,119,6,0.10) 0%, transparent 60%); pointer-events: none; }
+/* The amber wash existed to lift a dark gradient. On cream it muddies the ground. */
+.landing-hero::before { content: none; }
 .landing-hero-content { position: relative; z-index: 1; text-align: center; max-width: 720px; }
 .landing-badge { display: inline-block; padding: 8px 20px; border-radius: var(--r-lg); background: #A85D05; border: 1px solid #A85D05; color: #FFFFFF; font-size: 14px; font-weight: 700; margin-bottom: 24px; }
-.landing-headline { font-family: 'Outfit', sans-serif; font-size: 56px; font-weight: 800; color: white; line-height: 1.1; margin-bottom: 20px; }
-.landing-headline .highlight { color: var(--orange); }
-.landing-subtitle { font-size: 18px; color: #FFFFFF; line-height: 1.6; margin-bottom: 36px; max-width: 560px; margin-left: auto; margin-right: auto; }
-.landing-search { display: flex; align-items: center; background: white; border-radius: var(--r-pill); padding: 6px 6px 6px 24px; max-width: 480px; margin: 0 auto 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
-.landing-search input { flex: 1; border: none; outline: none; font-size: 18px; font-family: 'DM Sans', sans-serif; background: transparent; color: var(--text); min-width: 0; position: relative; z-index: 2; touch-action: manipulation; }
-.landing-search input::placeholder { color: #b0a890; }
-.landing-search button { padding: 14px 28px; border: none; border-radius: var(--r-pill); background: var(--orange); color: white; font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 2; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1); min-height: 48px; }
+.landing-headline { font-family: 'Outfit', sans-serif; font-size: 56px; font-weight: 800; color: var(--dark); line-height: 1.1; margin-bottom: 20px; }
+.landing-subtitle { font-size: 18px; color: var(--text-2); line-height: 1.6; margin-bottom: 36px; max-width: 560px; margin-left: auto; margin-right: auto; }
+/* The field now carries its own border, so the shell is only a layout box. */
+.landing-search { display: flex; align-items: center; gap: 8px; background: transparent; padding: 0; max-width: 480px; margin: 0 auto 12px; }
+.landing-search input { flex: 1; border: 2px solid var(--border-strong); border-radius: var(--r-md); outline: none; padding: 12px 16px; font-size: 18px; font-family: 'DM Sans', sans-serif; background: white; color: var(--dark); min-width: 0; position: relative; z-index: 2; touch-action: manipulation; }
+.landing-search input::placeholder { color: #6b6151; }
+.landing-search input:focus { border-color: var(--dark); }
+.landing-search button { padding: 14px 28px; border: none; border-radius: var(--r-pill); background: var(--orange); color: var(--dark); font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; position: relative; z-index: 2; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1); min-height: 48px; }
 .landing-search button:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .landing-search button:disabled { background: #C5C5C5; cursor: not-allowed; transform: none; }
 .landing-distance { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 16px; }
-.landing-distance label { font-size: 13px; color: #FFFFFF; font-weight: 600; }
-.landing-distance select { padding: 6px 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: var(--r-sm); font-size: 13px; font-family: 'DM Sans', sans-serif; background: rgba(0,0,0,0.3); color: #FFFFFF; cursor: pointer; }
-.landing-hint { font-size: 13px; color: #E8E8E8; }
-.landing-proof { display: inline-flex; align-items: baseline; gap: 8px; margin: 4px auto 20px; padding: 8px 18px; background: rgba(82,183,136,0.14); border: 1px solid rgba(82,183,136,0.35); border-radius: var(--r-lg); }
-.landing-proof-amount { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #52b788; }
-.landing-proof-text { font-size: 14px; color: #E8F0EA; }
+.landing-distance label { font-size: 13px; color: var(--text-2); font-weight: 600; }
+.landing-distance select { padding: 6px 10px; border: 2px solid var(--border-strong); border-radius: var(--r-sm); font-size: 13px; font-family: 'DM Sans', sans-serif; background: white; color: var(--dark); cursor: pointer; }
+.landing-hint { font-size: 13px; color: var(--muted); }
+.landing-proof { display: inline-flex; align-items: baseline; gap: 8px; margin: 4px auto 20px; padding: 8px 18px; background: var(--green-light); border: none; border-radius: var(--r-lg); }
+.landing-proof-amount { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: var(--dark); }
+.landing-proof-text { font-size: 14px; color: var(--text); }
 
 /* Homepage deal-preview grid — static PNG proof, no JS. Mobile-first: 2 cols
    (phones), 3 cols (≥768px). Sits below the zip CTA so the form stays above
    the fold; the grid is the "scroll-down" reinforcement. */
 .landing-preview { max-width: 480px; margin: 20px auto; }
-.landing-preview-caption { margin: 0 0 12px; font-size: 12px; color: rgba(255,255,255,0.65); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.landing-preview-caption { margin: 0 0 12px; font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .landing-preview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 @media (min-width: 768px) {
   .landing-preview { max-width: 640px; margin: 24px auto; }
@@ -213,19 +223,22 @@ main { padding: 20px 12px 80px; }
 main.content-page { max-width: 720px; margin: 0 auto; }
 .app-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; }
 .screen { display: none; }
+/* Phase 1: white cards on cream separate at 1.02:1, which is no separation at all.
+   The canvas carries it instead (1.13:1); the 2px sand border stays as it was. */
+#screen2.active, #screen3.active { background: var(--canvas-warm); padding: 16px; border-radius: var(--r-lg); }
 .screen.active { display: block; animation: fadeUp 0.4s ease; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 .back { font-size: 13px; color: #999; cursor: pointer; margin-bottom: 14px; display: inline-block; }
 .back:hover { color: var(--green-dark); }
-.screen-title { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: var(--green-dark); margin-bottom: 4px; }
+.screen-title { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 700; color: var(--dark); margin-bottom: 4px; }
 .screen-sub   { font-size: 15px; color: var(--muted); margin-bottom: 22px; }
 
 .btn { width: 100%; padding: 15px; border: none; border-radius: var(--r-md); font-size: 16px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s ease; }
 .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .btn:disabled { background: #C5C5C5 !important; cursor: not-allowed; transform: none !important; }
-.btn-primary  { background: var(--orange); color: white; }
+.btn-primary  { background: var(--orange); color: var(--dark); }
 .btn-gradient { background: linear-gradient(135deg, var(--green-dark), var(--green-mid)); color: white; }
-.btn-outline  { background: transparent; color: var(--green-dark); border: 2px solid var(--green-dark); }
+.btn-outline  { background: transparent; color: var(--dark); border: 2px solid var(--dark); }
 .btn-blue     { background: var(--blue); color: white; }
 .btn-green    { background: var(--green-dark); color: white; }
 
@@ -281,7 +294,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .deal-item-name { flex: 1; }
 .deal-item-price { font-weight: 700; color: var(--green-dark); white-space: nowrap; }
 .deal-item-was { font-size: 11px; color: #AAA; text-decoration: line-through; margin-left: 4px; }
-.deal-item-pct { font-size: 11px; font-weight: 700; color: var(--orange); margin-left: 6px; }
+.deal-item-pct { font-size: 11px; font-weight: 700; color: var(--orange-text); margin-left: 6px; }
 
 /* ── Screen 4: Recipe Grid ── */
 .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
@@ -331,7 +344,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .ing-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: var(--r-sm); font-size: 13px; }
 .ing-row.on-sale { background: var(--green-light); border: 1px solid #A5D6A7; }
 .ing-row.pantry  { background: #FAFAFA; border: 1px solid #F0E8D0; color: #666; }
-.ing-sale-price { font-weight: 800; color: var(--orange); }
+.ing-sale-price { font-weight: 800; color: var(--orange-text); }
 .ing-reg-price  { font-size: 11px; color: #CCC; text-decoration: line-through; margin-left: 4px; }
 
 .coupon-list { display: flex; flex-direction: column; gap: 6px; }
@@ -372,7 +385,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .toast.success { background: var(--green-dark); color: white; }
 
 /* ── Sale items browser ── */
-.sale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.sale-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; margin-bottom: 20px; background: var(--canvas-warm); padding: 12px; border-radius: var(--r-lg); }
 .sale-card { background: white; border: 2px solid var(--sand); border-radius: var(--r-md); overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; }
 .sale-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 .sale-card.include { border-color: var(--green-mid); background: var(--green-light); }
@@ -404,16 +417,16 @@ main.content-page { max-width: 720px; margin: 0 auto; }
    into the same 3 lines. Height math stays put — 11px * 1.42 * 3 = 46.86px. */
 .sale-card-name--long { font-size: 11px; line-height: 1.42; }
 .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
-.sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange-text); }
-.sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
-.sale-card-cond { font-size: 11px; font-weight: 700; color: var(--orange); margin-top: 2px; }
+.sale-card-sale { font-size: 16px; font-weight: 800; color: var(--dark); }
+.sale-card-reg { font-size: 11px; color: #767676; text-decoration: line-through; }
+.sale-card-cond { font-size: 11px; font-weight: 700; color: var(--orange-text); margin-top: 2px; }
 /* Offer rows (priceType multibuy/promo): the flyer states the offer, not a unit
    price, so the card prints the offer text where the price would go. Neutral
    weight so it reads as a claim about the deal rather than a number. */
 .sale-card-offer { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
 .sale-card-offer-tag { flex: none; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--green-dark); background: var(--green-light); border-radius: var(--r-sm); padding: 1px 5px; }
 .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
-.sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--r-sm); }
+.sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: var(--dark); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--r-sm); }
 .sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange-text); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--orange); }
 .kroger-connect-banner { display: none; align-items: center; gap: 12px; background: var(--orange-light); border: 2px solid var(--orange); border-radius: var(--r-md); padding: 14px 18px; margin-bottom: 16px; }
 .kroger-connect-banner p { flex: 1; font-size: 14px; font-weight: 600; color: #5A4A30; }
@@ -487,7 +500,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
   .landing-hero { min-height: auto; padding: 80px 16px 40px; }
   .landing-headline { font-size: 32px; }
   .landing-subtitle { font-size: 15px; }
-  .landing-search { flex-direction: column; border-radius: var(--r-lg); padding: 12px; }
+  .landing-search { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
   .landing-search input { text-align: center; padding: 12px; font-size: 20px; letter-spacing: 3px; }
   .landing-search button { width: 100%; margin-top: 8px; }
   .trust-bar-inner { gap: 12px; }
@@ -575,11 +588,11 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 .step-label { font-size:10px;color:#595959;margin-top:4px;white-space:nowrap;transition:all 0.3s; }
 .step-dot.active .step-num { background:#2d6a4f;color:white; }
 .step-dot.active .step-label { color:#2d6a4f;font-weight:600; }
-.step-dot.completed .step-num { background:#52b788;color:white;font-size:0; }
+.step-dot.completed .step-num { background:var(--link);color:white;font-size:0; }
 .step-dot.completed .step-num::after { content:'\2713';font-size:13px; }
-.step-dot.completed .step-label { color:#52b788; }
+.step-dot.completed .step-label { color:var(--link); }
 .step-line { flex:1;height:2px;background:#e8e0d0;min-width:12px;max-width:40px;transition:background 0.3s; }
-.step-line.completed { background:#52b788; }
+.step-line.completed { background:var(--link); }
 /* Mobile: keep labels stacked below the number circle (flex-direction:column on
    .step-dot already handles this). Tighten min-width and trim the connector
    lines so 5 steps fit a phone viewport. Hide labels only at very narrow widths
@@ -780,12 +793,12 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
 @media (min-width: 640px) { .preview-card-img { height: 120px; max-height: 120px; min-height: 120px; } }
 
 /* Homepage recipe card (the meal built from the highlighted deals) */
-.landing-recipe { margin-top: 14px; background: white; border-radius: var(--r-md); padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); text-align: left; }
+.landing-recipe { margin-top: 14px; background: white; border: 2px solid var(--sand); border-radius: var(--r-md); padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: left; }
 .landing-recipe-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.landing-recipe-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--green-dark); line-height: 1.2; }
+.landing-recipe-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--dark); line-height: 1.2; }
 .landing-recipe-meta { font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 600; }
 .landing-recipe-uses { font-size: 12px; color: var(--muted); margin-top: 8px; }
-.landing-recipe-save { flex-shrink: 0; background: var(--orange); color: white; border: none; border-radius: var(--r-sm); padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.landing-recipe-save { flex-shrink: 0; background: var(--orange); color: var(--dark); border: none; border-radius: var(--r-sm); padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .landing-recipe-save:hover { filter: brightness(1.05); }
 
 /* Homepage recipe card: image, tap affordance */
@@ -795,7 +808,7 @@ p a.btn, p a[class*="btn"], p a.cta-button, p a.cta-btn, li a.btn, li a[class*="
    sliver. Scale the height with the card so the crop stays reasonable. */
 @media (min-width: 640px) { .landing-recipe-img { height: 200px; } }
 @media (min-width: 900px) { .landing-recipe-img { height: 240px; } }
-.landing-recipe-tapcue { font-size: 12px; color: var(--orange); font-weight: 700; margin-top: 8px; }
+.landing-recipe-tapcue { font-size: 12px; color: var(--orange-text); font-weight: 700; margin-top: 8px; }
 .landing-recipe:hover .landing-recipe-tapcue { text-decoration: underline; }
 
 /* Homepage recipe modal (self-contained; reuses app modal classes for inner content) */

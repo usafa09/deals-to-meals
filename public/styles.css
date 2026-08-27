@@ -6,7 +6,7 @@
   --r-lg: 20px;   /* modals, large cards, hero blocks */
   --r-pill: 999px;/* pill-shaped buttons */
   --green-dark: #2d6a4f; --green-mid: #40916c; --green-light: #d8f3dc; --green-bright: #52b788;
-  --orange: #D97706; --orange-light: #fef3c7;
+  --orange: #D97706; --orange-light: #fef3c7; --orange-text: #8a4a04;
   --cream: #fffdf7; --sand-light: #F0E9D9; --sand: #e8e0d0; --text: #2d3a2e; --muted: #5A6859;
   --blue: #1565C0; --blue-light: #E3F2FD; --red: #D32F2F;
   --dark: #1a2e1f;
@@ -301,7 +301,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .recipe-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-chip { font-size: 11px; padding: 3px 7px; border-radius: var(--r-sm); font-weight: 600; }
 .meta-time     { background: #F5F0E8; color: #5A4A30; }
-.meta-savings  { background: var(--orange-light); color: var(--orange); }
+.meta-savings  { background: var(--orange-light); color: var(--orange-text); }
 .meta-cost     { background: var(--green-light); color: var(--green-dark); }
 .meta-coupon   { background: var(--blue-light); color: var(--blue); }
 
@@ -321,7 +321,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .modal-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .stat-pill { padding: 8px 14px; border-radius: var(--r-sm); font-size: 13px; font-weight: 700; }
 .stat-time    { background: #F5F0E8; color: #5A4A30; }
-.stat-savings { background: var(--orange-light); color: var(--orange); }
+.stat-savings { background: var(--orange-light); color: var(--orange-text); }
 .stat-cost    { background: var(--green-light); color: var(--green-dark); }
 .stat-servings { background: #f0fdf4; color: var(--green-dark); }
 
@@ -349,7 +349,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .modal-btn { flex: 1; min-width: 140px; padding: 12px; border: none; border-radius: var(--r-md); font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s; }
 .modal-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .modal-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-.modal-btn-save  { background: var(--orange-light); color: var(--orange); border: 2px solid #FFB74D; }
+.modal-btn-save  { background: var(--orange-light); color: var(--orange-text); border: 2px solid #FFB74D; }
 .modal-btn-save.saved { background: var(--orange); color: white; }
 .modal-btn-list  { background: var(--green-light); color: var(--green-dark); border: 2px solid #A5D6A7; }
 .modal-btn-cart  { background: var(--blue); color: white; }
@@ -404,7 +404,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
    into the same 3 lines. Height math stays put — 11px * 1.42 * 3 = 46.86px. */
 .sale-card-name--long { font-size: 11px; line-height: 1.42; }
 .sale-card-price { display: flex; align-items: baseline; gap: 6px; }
-.sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange); }
+.sale-card-sale { font-size: 16px; font-weight: 800; color: var(--orange-text); }
 .sale-card-reg { font-size: 11px; color: #BBB; text-decoration: line-through; }
 .sale-card-cond { font-size: 11px; font-weight: 700; color: var(--orange); margin-top: 2px; }
 /* Offer rows (priceType multibuy/promo): the flyer states the offer, not a unit
@@ -414,7 +414,7 @@ main.content-page { max-width: 720px; margin: 0 auto; }
 .sale-card-offer-tag { flex: none; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--green-dark); background: var(--green-light); border-radius: var(--r-sm); padding: 1px 5px; }
 .sale-card-store { font-size: 10px; color: var(--muted); margin-top: 4px; }
 .sale-card-pct { position: absolute; top: 8px; left: 8px; background: var(--orange); color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--r-sm); }
-.sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--orange); }
+.sale-card-coupon { position: absolute; bottom: 8px; right: 8px; background: var(--orange-light); color: var(--orange-text); font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--orange); }
 .kroger-connect-banner { display: none; align-items: center; gap: 12px; background: var(--orange-light); border: 2px solid var(--orange); border-radius: var(--r-md); padding: 14px 18px; margin-bottom: 16px; }
 .kroger-connect-banner p { flex: 1; font-size: 14px; font-weight: 600; color: #5A4A30; }
 .kroger-connect-banner a { padding: 8px 18px; border-radius: var(--r-lg); background: var(--orange); color: white; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: all 0.2s; }

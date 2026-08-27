@@ -2959,19 +2959,19 @@ function renderChainPage(bundle) {
     .cp-hero p { color: #c8d6cb; font-size: 15px; margin: 0; }
     .cp-section { padding: 28px 0 0; }
     .cp-section h2 { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0 0 12px; }
-    .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+    .cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; background: #f4f1e8; padding: 12px; border-radius: 20px; }
     .cd-card { position: relative; background: #fff; border: 1px solid #EDE6D4; border-radius: 12px; padding: 12px 12px 10px; }
-    .cd-pct { position: absolute; top: 8px; right: 8px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
-    .cd-cond { font-size: 12px; font-weight: 700; color: var(--orange, #d97706); margin-top: 2px; }
+    .cd-pct { position: absolute; top: 8px; right: 8px; background: #d97706; color: #1a2e1f; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+    .cd-cond { font-size: 12px; font-weight: 700; color: #8a4a04; margin-top: 2px; }
     .cd-img { width: 100%; height: 120px; max-height: 120px; object-fit: contain; background: #fff; display: block; padding: 6px 0 8px; box-sizing: border-box; }
     .cd-name { font-size: 13px; font-weight: 600; line-height: 1.3; padding-right: 44px; min-height: 34px; }
-    .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: var(--green-dark, #1a2e1f); }
-    .cd-reg { font-size: 12px; font-weight: 400; color: #999; text-decoration: line-through; margin-left: 4px; }
+    .cd-price { margin-top: 6px; font-size: 17px; font-weight: 800; color: #1a2e1f; }
+    .cd-reg { font-size: 12px; font-weight: 400; color: #767676; text-decoration: line-through; margin-left: 4px; }
     .cd-unit { font-size: 12px; font-weight: 600; color: #666; }
     .cr-card { display: flex; gap: 14px; background: #fff; border: 1px solid #EDE6D4; border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
     .cr-img { width: 120px; height: 110px; object-fit: cover; flex-shrink: 0; }
     .cr-body { padding: 12px 14px; }
-    .cr-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0 0 4px; line-height: 1.25; }
+    .cr-title { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: #1a2e1f; margin: 0 0 4px; line-height: 1.25; }
     .cr-meta { font-size: 13px; font-weight: 600; color: var(--text, #2d2a24); }
     .cr-uses { font-size: 12px; color: var(--muted, #6b6b6b); margin-top: 6px; }
     .cp-note { font-size: 15px; color: #4a463d; }
@@ -2985,8 +2985,8 @@ function renderChainPage(bundle) {
     .cr-hero { display: block; background: #fff; border: 2px solid var(--orange, #d97706); border-radius: 16px; overflow: hidden; margin: 26px 0 4px; cursor: pointer; }
     .crh-img { width: 100%; height: 200px; object-fit: cover; display: block; }
     .crh-body { padding: 18px 20px 20px; }
-    .crh-eyebrow { font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 700; color: var(--orange, #d97706); }
-    .crh-title { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 700; color: var(--green-dark, #2d6a4f); margin: 6px 0 6px; line-height: 1.2; }
+    .crh-eyebrow { font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 700; color: #8a4a04; }
+    .crh-title { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 700; color: #1a2e1f; margin: 6px 0 6px; line-height: 1.2; }
     .crh-meta { font-size: 14px; font-weight: 600; color: var(--text, #2d2a24); }
     .crh-uses { font-size: 13px; color: var(--muted, #6b6b6b); margin-top: 8px; }
     .crh-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 12px; }
@@ -2998,8 +2998,8 @@ function renderChainPage(bundle) {
     .crm-img { width: 100%; height: 170px; object-fit: cover; border-radius: 18px 18px 0 0; display: block; }
     .crm-body { padding: 18px 20px 22px; }
     .crm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .crm-title { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); margin: 0; }
-    .crm-close { background: none; border: none; font-size: 26px; line-height: 1; cursor: pointer; color: #999; }
+    .crm-title { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: #1a2e1f; margin: 0; }
+    .crm-close { background: none; border: none; font-size: 26px; line-height: 1; cursor: pointer; color: #767676; }
     .crm-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
     .crm-pill { background: #F5EFE0; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
     .crm-pill-green { background: #E3F0E6; color: var(--green-dark, #1a2e1f); }
@@ -3206,23 +3206,23 @@ router.get("/deals", async (req, res, next) => {
     .hb-card { display: block; background: #fff; border: 1px solid #EDE6D4; border-radius: 16px; padding: 18px 20px 16px; margin-bottom: 14px; text-decoration: none; color: inherit; transition: box-shadow 0.15s, transform 0.15s; }
     .hb-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
     .hb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .hb-pct { background: var(--orange, #d97706); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+    .hb-pct { background: #d97706; color: #1a2e1f; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
     .hb-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
     .hb-thumb { position: relative; border: 1px solid #F0EAD9; border-radius: 10px; padding: 8px; text-align: center; }
-    .hb-thumb-pct { position: absolute; top: 5px; left: 5px; background: var(--orange, #d97706); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 6px; line-height: 1.3; z-index: 1; }
+    .hb-thumb-pct { position: absolute; top: 5px; left: 5px; background: #d97706; color: #1a2e1f; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 6px; line-height: 1.3; z-index: 1; }
     .hb-thumb-img { width: 100%; height: 66px; max-height: 66px; object-fit: contain; display: block; margin-bottom: 4px; }
     .hb-thumb-noimg { height: 8px; }
-    .hb-thumb-price { font-size: 15px; font-weight: 800; color: var(--green-dark, #2d6a4f); }
-    .hb-unit { font-size: 11px; font-weight: 600; color: #777; }
+    .hb-thumb-price { font-size: 15px; font-weight: 800; color: #1a2e1f; }
+    .hb-unit { font-size: 11px; font-weight: 600; color: #767676; }
     .hb-thumb-name { font-size: 11px; color: var(--muted, #6b6b6b); line-height: 1.25; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 27px; }
     .hb-rec { display: flex; gap: 10px; align-items: center; background: #FAF6EE; border-radius: 12px; padding: 10px; margin-top: 12px; }
     .hb-rec-img { width: 64px; height: 56px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
-    .hb-rec-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--orange, #d97706); }
-    .hb-rec-title { font-size: 14px; font-weight: 700; color: var(--green-dark, #2d6a4f); line-height: 1.25; margin-top: 1px; }
+    .hb-rec-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #8a4a04; }
+    .hb-rec-title { font-size: 14px; font-weight: 700; color: #1a2e1f; line-height: 1.25; margin-top: 1px; }
     .hb-rec-meta { font-size: 12px; color: var(--muted, #6b6b6b); margin-top: 2px; }
-    .hb-name { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: var(--green-dark, #1a2e1f); }
+    .hb-name { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; color: #1a2e1f; }
     .hb-meta { font-size: 14px; color: var(--muted, #6b6b6b); margin-top: 2px; }
-    .hb-go { font-size: 14px; font-weight: 700; color: var(--orange, #d97706); margin-top: 10px; }
+    .hb-go { font-size: 14px; font-weight: 700; color: #8a4a04; margin-top: 10px; }
     .hb-cta { text-align: center; margin-top: 26px; font-size: 14px; color: var(--muted, #6b6b6b); }
     .hb-cta a { color: var(--orange, #d97706); font-weight: 700; }
   </style>

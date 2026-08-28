@@ -391,4 +391,21 @@ jobs:
             fi
           done
 
+          echo "── Published chain coverage ──"
+          # The boot assertion proves the published number matches the source map.
+          # It cannot see that a mapped chain has no ad_regions rows, which is how
+          # save_a_lot stayed in the count while serving nothing. This can see it.
+          COV=$(curl -s --max-time 120 -w "\n%{http_code}" -H "x-internal-token: $INTERNAL_TOKEN" "$BASE/api/cron/chain-coverage")
+          COV_CODE=$(echo "$COV" | tail -1)
+          COV_BODY=$(echo "$COV" | sed '$d')
+          if [ "$COV_CODE" = "200" ]; then
+            echo "  OK $(echo "$COV_BODY" | grep -o '"publishedTotal":[0-9]*' | cut -d: -f2) published brands, every mapped chain has coverage"
+          elif [ "$COV_CODE" = "500" ]; then
+            echo "::error::Published chain coverage check FAILED. Uncovered: $(echo "$COV_BODY" | grep -o '"uncovered":\[[^]]*\]'). A chain the site counts has zero ad_regions rows and cannot serve anywhere. Body: $COV_BODY"
+            FAILED=1
+          else
+            echo "::error::Chain coverage endpoint returned $COV_CODE. Body: $COV_BODY"
+            FAILED=1
+          fi
+
           if [ "$FAILED" = "1" ]; then exit 1; fi

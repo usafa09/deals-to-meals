@@ -6,6 +6,8 @@ import {
   getCachedDeals, setCachedDeals, getCachedStores, setCachedStores,
   getCategoryImage, findIgroceryadsUrl, canonicalizeStoreId, extractingStores, TABLE_SOURCED, WEEKLYAD_OCR_ONLY, parseAdValidity, checkSourceTerms,
   storesWithDealsCache, logSearch, logApiUsage, logError, GOOGLE_MAPS_KEY, DEAL_CACHE_TTL, AD_EXTRACT_CACHE_TTL, AD_EXTRACT_REFRESH_AFTER,
+  findUncoveredChains, AD_REGIONS_IDENTITY, PUBLISHED_AD_CHAIN_COUNT,
+  KROGER_BANNER_COUNT, PUBLISHED_CHAIN_TOTAL,
 } from "../lib/utils.js";
 import { fetchKrogerDeals } from "./kroger.js";
 import { notifyStoreRequest , notifyTermsDrift } from "../lib/email.js";
@@ -2486,6 +2488,49 @@ router.post("/api/cron/refresh-preview", async (req, res) => {
 
 // Weekly: rebuild the SSR bundle for each chain page. Independent of the
 // homepage preview bundle — a failure here can't break the homepage.
+// Boot assertions are static and cannot see the database, which is exactly how a
+// chain with zero ad_regions rows stayed in the published count. This is the
+// check that can see it. The weekly cron calls it and fails loudly.
+router.get("/api/cron/chain-coverage", async (req, res) => {
+  const token = req.headers["x-internal-token"];
+  if (!token || token !== process.env.INTERNAL_API_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    let from = 0, rows = [];
+    for (;;) {
+      const { data, error } = await supabase.from("ad_regions").select("store,banner,zip3").range(from, from + 999);
+      if (error) throw new Error(error.message);
+      rows = rows.concat(data || []);
+      if (!data || data.length < 1000) break;
+      from += 1000;
+    }
+    const uncovered = findUncoveredChains(rows);
+    const coverage = {};
+    for (const [chain, id] of Object.entries(AD_REGIONS_IDENTITY)) {
+      const hit = id.as === "store"
+        ? rows.filter(r => r.store === id.key)
+        : rows.filter(r => String(r.banner || "").toLowerCase() === id.key.toLowerCase());
+      coverage[chain] = new Set(hit.map(r => r.zip3)).size;
+    }
+    const krogerBanners = new Set(rows.filter(r => r.store === "kroger").map(r => r.banner)).size;
+    const body = {
+      ok: uncovered.length === 0 && krogerBanners === KROGER_BANNER_COUNT,
+      adRegionsRows: rows.length,
+      publishedAdChains: PUBLISHED_AD_CHAIN_COUNT,
+      krogerBannersExpected: KROGER_BANNER_COUNT,
+      krogerBannersFound: krogerBanners,
+      publishedTotal: PUBLISHED_CHAIN_TOTAL,
+      uncovered,
+      coverage,
+    };
+    // 500 so the cron's curl fails on it rather than having to parse the body.
+    res.status(body.ok ? 200 : 500).json(body);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post("/api/cron/refresh-ssr", async (req, res) => {
   const token = req.headers["x-internal-token"];
   if (!token || token !== process.env.INTERNAL_API_TOKEN) {

@@ -2215,7 +2215,14 @@ function showRecipeSkeletons(count, opts) {
 // protein they picked is what makes the wait feel like work being done.
 const _TICKER_PROTEIN = /chicken|beef|pork|turkey|salmon|fish|shrimp|sausage|bacon|ground|steak|ham|tilapia|tuna/i;
 const _TICKER_PRODUCE = /lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|berry|lemon|lime|zucchini|squash|cabbage|kale|green bean/i;
-const _TICKER_DAIRY = /cheese|milk|butter|yogurt|cream|egg/i;
+// Word-anchored, unlike the two patterns above. Bare substrings promoted
+// "Breakfast Best Buttermilk Protein Waffles" and "Friendly Farms Original
+// Coconutmilk" into the dairy tier at zip 45402 — butter inside buttermilk and
+// milk inside coconutmilk — which put a frozen waffle on screen ahead of half
+// the real produce. The plural is inside the boundary so Eggs and Yogurts still
+// match. Deliberate consequence: an actual carton of buttermilk now ranks as
+// "other". Under-ranking a rare item beats promoting a waffle.
+const _TICKER_DAIRY = /\b(cheese|milk|butter|yogurt|cream|egg)s?\b/i;
 
 function tickerDeals() {
   const excluded = new Set(Object.entries(state.dealStates || {}).filter(([, v]) => v === "exclude").map(([k]) => k));

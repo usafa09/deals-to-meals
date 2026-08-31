@@ -147,6 +147,7 @@ deals-to-meals/
 
 ### Bugs to investigate
 - The `cleanIngName()` function uses `.slice(-3)` which can drop important words from long product names.
+- **`state.recipeOffset` assumes every generation returned exactly 5.** `searchRecipes` sets `state.recipeOffset = 5` (`public/app.js:2383`) and `loadMoreRecipes` does `state.recipeOffset += 5` (`app.js:2435`), both hardcoded and neither reading `data.recipes.length`. The server can legitimately return fewer: the post-generation diet validator (`routes/recipes.js:1034`) and the meal-type blacklist (`routes/recipes.js:1273`) both drop recipes after the slice. When that happens the offset overstates what the user has seen, so `batchNote` (`routes/recipes.js:806`) and the `batch_number` analytics field (`app.js:2424`) — both `Math.floor(offset / 5) + 1` — are off, and the model is told to avoid more previous recipes than actually exist. Pre-existing and low severity: nothing renders wrong, every count the user sees is derived from `.length`, and the only cost is a slightly weaker dedup hint on Load More. Logged 2026-08-31, deliberately not fixed — the correct shape is to advance the offset by the count actually served, which means threading the real number through both call sites.
 
 ### Architecture improvements needed
 - **server.js is too large** (~2,500 lines). Should be split into route modules: `routes/kroger.js`, `routes/walmart.js`, `routes/aldi.js`, `routes/recipes.js`, `routes/admin.js`, `routes/auth.js`, `routes/stores.js`.

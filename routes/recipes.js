@@ -763,12 +763,24 @@ function passesMealTypeFilter(recipe, effectiveMealType) {
 // are live simultaneously and share buildRecipe/validateRecipes/the scanner, so
 // with the flag off not a single line behaves differently from before streaming
 // existed — backing the feature out is a query-string change, not a deploy.
-const RECIPE_STREAM_DEFAULT = process.env.RECIPE_STREAM === "1";
+// The server streams ONLY when a request asks for it. The user-facing default
+// lives in the client (streamFlagOn), which now defaults to on and appends
+// ?stream=1 explicitly.
+//
+// It deliberately does NOT default to on here. Four callers hit this endpoint
+// with no stream param and a plain `await res.json()` — searchRecipes' fallback
+// path, loadMoreRecipes, generateWeeklyPlan, generateFreezerMeals — plus the SSR
+// chain-page job in routes/stores.js. A server-side default would hand all five
+// an NDJSON body and break them. Opt-in per request keeps the blast radius at
+// exactly the one call site that knows how to read a stream.
+//
+// RECIPE_STREAM=0 is the emergency kill switch: it forces every request back
+// onto the non-streaming path regardless of the query string, so streaming can
+// be shut off from Render's env vars without a deploy.
+const RECIPE_STREAM_DISABLED = process.env.RECIPE_STREAM === "0";
 function wantsStream(req) {
-  const q = req.query && req.query.stream;
-  if (q === "0") return false;
-  if (q === "1") return true;
-  return RECIPE_STREAM_DEFAULT;
+  if (RECIPE_STREAM_DISABLED) return false;
+  return (req.query && req.query.stream) === "1";
 }
 
 // NDJSON, not SSE: one JSON object per line, no event framing to get wrong on

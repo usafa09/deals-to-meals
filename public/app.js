@@ -2381,13 +2381,26 @@ function handleRecipeApiError({ res, data, err, retryFnName } = {}) {
 // localStorage dishcount_stream="1" is the sticky switch for testing. Only
 // searchRecipes consults this; loadMoreRecipes, generateWeeklyPlan and
 // generateFreezerMeals keep their single await res.json() untouched.
+// Streaming is the default. ?stream=0 turns it off, ?stream=1 turns it back on,
+// and either choice is remembered in sessionStorage so it survives navigation —
+// falling back mid-demo means typing the query param once, not once per screen.
+// sessionStorage rather than localStorage on purpose: a fresh tab returns to the
+// default, so a fallback used on the day cannot quietly persist afterwards.
+// Every failure mode here returns true, including storage being unavailable in
+// private mode; the non-streaming path stays reachable by URL regardless.
+const STREAM_PREF_KEY = "dishcount_stream";
 function streamFlagOn() {
   try {
-    const p = new URLSearchParams(location.search);
-    if (p.get("stream") === "1") return true;
-    if (p.get("stream") === "0") return false;
-    return localStorage.getItem("dishcount_stream") === "1";
-  } catch (e) { return false; }
+    const q = new URLSearchParams(location.search).get("stream");
+    if (q === "1" || q === "0") {
+      try { sessionStorage.setItem(STREAM_PREF_KEY, q); } catch (e) { /* private mode */ }
+      return q === "1";
+    }
+    let stored = null;
+    try { stored = sessionStorage.getItem(STREAM_PREF_KEY); } catch (e) { /* private mode */ }
+    if (stored === "0") return false;
+    return true;
+  } catch (e) { return true; }
 }
 // "final" (default) leaves the banner slot empty until the last card lands.
 // "live" updates a running savings total as each card arrives. See the report:
@@ -2591,7 +2604,9 @@ async function searchRecipes() {
         throw new Error(data.__httpError.data?.message || data.__httpError.data?.error || "Could not generate recipes");
       }
     } else {
-      const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
+      // ?stream=0 is explicit rather than implied. This is the escape hatch, so
+      // it must keep returning plain JSON even if the server default ever moves.
+      const res=await fetch("/api/recipes/ai?stream=0",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
       data=await res.json();
       if(!res.ok){
         clearSkeletonBanner();

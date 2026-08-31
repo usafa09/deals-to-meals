@@ -803,7 +803,12 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       "Appetizer": "MEAL TYPE: APPETIZER. Suggest starters: bruschetta, dips, sliders, spring rolls, stuffed mushrooms, cheese boards.",
     };
     const mealTypeGuide = MEAL_TYPE_GUIDES[effectiveMealType] || MEAL_TYPE_GUIDES["Dinner"];
-    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/5)+1}. Generate 6 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
+    // Count must match the "Generate exactly 5 recipes." instruction below. When
+    // the main ask dropped from 6 to 5 this line still said 6, and the model
+    // resolved the contradiction in favour of this one — batch #2 came back with
+    // 6 recipes and Load More kept paying the old cost (23.09s/24.66s vs
+    // 20.75s/20.64s once the counts agreed).
+    const batchNote = (offset && offset > 0) ? `\n\nThis is batch #${Math.floor(offset/5)+1}. Generate 5 DIFFERENT recipes from previous batches. Be creative — try different cuisines, cooking methods, and flavor profiles.` : "";
 
     const prompt = `You are a budget-friendly recipe assistant. A customer is shopping grocery deals and wants recipe ideas BUILT FROM what's on sale this week. Your #1 goal is to MAXIMIZE the use of sale items in every recipe.
 

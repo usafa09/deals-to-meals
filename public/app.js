@@ -2213,8 +2213,37 @@ function showRecipeSkeletons(count, opts) {
 // dairy — the same priority selectSmartIngredients applies server-side. A wall
 // of "PurAqua Belle Vie 12-Pack" is truthful and tells the user nothing; the
 // protein they picked is what makes the wait feel like work being done.
-const _TICKER_PROTEIN = /chicken|beef|pork|turkey|salmon|fish|shrimp|sausage|bacon|ground|steak|ham|tilapia|tuna/i;
-const _TICKER_PRODUCE = /lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|berry|lemon|lime|zucchini|squash|cabbage|kale|green bean/i;
+// Word-anchored, for the same reason the dairy pattern below is. Checked against
+// every deal row in deal_cache — 5,836 unique names across Kroger plus ~40
+// ad-extract chains. Three terms needed more than a boundary:
+//
+//   ground  A boundary does not help: "Ground Coffee" is two real words, and it
+//           put Folgers at position 1. Now requires a meat within one word, so
+//           "Ground American Veal" still matches and 60+ coffees do not.
+//   fish    \bfish\b would have DEMOTED catfish, swordfish, rockfish and swai —
+//           real seafood the bare substring was catching by luck. Compounds are
+//           allowed back in, with Goldfish crackers excluded by name.
+//   berry   Anchoring would have demoted every fresh berry, because "berry" never
+//           matched the plural: Strawberries, Blueberries, Raspberries and
+//           Blackberries were all ranking "other" and going unnamed. Left
+//           unanchored at the front and made plural-aware, which promotes 33
+//           genuine berry rows that the ticker could not previously see.
+//
+// eggplant joins produce: \begg\b in the dairy tier used to catch it, which was
+// the right instinct in the wrong tier.
+//
+// Fixed by anchoring: Hamburger Buns, Graham Crackers, Shamrock/Brigham's (ham),
+// Pepperoni and Pepperidge Farm (pepper), Popcorn (corn), Applewood Smoked Bacon
+// and Pineapple (apple), Beefsteak Tomatoes (beef), Champú shampoo (ham).
+//
+// Known and accepted: these lists describe words, not product forms, so "Apple
+// Juice", "Corn Tortillas", "Key Lime Pie", "Beef Hot Dogs" and "Steak Sauce"
+// still rank as food. Whole pineapples, scallops and swai also lost their tier —
+// they only ever matched by accident (pine-APPLE, FISH-ermans) and none of the
+// three is in the vocabulary. Adding "pineapple" back would re-promote ~20 juices
+// and sodas to rescue ~6 real ones, which is the wrong trade.
+const _TICKER_PROTEIN = /\b(chicken|beef|pork|turkey|salmon|shrimp|sausage|bacon|steak|ham|tilapia|tuna)s?\b|\b(?!goldfish\b)\w*fish(es)?\b|\bground\s+(?:\w+\s+)?(beef|turkey|pork|chuck|sirloin|lamb|veal|chicken|bison)\b/i;
+const _TICKER_PRODUCE = /\b(lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|lemon|lime|zucchini|squash|cabbage|kale|eggplant|green bean)(e?s)?\b|berr(y|ies)\b/i;
 // Word-anchored, unlike the two patterns above. Bare substrings promoted
 // "Breakfast Best Buttermilk Protein Waffles" and "Friendly Farms Original
 // Coconutmilk" into the dairy tier at zip 45402 — butter inside buttermilk and

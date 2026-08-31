@@ -2183,10 +2183,10 @@ function getRecipePayload(offset) {
   };
 }
 
-function showRecipeSkeletons(count, opts) {
-  const grid = document.getElementById("recipeGrid");
-  if (!grid) return;
-  const cards = Array.from({length: count}, () =>
+// Extracted so the streaming path can top the grid back up to five tiles after
+// each arriving card without a second copy of the markup.
+function skeletonCardsHtml(count) {
+  return Array.from({length: Math.max(0, count)}, () =>
     '<div class="recipe-card-tile skeleton-card">' +
     '<div class="skeleton" style="height:140px;border-radius:16px 16px 0 0;"></div>' +
     '<div style="padding:12px;">' +
@@ -2198,6 +2198,12 @@ function showRecipeSkeletons(count, opts) {
     '<div class="skeleton" style="height:22px;width:80px;border-radius:10px;"></div>' +
     '</div></div></div>'
   ).join("");
+}
+
+function showRecipeSkeletons(count, opts) {
+  const grid = document.getElementById("recipeGrid");
+  if (!grid) return;
+  const cards = skeletonCardsHtml(count);
   // append:true is used by loadMoreRecipes which adds to existing recipes rather
   // than replacing them. Default behavior (innerHTML replace) is unchanged.
   if (opts && opts.append) grid.insertAdjacentHTML("beforeend", cards);
@@ -2370,6 +2376,192 @@ function handleRecipeApiError({ res, data, err, retryFnName } = {}) {
   return false;
 }
 
+// ── Streaming recipe generation (flag-gated) ────────────────────────────────
+// Default OFF. ?stream=1 turns it on for one page load, ?stream=0 forces it off,
+// localStorage dishcount_stream="1" is the sticky switch for testing. Only
+// searchRecipes consults this; loadMoreRecipes, generateWeeklyPlan and
+// generateFreezerMeals keep their single await res.json() untouched.
+function streamFlagOn() {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get("stream") === "1") return true;
+    if (p.get("stream") === "0") return false;
+    return localStorage.getItem("dishcount_stream") === "1";
+  } catch (e) { return false; }
+}
+// "final" (default) leaves the banner slot empty until the last card lands.
+// "live" updates a running savings total as each card arrives. See the report:
+// live reflows the grid, which is why final is the default.
+function streamBannerMode() {
+  try {
+    const p = new URLSearchParams(location.search);
+    return p.get("banner") || localStorage.getItem("dishcount_stream_banner") || "final";
+  } catch (e) { return "final"; }
+}
+
+// Same arithmetic as computeSavingsSummary on the server, over however many
+// recipes have arrived so far. Only used by banner=live.
+function runningSavings(recipes) {
+  let sale = 0, reg = 0, servings = 0;
+  (recipes || []).forEach(r => {
+    servings += (r.servings || 4);
+    (r.usedSaleItems || []).forEach(item => {
+      const saleUnit = parseFloat(String(item.salePrice || "0").replace(/[^0-9.]/g, "")) || 0;
+      const actual = parseFloat(String(item.actualCost || "").replace(/[^0-9.]/g, "")) || saleUnit;
+      const qty = saleUnit > 0 ? actual / saleUnit : 1;
+      const regUnit = parseFloat(String(item.regularPrice || "0").replace(/[^0-9.]/g, "")) || 0;
+      const regScaled = regUnit * qty;
+      sale += actual;
+      reg += regScaled > actual ? regScaled : actual;
+    });
+  });
+  return {
+    totalSalePrice: Math.round(sale * 100) / 100,
+    totalRegularPrice: Math.round(reg * 100) / 100,
+    totalSavings: Math.round((reg - sale) * 100) / 100,
+    savingsPercent: reg > 0 ? Math.round(((reg - sale) / reg) * 100) : 0,
+    costPerServing: servings > 0 ? Math.round((sale / servings) * 100) / 100 : 0,
+    servings,
+  };
+}
+
+// Full re-render off state.recipes (renderRecipeGrid is a straight innerHTML
+// replace and already re-entrant), then top the grid back up to `expected`
+// tiles with shimmer cards. The tile count never changes as recipes land, so
+// nothing below the grid moves — that is what keeps the layout still.
+function renderStreamingGrid(expected) {
+  renderRecipeGrid();
+  const grid = document.getElementById("recipeGrid");
+  if (!grid) return;
+  // Uniform tile height for the streamed set. A real card is 260-314px tall
+  // while a shimmer card is 239px, so without this every arrival pushed the
+  // remaining skeletons down — five separate nudges of 20-49px over the run.
+  // With it, a card lands in exactly the space its skeleton held and nothing
+  // below moves: measured tile tops identical at every step, document height
+  // constant. Applied only on the streaming path, so the non-streaming grid
+  // keeps its natural card heights.
+  grid.classList.add("streaming-grid");
+  const missing = expected - state.recipes.length;
+  if (missing > 0) grid.insertAdjacentHTML("beforeend", skeletonCardsHtml(missing));
+}
+
+// Reads the NDJSON stream and renders each recipe as it lands. Resolves with the
+// same shape the non-streaming path gets from res.json(), so everything after the
+// fetch in searchRecipes is shared and untouched. Resolves with {__httpError} for
+// a pre-stream HTTP failure so handleRecipeApiError keeps owning those.
+async function streamedGeneration(payload, controller) {
+  const res = await fetch("/api/recipes/ai?stream=1", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Anon-Id": _anonId },
+    body: JSON.stringify(payload),
+    signal: controller.signal,
+  });
+  // The server withholds the 200 until Anthropic has answered, so rate limits,
+  // overload and auth failures still arrive as ordinary HTTP errors here.
+  if (!res.ok) {
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* non-JSON error body */ }
+    return { __httpError: { res, data } };
+  }
+
+  const bannerMode = streamBannerMode();
+  let expected = 5;
+  let firstCardSeen = false;
+  let doneFrame = null;
+  let errorFrame = null;
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let streamBroke = null;
+
+  const handleFrame = (frame) => {
+    if (frame.type === "start") {
+      expected = frame.expected || 5;
+      return;
+    }
+    if (frame.type === "recipe") {
+      if (!firstCardSeen) {
+        firstCardSeen = true;
+        // Ticker has done its job the moment there is real content.
+        clearSkeletonBanner();
+        const banner = document.getElementById("savingsBanner");
+        if (banner && bannerMode !== "live") banner.innerHTML = "";
+        document.getElementById("recipesTitle").textContent = "Building your meals...";
+      }
+      state.recipes.push(frame.recipe);
+      renderStreamingGrid(expected);
+      if (bannerMode === "live") {
+        state.lastSavings = runningSavings(state.recipes);
+        renderSavingsBanner();
+      }
+      return;
+    }
+    if (frame.type === "done") { doneFrame = frame; return; }
+    if (frame.type === "error") { errorFrame = frame; return; }
+  };
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let frame;
+        // A truncated or corrupt frame must not take down the cards already on
+        // screen. Skip it and keep reading.
+        try { frame = JSON.parse(line); } catch (e) { console.warn("[stream] unparseable frame, skipped"); continue; }
+        try { handleFrame(frame); } catch (e) { console.warn("[stream] frame handler threw, skipped:", e && e.message); }
+      }
+    }
+  } catch (e) {
+    streamBroke = e;
+    console.warn("[stream] read failed after", state.recipes.length, "recipes:", e && e.message);
+  }
+
+  // Server said explicitly that nothing usable came back.
+  if (errorFrame && !state.recipes.length) {
+    return { __httpError: { res: { ok: false }, data: { error: errorFrame.error, message: errorFrame.message } } };
+  }
+
+  // Connection died mid-stream. Whatever arrived is real and stays; the grid is
+  // trimmed to what we actually have so no skeleton shimmers forever.
+  if (!doneFrame) {
+    if (!state.recipes.length) {
+      if (streamBroke && streamBroke.name === "AbortError") throw streamBroke;
+      return { __httpError: { res: { ok: false }, data: { message: "The connection dropped before any recipes arrived. Please try again." } } };
+    }
+    renderRecipeGrid();
+    showToast(`Showing ${state.recipes.length} of ${expected} — the rest didn't come through.`);
+    return {
+      recipes: state.recipes,
+      savings: runningSavings(state.recipes),
+      cached: false,
+      partial: true,
+      served: state.recipes.length,
+      dealHunterScore: null,
+      badges: null,
+    };
+  }
+
+  if (doneFrame.partial && state.recipes.length && state.recipes.length < expected) {
+    showToast(`Showing ${state.recipes.length} of ${expected} recipes.`);
+  }
+  return {
+    recipes: state.recipes,
+    savings: doneFrame.savings,
+    cached: !!doneFrame.cached,
+    partial: !!doneFrame.partial,
+    served: doneFrame.served,
+    tokens: doneFrame.tokens,
+    dealHunterScore: doneFrame.dealHunterScore,
+    badges: doneFrame.badges,
+  };
+}
+
 async function searchRecipes() {
   const payload=getRecipePayload(0);
   if(!payload){showToast("You've excluded all deals. Include at least one or remove some exclusions.");return;}
@@ -2386,12 +2578,26 @@ async function searchRecipes() {
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),90000);
   try {
-    const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
-    const data=await res.json();
-    if(!res.ok){
-      clearSkeletonBanner();
-      if(handleRecipeApiError({ res, data, retryFnName: "searchRecipes" })) return;
-      throw new Error(data.message||data.error||"Could not generate recipes");
+    // Two paths, one tail. Only the fetch-and-parse differs; every line below
+    // "if(!data.recipes?.length)" is shared, so with the flag off this function
+    // behaves exactly as it did before streaming existed.
+    let data;
+    if (streamFlagOn()) {
+      state.recipes = [];
+      data = await streamedGeneration(payload, controller);
+      if (data.__httpError) {
+        clearSkeletonBanner();
+        if (handleRecipeApiError({ ...data.__httpError, retryFnName: "searchRecipes" })) return;
+        throw new Error(data.__httpError.data?.message || data.__httpError.data?.error || "Could not generate recipes");
+      }
+    } else {
+      const res=await fetch("/api/recipes/ai",{method:"POST",headers:{"Content-Type":"application/json","X-Anon-Id":_anonId},body:JSON.stringify(payload),signal:controller.signal});
+      data=await res.json();
+      if(!res.ok){
+        clearSkeletonBanner();
+        if(handleRecipeApiError({ res, data, retryFnName: "searchRecipes" })) return;
+        throw new Error(data.message||data.error||"Could not generate recipes");
+      }
     }
     if(!data.recipes?.length)throw new Error("No recipes generated. Try a different style or include more items.");
     state.recipeGenerationIndex += 1;
@@ -2727,6 +2933,14 @@ function renderRecipeGrid(){
   lazyLoadRecipeImages();
 }
 
+// One photo request per recipe, not one per render. The streaming path calls
+// renderRecipeGrid() once per arriving card, which rebuilds every placeholder
+// element; without this guard a card whose Pexels lookup was still in flight
+// would be re-observed and re-fetched on the next card's render, so recipe 1
+// would be requested five times. Keyed on title because that is what the
+// endpoint takes. No effect on the non-streaming path, which renders once.
+const _recipeImageRequested = new Set();
+
 const lazyImageObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (!entry.isIntersecting) return;
@@ -2734,6 +2948,8 @@ const lazyImageObserver = new IntersectionObserver((entries) => {
     const title = el.dataset.title;
     const idx = parseInt(el.dataset.idx);
     lazyImageObserver.unobserve(el);
+    if (_recipeImageRequested.has(title)) return;
+    _recipeImageRequested.add(title);
     fetch(`/api/recipe-image?title=${encodeURIComponent(title)}`).then(r=>r.json()).then(data => {
       if (data.url) {
         el.outerHTML = `<img class="recipe-card-img" src="${escapeHtml(data.url)}" alt="${escapeHtml(title)}" onerror="this.outerHTML='<div class=\\'recipe-card-img-placeholder\\' style=\\'font-size:48px;padding:30px 0\\'>🍽️</div>'" />`;

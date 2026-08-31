@@ -472,9 +472,328 @@ function checkMeatDairyConflict(text) {
   };
 }
 
+// ── Per-recipe post-processing ──────────────────────────────────────────────
+// Lifted verbatim out of the `rawRecipes.map((r, idx) => ...)` callback so the
+// streaming path can run it on one recipe at a time as each object closes,
+// while the non-streaming path still maps it over the whole array. Same code,
+// same output, both paths — that equivalence is what keeps the flag-off
+// behaviour byte-identical. Costs 2-4ms for all five, so per-recipe is free.
+function buildRecipe(r, idx, ingredients, diets) {
+    const usedSaleItems = [];
+    let totalSavings = 0;
+    let saleCost = 0;
+    let regularCost = 0;
+    let additionalCost = 0;
+    let aiQtyCount = 0;
+    let fbQtyCount = 0;
+    let stapleExcludedCount = 0;
+    // What was excluded and why. The count alone cannot distinguish "three
+    // spices, correctly zeroed" from "three bell peppers, wrongly zeroed",
+    // and the second understates the meal while still showing the prices.
+    const stapleExclusions = [];
+
+    const ingredientLookup = ingredients.map(ing => ({
+      ...ing,
+      nameLower: ing.name.toLowerCase(),
+      nameWords: ing.name.toLowerCase().split(/[\s,\-\/]+/).filter(w => w.length > 2),
+    }));
+
+    const processedIngredients = (r.ingredients || []).map(ing => {
+      const isStructured = typeof ing === "object" && ing.item;
+      const itemText = isStructured ? ing.item : String(ing);
+      const type = isStructured ? (ing.type || "PANTRY") :
+        (itemText.toLowerCase().includes("on sale") ? "SALE" :
+         itemText.toLowerCase().includes("additional") ? "ADDITIONAL" :
+         itemText.toLowerCase().includes("on hand") ? "ON_HAND" : "PANTRY");
+      const matchName = isStructured ? (ing.matchName || "") : "";
+
+      let matchedDeal = null;
+
+      if (type === "SALE") {
+        if (matchName) {
+          const matchLower = matchName.toLowerCase();
+          matchedDeal = ingredientLookup.find(d => d.nameLower === matchLower);
+          if (!matchedDeal) {
+            const matchWords = matchLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
+            let bestScore = 0;
+            for (const d of ingredientLookup) {
+              const score = matchWords.filter(w => d.nameLower.includes(w)).length;
+              if (score > bestScore && score >= Math.min(2, matchWords.length)) {
+                bestScore = score;
+                matchedDeal = d;
+              }
+            }
+          }
+        }
+        if (!matchedDeal) {
+          const textLower = itemText.toLowerCase();
+          const textWords = textLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
+          let bestScore = 0;
+          for (const d of ingredientLookup) {
+            const score = d.nameWords.filter(w => textWords.some(tw => tw.includes(w) || w.includes(tw))).length;
+            if (score > bestScore && score >= 1) {
+              bestScore = score;
+              matchedDeal = d;
+            }
+          }
+        }
+      }
+
+      let isPerLb = false;
+      let qty = 1;
+      let itemActualCost = null;
+
+      if (matchedDeal) {
+        const sale = parseFloat(String(matchedDeal.salePrice).replace(/[^0-9.]/g, "")) || 0;
+        const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
+        isPerLb = matchedDeal.isPerLb || matchedDeal.priceUnit === "/lb";
+
+        // Tier 1: AI-supplied quantity + unit. Tier 2: hardcoded fallback table.
+        let qtySource = "fallback";
+        if (isPerLb) {
+          const aiLbs = aiQtyToLbs(ing && ing.quantity, ing && ing.unit, matchedDeal.name);
+          if (aiLbs != null && aiLbs > 0) { qty = aiLbs; qtySource = "ai"; }
+          else { qty = hardcodedQtyForDeal(matchedDeal); qtySource = "fallback"; }
+        } else {
+          const aiCnt = aiQtyToCount(ing && ing.quantity, ing && ing.unit);
+          const normUnit = _normalizeUnit(ing && ing.unit);
+          const isContainerUnit = _CONTAINER_UNITS.includes(normUnit);
+          const isProduce = _PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""));
+          if (aiCnt != null && aiCnt > 0) {
+            if (isContainerUnit || isProduce) {
+              qty = aiCnt; qtySource = "ai";
+            } else {
+              // Item-count unit on a packaged good: one package covers the recipe.
+              qty = 1; qtySource = "ai-clamped";
+              console.warn(`qty-clamp: "${ing && ing.item}" matched "${matchedDeal.name}" — AI count ${aiCnt} ${normUnit || "?"} clamped to 1 package`);
+            }
+          }
+          else { qty = 1; qtySource = "fallback"; }
+        }
+        if (qtySource === "ai") aiQtyCount++; else fbQtyCount++;
+
+        // Pantry-staple exclusion: zero the cost contribution if this match is a
+        // staple (oils, dried spices, salt/pepper, baking essentials). The matched
+        // deal still appears in usedSaleItems with full identity (price, store, upc)
+        // so the Kroger cart-add path keeps working; only the cost roll-up is zeroed.
+        const stapleMatch = pantryStapleMatch(ing && ing.item, ing && ing.matchName, matchedDeal.name);
+        const isStaple = stapleMatch !== null;
+        // Validation gate: per-each non-produce ingredient charging >4 packages
+        // or >$20 is a units error, not a real basket. Clamp and log.
+        if (!isPerLb && qty > 4 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
+          console.warn(`qty-gate: "${matchedDeal.name}" qty ${qty} exceeds gate, clamped to 1`);
+          qty = 1;
+        }
+        if (!isPerLb && sale * qty > 20 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
+          console.warn(`qty-gate: "${matchedDeal.name}" cost $${(sale * qty).toFixed(2)} exceeds $20 gate, clamped to 1 package`);
+          qty = 1;
+        }
+        const itemSaleCost_raw = sale * qty;
+        const itemRegCost_raw = reg * qty;
+        const itemSaleCost = isStaple ? 0 : itemSaleCost_raw;
+        const itemRegCost = isStaple ? 0 : itemRegCost_raw;
+        const savings = itemRegCost > itemSaleCost && itemSaleCost > 0 ? itemRegCost - itemSaleCost : 0;
+        itemActualCost = isStaple ? "0.00" : itemSaleCost.toFixed(2);
+        if (isStaple) {
+          stapleExcludedCount++;
+          stapleExclusions.push({
+            item: matchedDeal.name,
+            matchedOn: stapleMatch.name,
+            pattern: stapleMatch.pattern,
+            excluded: itemSaleCost_raw.toFixed(2),
+          });
+        }
+
+        usedSaleItems.push({
+          name: matchedDeal.name,
+          category: matchedDeal.category || "",
+          salePrice: isPerLb ? `$${sale.toFixed(2)}/lb` : (matchedDeal.salePrice || ""),
+          regularPrice: isPerLb ? `$${reg.toFixed(2)}/lb` : (matchedDeal.regularPrice || "—"),
+          actualCost: itemActualCost,
+          packageNote: isPerLb
+            ? `~${qty} lb pkg ≈ $${itemSaleCost.toFixed(2)}`
+            : (["tbsp","tsp","cup","oz","fl_oz","ml","g"].includes(_normalizeUnit(ing && ing.unit)) && !isStaple
+                ? "full package — you'll use the rest"
+                : ""),
+          savings: savings > 0 ? savings.toFixed(2) : "",
+          storeName: matchedDeal.storeName || "",
+          isPerLb,
+          qty,
+          isPantryStaple: isStaple,
+        });
+
+        saleCost += itemSaleCost;
+        regularCost += itemRegCost > 0 ? itemRegCost : itemSaleCost;
+        totalSavings += savings;
+      }
+
+      if (type === "ADDITIONAL") {
+        additionalCost += 2.50;
+      }
+
+      return {
+        name: itemText.replace(/\s*\(ON SALE\)|\(ADDITIONAL\)|\(ON HAND\)/gi, "").trim(),
+        type,
+        onSale: type === "SALE" && matchedDeal !== null,
+        matchedDeal: matchedDeal ? {
+          name: matchedDeal.name,
+          salePrice: matchedDeal.salePrice,
+          regularPrice: matchedDeal.regularPrice,
+          isPerLb,
+          actualCost: itemActualCost,
+          storeName: matchedDeal.storeName || "",
+          upc: matchedDeal.upc || "",
+        } : null,
+      };
+    });
+
+    const estimatedCost = saleCost + additionalCost;
+    const regularPriceTotal = regularCost + additionalCost;
+
+    // Observability: per-recipe qty source counts and AI-vs-server cost mismatch.
+    // The AI's costPerServing is still discarded for display; this is monitoring only.
+    console.log(`Recipe "${r.title}": qty source ai=${aiQtyCount} fallback=${fbQtyCount}`);
+    if (stapleExcludedCount > 0) {
+      const dropped = stapleExclusions.reduce((t, x) => t + parseFloat(x.excluded), 0);
+      console.log(JSON.stringify({
+        evt: "PANTRY_STAPLES_EXCLUDED",
+        recipe: r.title,
+        count: stapleExcludedCount,
+        totalExcluded: dropped.toFixed(2),
+        items: stapleExclusions,
+      }));
+    }
+    const aiClaimed = parseFloat(r.costPerServing);
+    const servings = r.servings || 4;
+    if (Number.isFinite(aiClaimed) && aiClaimed > 0 && servings > 0 && estimatedCost > 0) {
+      const serverPerServing = estimatedCost / servings;
+      const delta = Math.abs(serverPerServing - aiClaimed) / aiClaimed;
+      if (delta > 0.4) {
+        const deltaPercent = Math.round(delta * 100);
+        console.warn(`Recipe "${r.title}": cost-calc mismatch, server=$${serverPerServing.toFixed(2)}/serving, AI claimed $${aiClaimed.toFixed(2)}/serving (delta ${deltaPercent}%)`);
+      }
+    }
+
+    return {
+      id: `ai-${Date.now()}-${idx}`,
+      title: r.title,
+      image: null,
+      time: r.cookTime ? `${r.cookTime} min` : "N/A",
+      readyInMinutes: r.cookTime || 0,
+      servings: r.servings || 4,
+      usedIngredientCount: usedSaleItems.length,
+      missedIngredientCount: 0,
+      usedSaleItems,
+      totalSavings: parseFloat(totalSavings.toFixed(2)),
+      estimatedCost: parseFloat(estimatedCost.toFixed(2)) || 0,
+      regularPriceTotal: parseFloat(regularPriceTotal.toFixed(2)) || 0,
+      saleCost: parseFloat(saleCost.toFixed(2)),
+      additionalCost: parseFloat(additionalCost.toFixed(2)),
+      couponsToClip: [],
+      diets: diets || [],
+      cuisines: [],
+      instructions: r.instructions || [],
+      allIngredients: processedIngredients,
+    };
+}
+
+// ── Incremental scanner over the "recipes": [ ... ] array ────────────────────
+// Tracks brace depth outside of strings and hands back each complete recipe
+// object as its closing brace arrives. Two consumers, one scanner: the
+// truncation-recovery path feeds it the whole body at once and asks for the
+// last complete index; the streaming path feeds it deltas and takes the
+// objects. Before this the depth-counting loop existed only inline on the
+// recovery path.
+function createRecipeScanner() {
+  let buf = "";
+  let started = false;
+  let scanFrom = 0;
+  let objStart = -1;
+  let depth = 0, inString = false, escape = false;
+  let lastComplete = -1;
+  return {
+    push(chunk) {
+      buf += chunk;
+      const out = [];
+      if (!started) {
+        const recipesStart = buf.indexOf('"recipes"');
+        if (recipesStart === -1) return out;
+        const arrayStart = buf.indexOf("[", recipesStart);
+        if (arrayStart === -1) return out;
+        started = true;
+        scanFrom = arrayStart + 1;
+      }
+      for (let i = scanFrom; i < buf.length; i++) {
+        const c = buf[i];
+        if (escape) { escape = false; continue; }
+        if (c === "\\") { escape = true; continue; }
+        if (c === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (c === "{") { if (depth === 0) objStart = i; depth++; }
+        else if (c === "}") {
+          depth--;
+          if (depth === 0 && objStart !== -1) { lastComplete = i; out.push(buf.slice(objStart, i + 1)); }
+        }
+      }
+      scanFrom = buf.length;
+      return out;
+    },
+    lastCompleteIndex() { return lastComplete; },
+  };
+}
+
+// ── Meal-type post-filter ───────────────────────────────────────────────────
+// Hoisted out of handleRecipeGeneration so the streaming path can apply it to
+// one recipe at a time. Predicate is unchanged: Breakfast, Lunch and Dinner all
+// reject the dessert list, every other meal type accepts everything.
+// DINNER_BLACKLIST was declared but never used before this move and still is
+// not — kept so the intent is not lost.
+const BREAKFAST_BLACKLIST = ["brownie","cake","cookie","candy","marshmallow","fudge","pie","cupcake","ice cream","sundae","cheesecake","tart","truffle","s'more","frosting","pudding"];
+const DINNER_BLACKLIST = ["smoothie","cereal","granola","overnight oats","parfait"];
+function passesMealTypeFilter(recipe, effectiveMealType) {
+  if (effectiveMealType === "Breakfast" || effectiveMealType === "Lunch" || effectiveMealType === "Dinner") {
+    return !BREAKFAST_BLACKLIST.some(w => (recipe.title || "").toLowerCase().includes(w));
+  }
+  return true;
+}
+
+// ── Streaming flag ──────────────────────────────────────────────────────────
+// Default OFF. `?stream=1` opts one request in, `?stream=0` forces it off, and
+// RECIPE_STREAM=1 in the environment flips the default for everyone. Both paths
+// are live simultaneously and share buildRecipe/validateRecipes/the scanner, so
+// with the flag off not a single line behaves differently from before streaming
+// existed — backing the feature out is a query-string change, not a deploy.
+const RECIPE_STREAM_DEFAULT = process.env.RECIPE_STREAM === "1";
+function wantsStream(req) {
+  const q = req.query && req.query.stream;
+  if (q === "0") return false;
+  if (q === "1") return true;
+  return RECIPE_STREAM_DEFAULT;
+}
+
+// NDJSON, not SSE: one JSON object per line, no event framing to get wrong on
+// either end. X-Accel-Buffering is for Render's proxy, which otherwise holds the
+// whole response and hands the client all five cards at once — which would look
+// exactly like success while delivering none of the benefit.
+function openStream(res) {
+  res.writeHead(200, {
+    "Content-Type": "application/x-ndjson; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+  });
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+}
+function ndjson(res, obj) {
+  if (res.writableEnded) return false;
+  try { res.write(JSON.stringify(obj) + String.fromCharCode(10)); return true; }
+  catch (e) { console.warn("[recipes/ai stream] write failed (client gone?):", e.message); return false; }
+}
+
 async function handleRecipeGeneration(req, res) {
   let { ingredients, style, mealType, diets, wantItems, haveItems, mealRequest, budgetTarget, leftovers, preferences, weeklyPlan, freezerMeals, offset } = req.body;
   const effectiveMealType = mealType || "Dinner";
+  const useStream = wantsStream(req);
+  const MAX_SERVED = 5;
   if (!ingredients?.length) return res.status(400).json({ error: "ingredients required" });
 
   // An offer row states a deal, not a price, so it cannot take part in cost
@@ -514,7 +833,17 @@ async function handleRecipeGeneration(req, res) {
     const cached = aiRecipeCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < 1800000) {
       console.log("Serving cached AI recipes");
-      return res.json({ recipes: cached.recipes, savings: computeSavingsSummary(cached.recipes), cached: true });
+      const cachedSavings = computeSavingsSummary(cached.recipes);
+      if (useStream) {
+        // A cache hit still has to speak the streaming protocol, otherwise the
+        // client's reader loop gets a bare JSON body and hangs waiting for frames.
+        openStream(res);
+        ndjson(res, { type: "start", expected: (cached.recipes || []).length, cached: true });
+        (cached.recipes || []).forEach((recipe, index) => ndjson(res, { type: "recipe", index, recipe }));
+        ndjson(res, { type: "done", savings: cachedSavings, served: (cached.recipes || []).length, cached: true });
+        return res.end();
+      }
+      return res.json({ recipes: cached.recipes, savings: cachedSavings, cached: true });
     }
 
     const mustInclude = ingredients.filter(i => i.mustInclude).map(i => i.name);
@@ -697,6 +1026,48 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     if (activeDiets.length > diets?.length) {
       console.log(`Profile dietary merged: chips=[${(diets||[]).join(",")}] → active=[${activeDiets.join(",")}]`);
     }
+
+    // Hoisted above the ingredient filter so the streaming path can validate one
+    // recipe at a time as it lands, using this exact function rather than a second
+    // copy of the rules. Body is unchanged from when it lived inside the post-gen
+    // block below; that block still calls it with the whole array.
+    const validateRecipes = (recipeList, activeDiets) => {
+      const valid = [];
+      const dropped = [];
+      for (const recipe of recipeList) {
+        const text = extractRecipeText(recipe);
+        const reasons = [];
+        for (const diet of activeDiets) {
+          if (diet === "Kosher") {
+            const c = checkMeatDairyConflict(text);
+            if (c.conflict) {
+              reasons.push(`Kosher meat-dairy mix: meat=[${c.meatTerms.join(",")}], dairy=[${c.dairyTerms.join(",")}]`);
+            }
+          }
+          const info = DIET_RULES[diet];
+          if (!info) continue;
+          // Mirror the POOL filter's semantics exactly (see the isWhitelisted
+          // check in the ingredient filter above): whitelisted phrases bypass
+          // excludeWord, but NOT the authoritative substring `exclude`.
+          // Without this, the whitelist did nothing here — \bmilk\b matched
+          // inside "almond milk" and \bbutter\b inside "peanut butter", so a
+          // compliant recipe using the diet's own substitutes was discarded.
+          let checkText = text;
+          for (const phrase of (info.whitelistPhrase || [])) {
+            checkText = checkText.split(phrase).join(" ");
+          }
+          for (const term of (info.exclude || [])) {
+            if (text.includes(term)) reasons.push(`${diet} forbidden term: ${term}`);
+          }
+          for (const term of (info.excludeWord || [])) {
+            if (_wordBoundaryRegex(term).test(checkText)) reasons.push(`${diet} forbidden term: ${term}`);
+          }
+        }
+        if (reasons.length > 0) dropped.push({ recipe, reasons });
+        else valid.push(recipe);
+      }
+      return { valid, dropped };
+    };
 
     let filteredIngredients = [...ingredients];
     let dietNote = "";
@@ -919,6 +1290,7 @@ IMPORTANT ingredient type rules:
       max_tokens: 8192,
       temperature: 0.7,
       messages: [{ role: "user", content: prompt }],
+      ...(useStream ? { stream: true } : {}),
     });
     const claudeHeaders = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
 
@@ -941,6 +1313,155 @@ IMPORTANT ingredient type rules:
       throw new Error(`Claude API error ${response.status}: ${errText.substring(0, 200)}`);
     }
 
+    // ── Streaming path ──────────────────────────────────────────────────────
+    // Everything above this point is shared with the non-streaming path, and the
+    // 200 has deliberately not been sent yet: a failure before here still returns
+    // a real HTTP error status, so handleRecipeApiError on the client keeps
+    // working unchanged. Past this line the status is committed, and every
+    // failure has to be reported inside the stream instead.
+    if (useStream) {
+      openStream(res);
+      ndjson(res, { type: "start", expected: MAX_SERVED });
+
+      const scanner = createRecipeScanner();
+      const served = [];
+      let rawSeen = 0, malformed = 0, droppedDiet = 0, droppedMeal = 0;
+      let inputTokens = 0, outputTokens = 0, stopReason = "";
+      let firstCardAt = null;
+      let streamErr = null;
+      const cardTimings = [];
+
+      try {
+        const decoder = new TextDecoder();
+        let sseBuf = "";
+        for await (const chunk of response.body) {
+          sseBuf += decoder.decode(chunk, { stream: true });
+          const lines = sseBuf.split(String.fromCharCode(10));
+          sseBuf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            let ev;
+            try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+            if (ev.type === "message_start") inputTokens = ev.message?.usage?.input_tokens || 0;
+            if (ev.type === "message_delta") {
+              outputTokens = ev.usage?.output_tokens || outputTokens;
+              stopReason = ev.delta?.stop_reason || stopReason;
+            }
+            if (ev.type === "error") throw new Error(`Anthropic stream error: ${ev.error?.type || "unknown"}`);
+            if (ev.type !== "content_block_delta" || !ev.delta?.text) continue;
+
+            for (const objText of scanner.push(ev.delta.text)) {
+              // Cap on RAW objects, not served ones, so this matches the
+              // non-streaming slice(0, 5) exactly even when a filter drops one.
+              if (rawSeen >= MAX_SERVED) continue;
+              rawSeen++;
+
+              let raw;
+              try { raw = JSON.parse(objText); } catch (e) { malformed++; console.warn(`[recipes/ai stream] malformed recipe object #${rawSeen}, skipped: ${e.message}`); continue; }
+              if (!raw || typeof raw !== "object" || !raw.title) { malformed++; console.warn(`[recipes/ai stream] recipe object #${rawSeen} has no title, skipped`); continue; }
+
+              if (activeDiets.length) {
+                try {
+                  const v = validateRecipes([raw], activeDiets);
+                  if (!v.valid.length) {
+                    droppedDiet++;
+                    console.log(`Post-gen sanity check: dropped [${raw.title}] ${v.dropped[0].reasons.join("; ")}`);
+                    continue;
+                  }
+                } catch (e) { console.error("Post-gen sanity check failed (serving unfiltered):", e.message); }
+              }
+
+              let built;
+              try { built = buildRecipe(raw, served.length, ingredients, diets); }
+              catch (e) { malformed++; console.error(`[recipes/ai stream] buildRecipe threw for [${raw.title}], skipped: ${e.message}`); continue; }
+
+              if (!passesMealTypeFilter(built, effectiveMealType)) { droppedMeal++; continue; }
+
+              // NO savings-first sort on this path. Cards are rendered as they
+              // arrive, so a re-sort at the end would visibly reshuffle five
+              // tiles on screen — worse to watch than the wait being removed.
+              served.push(built);
+              const at = Date.now() - _tClaude;
+              cardTimings.push(at);
+              if (firstCardAt === null) { firstCardAt = at; console.log(`[recipes/ai stream] first_card_ms=${at}`); }
+              ndjson(res, { type: "recipe", index: served.length - 1, recipe: built });
+            }
+          }
+        }
+      } catch (e) {
+        streamErr = e;
+        console.error(`[recipes/ai stream] transport failure after ${served.length} recipe(s): ${e.message}`);
+      }
+
+      const claudeMs = Date.now() - _tClaude;
+      const cost = (inputTokens * 1 + outputTokens * 5) / 1000000;
+      console.log(`[recipes/ai stream] claude_ms=${claudeMs} served=${served.length} raw=${rawSeen} malformed=${malformed} droppedDiet=${droppedDiet} droppedMeal=${droppedMeal} stop=${stopReason} cards=[${cardTimings.join(",")}] cost=$${cost.toFixed(4)}`);
+
+      // Nothing usable. The client has a 200 in hand, so this has to be an
+      // in-band error frame; it maps onto the same toast as an HTTP failure.
+      if (!served.length) {
+        ndjson(res, {
+          type: "error",
+          error: streamErr ? "stream_failed" : "no_recipes",
+          message: streamErr
+            ? "The connection dropped while building your recipes. Please try again."
+            : "No recipes came back. Try a different style or include more items.",
+          served: 0,
+        });
+        return res.end();
+      }
+
+      logApiUsage("anthropic", "recipes-ai-stream", inputTokens, outputTokens, cost);
+      aiRecipeCache.set(cacheKey, { recipes: served, timestamp: Date.now() });
+      for (const [key, val] of aiRecipeCache.entries()) {
+        if (Date.now() - val.timestamp > 1800000) aiRecipeCache.delete(key);
+      }
+
+      const usedDealNames = new Set();
+      served.forEach(r => (r.usedSaleItems || []).forEach(i => usedDealNames.add(i.name)));
+      const totalIngredients = (req.body.ingredients || []).length;
+      const dealHunterScore = totalIngredients > 0 ? { used: usedDealNames.size, total: totalIngredients, percent: Math.round((usedDealNames.size / totalIngredients) * 100) } : null;
+      const savingsSummary = computeSavingsSummary(served);
+
+      let badges = null;
+      const streamUser = req._user;
+      if (streamUser) {
+        try {
+          badges = await trackStat(streamUser.id, "recipe_generated", {
+            count: served.length, savings: served.reduce((s2, r) => s2 + (r.totalSavings || 0), 0),
+            mealType: req.body.style, diets: req.body.diets, dealHunterPercent: dealHunterScore?.percent || 0,
+          });
+          const { data: profile } = await supabase.from("profiles").select("total_savings, recipes_generated").eq("id", streamUser.id).single();
+          if (profile) {
+            await supabase.from("profiles").update({
+              total_savings: (parseFloat(profile.total_savings) || 0) + savingsSummary.totalSavings,
+              recipes_generated: (parseInt(profile.recipes_generated) || 0) + served.length,
+            }).eq("id", streamUser.id);
+          }
+        } catch (e) { /* stats are not worth failing a good stream over */ }
+      } else {
+        const anonId = req.headers["x-anon-id"] || req.ip;
+        anonRecipeCount.set(anonId, (anonRecipeCount.get(anonId) || 0) + 1);
+      }
+
+      // A partial set is a success, not a failure: three good recipes on screen
+      // beats an error toast that throws them away. `partial` lets the client say
+      // so honestly and clear the skeletons that will never fill.
+      ndjson(res, {
+        type: "done",
+        savings: savingsSummary,
+        served: served.length,
+        expected: MAX_SERVED,
+        partial: !!streamErr || served.length < MAX_SERVED,
+        reason: streamErr ? "stream_failed" : (served.length < MAX_SERVED ? "short_response" : null),
+        cached: false,
+        tokens: { input: inputTokens, output: outputTokens, cost: cost.toFixed(4) },
+        dealHunterScore,
+        badges,
+      });
+      return res.end();
+    }
+
     const data = await response.json();
     const _tClaudeDone = Date.now();
     const text = data.content?.[0]?.text || "";
@@ -957,23 +1478,14 @@ IMPORTANT ingredient type rules:
     } catch (e) {
       console.log("Initial JSON parse failed, attempting recovery...");
       try {
+        // Same scanner the streaming path uses — see createRecipeScanner above.
         const recipesStart = clean.indexOf('"recipes"');
         if (recipesStart === -1) throw new Error("No recipes found");
         const arrayStart = clean.indexOf('[', recipesStart);
         if (arrayStart === -1) throw new Error("No recipe array found");
-        let depth = 0;
-        let lastCompleteRecipe = -1;
-        let inString = false;
-        let escape = false;
-        for (let i = arrayStart + 1; i < clean.length; i++) {
-          const c = clean[i];
-          if (escape) { escape = false; continue; }
-          if (c === '\\') { escape = true; continue; }
-          if (c === '"') { inString = !inString; continue; }
-          if (inString) continue;
-          if (c === '{') depth++;
-          if (c === '}') { depth--; if (depth === 0) lastCompleteRecipe = i; }
-        }
+        const _scanner = createRecipeScanner();
+        _scanner.push(clean);
+        const lastCompleteRecipe = _scanner.lastCompleteIndex();
         if (lastCompleteRecipe > arrayStart) {
           const recovered = clean.substring(0, lastCompleteRecipe + 1) + ']}';
           parsed = JSON.parse(recovered);
@@ -991,43 +1503,6 @@ IMPORTANT ingredient type rules:
     // diet restrictions. Defensive — falls back to unfiltered output on any error.
     if (Array.isArray(parsed.recipes) && activeDiets.length) {
       try {
-        const validateRecipes = (recipeList, activeDiets) => {
-          const valid = [];
-          const dropped = [];
-          for (const recipe of recipeList) {
-            const text = extractRecipeText(recipe);
-            const reasons = [];
-            for (const diet of activeDiets) {
-              if (diet === "Kosher") {
-                const c = checkMeatDairyConflict(text);
-                if (c.conflict) {
-                  reasons.push(`Kosher meat-dairy mix: meat=[${c.meatTerms.join(",")}], dairy=[${c.dairyTerms.join(",")}]`);
-                }
-              }
-              const info = DIET_RULES[diet];
-              if (!info) continue;
-              // Mirror the POOL filter's semantics exactly (see the isWhitelisted
-              // check in the ingredient filter above): whitelisted phrases bypass
-              // excludeWord, but NOT the authoritative substring `exclude`.
-              // Without this, the whitelist did nothing here — \bmilk\b matched
-              // inside "almond milk" and \bbutter\b inside "peanut butter", so a
-              // compliant recipe using the diet's own substitutes was discarded.
-              let checkText = text;
-              for (const phrase of (info.whitelistPhrase || [])) {
-                checkText = checkText.split(phrase).join(" ");
-              }
-              for (const term of (info.exclude || [])) {
-                if (text.includes(term)) reasons.push(`${diet} forbidden term: ${term}`);
-              }
-              for (const term of (info.excludeWord || [])) {
-                if (_wordBoundaryRegex(term).test(checkText)) reasons.push(`${diet} forbidden term: ${term}`);
-              }
-            }
-            if (reasons.length > 0) dropped.push({ recipe, reasons });
-            else valid.push(recipe);
-          }
-          return { valid, dropped };
-        };
 
         const result = validateRecipes(parsed.recipes, activeDiets);
         if (result.dropped.length > 0) {
@@ -1051,234 +1526,11 @@ IMPORTANT ingredient type rules:
     // every time. The slice stays at 5 so a 6-recipe response (a stale cache
     // entry, or a model that overshoots) still serves correctly.
     const rawRecipes = (parsed.recipes || []).slice(0, 5);
-    let recipes = rawRecipes.map((r, idx) => {
-      const usedSaleItems = [];
-      let totalSavings = 0;
-      let saleCost = 0;
-      let regularCost = 0;
-      let additionalCost = 0;
-      let aiQtyCount = 0;
-      let fbQtyCount = 0;
-      let stapleExcludedCount = 0;
-      // What was excluded and why. The count alone cannot distinguish "three
-      // spices, correctly zeroed" from "three bell peppers, wrongly zeroed",
-      // and the second understates the meal while still showing the prices.
-      const stapleExclusions = [];
-
-      const ingredientLookup = ingredients.map(ing => ({
-        ...ing,
-        nameLower: ing.name.toLowerCase(),
-        nameWords: ing.name.toLowerCase().split(/[\s,\-\/]+/).filter(w => w.length > 2),
-      }));
-
-      const processedIngredients = (r.ingredients || []).map(ing => {
-        const isStructured = typeof ing === "object" && ing.item;
-        const itemText = isStructured ? ing.item : String(ing);
-        const type = isStructured ? (ing.type || "PANTRY") :
-          (itemText.toLowerCase().includes("on sale") ? "SALE" :
-           itemText.toLowerCase().includes("additional") ? "ADDITIONAL" :
-           itemText.toLowerCase().includes("on hand") ? "ON_HAND" : "PANTRY");
-        const matchName = isStructured ? (ing.matchName || "") : "";
-
-        let matchedDeal = null;
-
-        if (type === "SALE") {
-          if (matchName) {
-            const matchLower = matchName.toLowerCase();
-            matchedDeal = ingredientLookup.find(d => d.nameLower === matchLower);
-            if (!matchedDeal) {
-              const matchWords = matchLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
-              let bestScore = 0;
-              for (const d of ingredientLookup) {
-                const score = matchWords.filter(w => d.nameLower.includes(w)).length;
-                if (score > bestScore && score >= Math.min(2, matchWords.length)) {
-                  bestScore = score;
-                  matchedDeal = d;
-                }
-              }
-            }
-          }
-          if (!matchedDeal) {
-            const textLower = itemText.toLowerCase();
-            const textWords = textLower.split(/[\s,\-\/]+/).filter(w => w.length > 2);
-            let bestScore = 0;
-            for (const d of ingredientLookup) {
-              const score = d.nameWords.filter(w => textWords.some(tw => tw.includes(w) || w.includes(tw))).length;
-              if (score > bestScore && score >= 1) {
-                bestScore = score;
-                matchedDeal = d;
-              }
-            }
-          }
-        }
-
-        let isPerLb = false;
-        let qty = 1;
-        let itemActualCost = null;
-
-        if (matchedDeal) {
-          const sale = parseFloat(String(matchedDeal.salePrice).replace(/[^0-9.]/g, "")) || 0;
-          const reg = parseFloat(String(matchedDeal.regularPrice).replace(/[^0-9.]/g, "")) || 0;
-          isPerLb = matchedDeal.isPerLb || matchedDeal.priceUnit === "/lb";
-
-          // Tier 1: AI-supplied quantity + unit. Tier 2: hardcoded fallback table.
-          let qtySource = "fallback";
-          if (isPerLb) {
-            const aiLbs = aiQtyToLbs(ing && ing.quantity, ing && ing.unit, matchedDeal.name);
-            if (aiLbs != null && aiLbs > 0) { qty = aiLbs; qtySource = "ai"; }
-            else { qty = hardcodedQtyForDeal(matchedDeal); qtySource = "fallback"; }
-          } else {
-            const aiCnt = aiQtyToCount(ing && ing.quantity, ing && ing.unit);
-            const normUnit = _normalizeUnit(ing && ing.unit);
-            const isContainerUnit = _CONTAINER_UNITS.includes(normUnit);
-            const isProduce = _PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""));
-            if (aiCnt != null && aiCnt > 0) {
-              if (isContainerUnit || isProduce) {
-                qty = aiCnt; qtySource = "ai";
-              } else {
-                // Item-count unit on a packaged good: one package covers the recipe.
-                qty = 1; qtySource = "ai-clamped";
-                console.warn(`qty-clamp: "${ing && ing.item}" matched "${matchedDeal.name}" — AI count ${aiCnt} ${normUnit || "?"} clamped to 1 package`);
-              }
-            }
-            else { qty = 1; qtySource = "fallback"; }
-          }
-          if (qtySource === "ai") aiQtyCount++; else fbQtyCount++;
-
-          // Pantry-staple exclusion: zero the cost contribution if this match is a
-          // staple (oils, dried spices, salt/pepper, baking essentials). The matched
-          // deal still appears in usedSaleItems with full identity (price, store, upc)
-          // so the Kroger cart-add path keeps working; only the cost roll-up is zeroed.
-          const stapleMatch = pantryStapleMatch(ing && ing.item, ing && ing.matchName, matchedDeal.name);
-          const isStaple = stapleMatch !== null;
-          // Validation gate: per-each non-produce ingredient charging >4 packages
-          // or >$20 is a units error, not a real basket. Clamp and log.
-          if (!isPerLb && qty > 4 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
-            console.warn(`qty-gate: "${matchedDeal.name}" qty ${qty} exceeds gate, clamped to 1`);
-            qty = 1;
-          }
-          if (!isPerLb && sale * qty > 20 && !_PRODUCE_CATEGORY_RE.test(String(matchedDeal.category || ""))) {
-            console.warn(`qty-gate: "${matchedDeal.name}" cost $${(sale * qty).toFixed(2)} exceeds $20 gate, clamped to 1 package`);
-            qty = 1;
-          }
-          const itemSaleCost_raw = sale * qty;
-          const itemRegCost_raw = reg * qty;
-          const itemSaleCost = isStaple ? 0 : itemSaleCost_raw;
-          const itemRegCost = isStaple ? 0 : itemRegCost_raw;
-          const savings = itemRegCost > itemSaleCost && itemSaleCost > 0 ? itemRegCost - itemSaleCost : 0;
-          itemActualCost = isStaple ? "0.00" : itemSaleCost.toFixed(2);
-          if (isStaple) {
-            stapleExcludedCount++;
-            stapleExclusions.push({
-              item: matchedDeal.name,
-              matchedOn: stapleMatch.name,
-              pattern: stapleMatch.pattern,
-              excluded: itemSaleCost_raw.toFixed(2),
-            });
-          }
-
-          usedSaleItems.push({
-            name: matchedDeal.name,
-            category: matchedDeal.category || "",
-            salePrice: isPerLb ? `$${sale.toFixed(2)}/lb` : (matchedDeal.salePrice || ""),
-            regularPrice: isPerLb ? `$${reg.toFixed(2)}/lb` : (matchedDeal.regularPrice || "—"),
-            actualCost: itemActualCost,
-            packageNote: isPerLb
-              ? `~${qty} lb pkg ≈ $${itemSaleCost.toFixed(2)}`
-              : (["tbsp","tsp","cup","oz","fl_oz","ml","g"].includes(_normalizeUnit(ing && ing.unit)) && !isStaple
-                  ? "full package — you'll use the rest"
-                  : ""),
-            savings: savings > 0 ? savings.toFixed(2) : "",
-            storeName: matchedDeal.storeName || "",
-            isPerLb,
-            qty,
-            isPantryStaple: isStaple,
-          });
-
-          saleCost += itemSaleCost;
-          regularCost += itemRegCost > 0 ? itemRegCost : itemSaleCost;
-          totalSavings += savings;
-        }
-
-        if (type === "ADDITIONAL") {
-          additionalCost += 2.50;
-        }
-
-        return {
-          name: itemText.replace(/\s*\(ON SALE\)|\(ADDITIONAL\)|\(ON HAND\)/gi, "").trim(),
-          type,
-          onSale: type === "SALE" && matchedDeal !== null,
-          matchedDeal: matchedDeal ? {
-            name: matchedDeal.name,
-            salePrice: matchedDeal.salePrice,
-            regularPrice: matchedDeal.regularPrice,
-            isPerLb,
-            actualCost: itemActualCost,
-            storeName: matchedDeal.storeName || "",
-            upc: matchedDeal.upc || "",
-          } : null,
-        };
-      });
-
-      const estimatedCost = saleCost + additionalCost;
-      const regularPriceTotal = regularCost + additionalCost;
-
-      // Observability: per-recipe qty source counts and AI-vs-server cost mismatch.
-      // The AI's costPerServing is still discarded for display; this is monitoring only.
-      console.log(`Recipe "${r.title}": qty source ai=${aiQtyCount} fallback=${fbQtyCount}`);
-      if (stapleExcludedCount > 0) {
-        const dropped = stapleExclusions.reduce((t, x) => t + parseFloat(x.excluded), 0);
-        console.log(JSON.stringify({
-          evt: "PANTRY_STAPLES_EXCLUDED",
-          recipe: r.title,
-          count: stapleExcludedCount,
-          totalExcluded: dropped.toFixed(2),
-          items: stapleExclusions,
-        }));
-      }
-      const aiClaimed = parseFloat(r.costPerServing);
-      const servings = r.servings || 4;
-      if (Number.isFinite(aiClaimed) && aiClaimed > 0 && servings > 0 && estimatedCost > 0) {
-        const serverPerServing = estimatedCost / servings;
-        const delta = Math.abs(serverPerServing - aiClaimed) / aiClaimed;
-        if (delta > 0.4) {
-          const deltaPercent = Math.round(delta * 100);
-          console.warn(`Recipe "${r.title}": cost-calc mismatch, server=$${serverPerServing.toFixed(2)}/serving, AI claimed $${aiClaimed.toFixed(2)}/serving (delta ${deltaPercent}%)`);
-        }
-      }
-
-      return {
-        id: `ai-${Date.now()}-${idx}`,
-        title: r.title,
-        image: null,
-        time: r.cookTime ? `${r.cookTime} min` : "N/A",
-        readyInMinutes: r.cookTime || 0,
-        servings: r.servings || 4,
-        usedIngredientCount: usedSaleItems.length,
-        missedIngredientCount: 0,
-        usedSaleItems,
-        totalSavings: parseFloat(totalSavings.toFixed(2)),
-        estimatedCost: parseFloat(estimatedCost.toFixed(2)) || 0,
-        regularPriceTotal: parseFloat(regularPriceTotal.toFixed(2)) || 0,
-        saleCost: parseFloat(saleCost.toFixed(2)),
-        additionalCost: parseFloat(additionalCost.toFixed(2)),
-        couponsToClip: [],
-        diets: diets || [],
-        cuisines: [],
-        instructions: r.instructions || [],
-        allIngredients: processedIngredients,
-      };
-    });
+    let recipes = rawRecipes.map((r, idx) => buildRecipe(r, idx, ingredients, diets));
 
     // Post-filter: remove inappropriate recipes for the meal type
-    const BREAKFAST_BLACKLIST = ["brownie","cake","cookie","candy","marshmallow","fudge","pie","cupcake","ice cream","sundae","cheesecake","tart","truffle","s'more","frosting","pudding"];
-    const DINNER_BLACKLIST = ["smoothie","cereal","granola","overnight oats","parfait"];
     const beforeFilter = recipes.length;
-    if (effectiveMealType === "Breakfast") {
-      recipes = recipes.filter(r => !BREAKFAST_BLACKLIST.some(w => r.title.toLowerCase().includes(w)));
-    } else if (effectiveMealType === "Lunch" || effectiveMealType === "Dinner") {
-      recipes = recipes.filter(r => !BREAKFAST_BLACKLIST.some(w => r.title.toLowerCase().includes(w)));
-    }
+    recipes = recipes.filter(r => passesMealTypeFilter(r, effectiveMealType));
     if (beforeFilter !== recipes.length) console.log(`Meal type filter: removed ${beforeFilter - recipes.length} inappropriate recipes for ${effectiveMealType}`);
 
     // Savings-first sort with a modest dinner-anchor blend, mirroring the

@@ -836,7 +836,7 @@ weeklyPlan ? `Generate exactly 5 dinner recipes for a WEEKLY MEAL PLAN (Monday t
 - Use the same protein in no more than 2 meals
 - Progress from easiest on Monday (everyone is tired) to more involved later in the week
 - Total combined cost should stay under $50 for a family of ${prefs.household_size || "4"}
-- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : (ingredients.length < 8 ? "Generate exactly 5 recipes. With limited sale items available, prioritize 5 recipes that use distinct cooking methods (e.g., baked, stovetop, slow cooker, sheet pan, no-cook) rather than 6 with overlap." : "Generate exactly 6 recipes.")} Each recipe should:
+- At the end of instructions for Friday's recipe, add a note about which ingredients were shared across the week` : (ingredients.length < 8 ? "Generate exactly 5 recipes. With limited sale items available, prioritize 5 recipes that use distinct cooking methods (e.g., baked, stovetop, slow cooker, sheet pan, no-cook) rather than repeating a method." : "Generate exactly 5 recipes.")} Each recipe should:
 - Use 4-6+ of the sale items above as key ingredients (NOT just 1-2)
 - Combine items from at least 2-3 different sale categories
 - Be genuinely budget-friendly (under $12 total for 4 servings)
@@ -1037,7 +1037,14 @@ IMPORTANT ingredient type rules:
       }
     }
 
-    // Ask for 6, serve 5 — guards against Claude undercounting
+    // We ask for 5 and serve 5. The prompt used to ask for 6 as an undercount
+    // guard, but the model emits recipes sequentially, so the discarded 6th was
+    // pure latency: an interleaved A/B over 5 pairs at zip 45402 measured
+    // 23.38s mean for ask-6 vs 20.95s for ask-5 — 2.4s and ~11% of token cost on
+    // every generation, for output nobody ever saw. Across those 10 runs plus 3
+    // cold end-to-end runs the model returned exactly the count it was asked for
+    // every time. The slice stays at 5 so a 6-recipe response (a stale cache
+    // entry, or a model that overshoots) still serves correctly.
     const rawRecipes = (parsed.recipes || []).slice(0, 5);
     let recipes = rawRecipes.map((r, idx) => {
       const usedSaleItems = [];

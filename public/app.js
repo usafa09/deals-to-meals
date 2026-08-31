@@ -2204,27 +2204,88 @@ function showRecipeSkeletons(count, opts) {
   else grid.innerHTML = cards;
 }
 
+// The deals the ticker is allowed to name, in the order it names them.
+//
+// This must only ever surface items that are genuinely in the payload the model
+// is working from, so it mirrors getRecipePayload's selection exactly: excluded
+// deals are dropped, offer rows without a per-unit price are dropped, and
+// must-include items lead. Past that it prefers proteins, then produce, then
+// dairy — the same priority selectSmartIngredients applies server-side. A wall
+// of "PurAqua Belle Vie 12-Pack" is truthful and tells the user nothing; the
+// protein they picked is what makes the wait feel like work being done.
+const _TICKER_PROTEIN = /chicken|beef|pork|turkey|salmon|fish|shrimp|sausage|bacon|ground|steak|ham|tilapia|tuna/i;
+const _TICKER_PRODUCE = /lettuce|tomato|onion|pepper|broccoli|carrot|potato|garlic|avocado|spinach|mushroom|corn|celery|cucumber|apple|banana|berry|lemon|lime|zucchini|squash|cabbage|kale|green bean/i;
+const _TICKER_DAIRY = /cheese|milk|butter|yogurt|cream|egg/i;
+
+function tickerDeals() {
+  const excluded = new Set(Object.entries(state.dealStates || {}).filter(([, v]) => v === "exclude").map(([k]) => k));
+  const mustInclude = new Set(Object.entries(state.dealStates || {}).filter(([, v]) => v === "include").map(([k]) => k));
+  const pool = (state.deals || []).filter(d => !excluded.has(d.id) && isAbsolutePrice(d));
+  const rank = d => {
+    const n = d.name || "";
+    if (_TICKER_PROTEIN.test(n)) return 0;
+    if (_TICKER_PRODUCE.test(n)) return 1;
+    if (_TICKER_DAIRY.test(n)) return 2;
+    return 3;
+  };
+  const picked = pool.filter(d => mustInclude.has(d.id));
+  const rest = pool.filter(d => !mustInclude.has(d.id)).sort((a, b) => rank(a) - rank(b));
+  return [...picked, ...rest];
+}
+
+// "Working with Boneless Chicken Thighs, $1.99/lb at Meijer". Price and store are
+// each optional — ad-extract rows sometimes carry neither — so the phrase is
+// assembled from whichever parts exist rather than printing "$undefined".
+function tickerLine(d) {
+  const u = dealUnitInfo(d);
+  const price = d.salePrice ? "$" + String(d.salePrice).replace(/^\$/, "") + (u.unit || "") : "";
+  const store = d.storeName || d.source || "";
+  let s = "Working with " + (d.name || "");
+  if (price) s += ", " + price;
+  if (store) s += " at " + store;
+  return s;
+}
+
 function showSkeletonBanner() {
   const banner = document.getElementById("savingsBanner");
   if (!banner) return;
   const stores = (state.selectedBrands || []).slice(0, 3).join(", ") || "your stores";
   const ingCount = state.deals?.length || 0;
   const familySize = state.userPreferences?.household_size;
+  const items = tickerDeals();
   banner.innerHTML = '<div id="skeletonBanner" style="background:linear-gradient(135deg,#2d6a4f,#1a2e1f);border-radius:16px;padding:20px;color:white;margin-bottom:20px;text-align:center;">' +
     '<div id="skeletonEmoji" style="font-size:36px;margin-bottom:8px;animation:emojiPulse 2s ease-in-out infinite;">&#128373;&#65039;</div>' +
     '<div id="skeletonText" style="font-size:15px;font-weight:600;margin-bottom:4px;">Building your meal plan from ' + ingCount + ' deals at ' + escapeHtml(stores) + '...</div>' +
+    (items.length ? '<div id="skeletonItem" style="font-size:13px;font-weight:600;color:#a7f3d0;margin-bottom:4px;min-height:18px;"></div>' : "") +
     '<div id="skeletonSub" style="font-size:13px;opacity:0.8;" class="cooking-tip"></div>' +
     '</div>';
-  // Timed progress messages with real data
+  // Timed progress messages with real data. The "taking longer" apology sits at
+  // 40s, not 30s — a normal generation finishes around 20-24s, so at 30s it was
+  // apologising for a run that was about to succeed.
   const msgs = [
     [0, "Building your meal plan from " + ingCount + " deals at " + escapeHtml(stores) + "..."],
     [5000, familySize ? "Finding recipes that fit your family of " + familySize + "..." : "Finding the best recipes from your deals..."],
     [15000, "Matching " + ingCount + " sale ingredients to recipes..."],
-    [30000, "Taking a bit longer than usual — hang tight!"],
+    [40000, "Taking a bit longer than usual — hang tight!"],
   ];
   msgs.forEach(([delay, msg]) => {
     setTimeout(() => { const el = document.getElementById("skeletonText"); if (el) el.textContent = msg; }, delay);
   });
+  // Name a real deal every 2.5s. The counts above never change for the whole
+  // generation, so after three beats the panel reads as frozen; this is the line
+  // that shows something is actually happening, using data already in memory.
+  let itemI = 0;
+  let itemInterval = null;
+  if (items.length) {
+    const showItem = () => {
+      const el = document.getElementById("skeletonItem");
+      if (!el) { if (itemInterval) clearInterval(itemInterval); return; }
+      el.textContent = tickerLine(items[itemI % items.length]);
+      itemI++;
+    };
+    showItem();
+    itemInterval = setInterval(showItem, 2500);
+  }
   // Rotate tips in the sub line
   let tipI = 0;
   const tipInterval = setInterval(() => {
@@ -2235,11 +2296,13 @@ function showSkeletonBanner() {
   }, 6000);
   setTimeout(() => { const el = document.getElementById("skeletonSub"); if (el) el.textContent = "💡 " + getNextTip(); }, 500);
   banner._tipInterval = tipInterval;
+  banner._itemInterval = itemInterval;
 }
 
 function clearSkeletonBanner() {
   const banner = document.getElementById("savingsBanner");
   if (banner?._tipInterval) clearInterval(banner._tipInterval);
+  if (banner?._itemInterval) clearInterval(banner._itemInterval);
 }
 
 // Centralized error handler for /api/recipes/ai responses. Pass {res, data} from the

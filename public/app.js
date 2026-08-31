@@ -2402,6 +2402,12 @@ function streamFlagOn() {
     return true;
   } catch (e) { return true; }
 }
+// Consume the ?stream override at load rather than lazily on the first
+// generation. streamFlagOn() is what writes the preference, and nothing else
+// calls it until the user presses Build My Meals — so loading ?stream=0 and
+// navigating before generating used to drop the override on the floor, which is
+// precisely the mid-demo fallback this exists to support.
+try { streamFlagOn(); } catch (e) { /* never block startup over a preference */ }
 // "final" (default) leaves the banner slot empty until the last card lands.
 // "live" updates a running savings total as each card arrives. See the report:
 // live reflows the grid, which is why final is the default.

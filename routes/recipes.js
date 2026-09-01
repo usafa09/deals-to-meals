@@ -7,7 +7,7 @@ import {
   supabase, getUser,
   aiRecipeCache,
   CACHE_TTL,
-  findDeal, logApiUsage, logError, DIET_MAP, MEAL_TYPE_MAP, KID_QUERIES,
+  findDeal, logApiUsage, logError, MEAL_TYPE_MAP, KID_QUERIES,
 } from "../lib/utils.js";
 
 const router = Router();

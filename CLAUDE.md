@@ -44,7 +44,7 @@ PORT                        # Set by Render (10000), defaults to 5000 locally
 2. **Screen 2 — Store selection.** Google Places discovers nearby grocery stores. Brands are deduped and shown as cards. Stores with available deals show a green checkmark. Users select 1+ stores.
 3. **Screen 3 — Kroger location picker** (only if Kroger selected). Pick specific Kroger store for location-specific deals.
 4. **Screen 4 — Deal browser.** Shows all sale items across selected stores in a card grid. Users tap to cycle: neutral → green ✓ (must include) → red ✕ (exclude). Filter by store and category.
-5. **Screen 5 — Recipe style & diet filters.** Pick a style (Quick Weeknight, Family-Friendly, Comfort Food, Meal Prep, Healthy & Light, Slow Cooker) and optional diet filters (Vegetarian, Vegan, Gluten-Free, Keto, Halal, etc.).
+5. **Screen 5 — Recipe style & diet filters.** Pick a style (Quick Weeknight, Family-Friendly, Comfort Food, Meal Prep, Healthy & Light, Slow Cooker) and optional diet filters. The filters offered are exactly the six with `DIET_RULES` entries in `routes/recipes.js`: Vegetarian, Vegan, Keto, Paleo, Halal, Kosher. There is no Gluten-Free, Dairy-Free or Pescatarian filter, and no gluten or dairy vocabulary exists to enforce one.
 6. **Screen 6 — Recipe results.** AI-generated recipe cards with images, cook time, savings, and sale items used. Click for full recipe modal with ingredients and step-by-step instructions. Save recipes, add ingredients to Kroger cart.
 
 ## How deals are sourced (3 methods)

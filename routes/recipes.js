@@ -382,6 +382,132 @@ function isPantryStaple(...names) {
   }
 }
 
+// ── Shared animal-product vocabulary ────────────────────────────────────────
+// One set, three consumers. Vegetarian, Vegan and Kosher used to carry three
+// independently maintained lists, which is how "scallop" ended up in Vegan and
+// Kosher but not Vegetarian — a Vegetarian selection was served seared scallops
+// because the word simply was not there. Of 63 probed animal terms, Vegetarian
+// missed 48 and Vegan 38, while Kosher held the only complete shellfish list.
+//
+// Grouped rather than flat because the three diets forbid different things.
+// Kosher permits chicken and beef, so it draws SHELLFISH, PORK, NON_KOSHER_FISH
+// and HIDDEN only; taking the whole set would wrongly reject a kosher brisket.
+//
+// Every term lands in `excludeWord`, matched as \b<term>(s|es)?\b by both
+// consumers, so plurals are covered and — critically — whitelistPhrase can
+// bypass a term. Substring `exclude` is authoritative and unbypassable, which
+// is why "beef" as a substring used to reject Beefsteak Tomatoes. Only stems
+// that genuinely need substring behaviour stay there (see ANIMAL_STEMS).
+const A_SHELLFISH = [
+  "shrimp", "prawn", "scallop", "oyster", "mussel", "clam", "crab", "lobster",
+  "crawfish", "crayfish", "langoustine", "squid", "calamari", "octopus", "snail",
+  "escargot", "cuttlefish", "abalone", "whelk", "periwinkle", "shellfish",
+  // Same suffix problem: crab misses Crabmeat. Clamato is clam juice.
+  // "clam" as a substring used to reject every Clamshell of blueberries.
+  "crabmeat", "crab meat", "clamato", "imitation crab",
+];
+const A_FIN_FISH = [
+  "fish", "salmon", "tuna", "tilapia", "cod", "flounder", "haddock", "pollock",
+  "halibut", "mahi mahi", "snapper", "trout", "sardine", "herring", "mackerel",
+  "bass", "sole", "perch", "grouper", "whiting", "swordfish", "catfish", "shark",
+  "eel", "monkfish", "tilefish", "sturgeon", "caviar", "roe", "lox", "surimi",
+  // Compounds where the animal is the SUFFIX. fish cannot reach Rockfish,
+  // and dropping substring matching is what let it through. Goldfish is
+  // deliberately absent — it is a cracker.
+  "rockfish", "redfish", "whitefish", "bluefish", "swai", "basa", "branzino",
+];
+// "poultry" removed: across the whole catalogue it matched poultry SEASONING,
+// foil poultry PANS and cat food, and never once an actual bird — real poultry
+// products name the animal.
+const A_POULTRY = ["chicken", "turkey", "duck", "goose", "quail", "pheasant"];
+const A_RED_MEAT = [
+  "beef", "pork", "lamb", "mutton", "veal", "bison", "buffalo meat", "venison",
+  "elk", "boar", "goat meat", "rabbit", "hare", "oxtail", "tripe", "sweetbread",
+  "liver", "kidney", "marrow", "gizzard", "steak", "brisket", "sirloin",
+  "tenderloin", "ribeye", "chuck roast", "rump roast", "pot roast", "roast beef",
+];
+const A_CURED_MEAT = [
+  "bacon", "pancetta", "prosciutto", "chorizo", "salami", "pepperoni", "capicola",
+  "guanciale", "soppressata", "mortadella", "bresaola", "speck", "lardo",
+  "andouille", "kielbasa", "bratwurst", "sausage", "jerky", "pastrami",
+  "corned beef", "ham", "hock", "pate", "foie gras", "terrine", "rillette",
+];
+const A_PREPARED_MEAT = [
+  "meat", "meatball", "meatloaf", "hot dog", "frank", "burger", "patty", "nugget",
+  "wing", "rib", "cutlet", "schnitzel", "gyro", "shawarma",
+  "carne asada", "carnitas", "barbacoa", "al pastor", "bulgogi", "satay",
+  "charcuterie", "bologna", "spam", "scrapple", "haggis",
+];
+// Animal-derived ingredients that name no animal. These are the ones a shopper
+// cannot spot and the reason a "vegetarian" recipe can quietly fail.
+const A_HIDDEN = [
+  "gelatin", "gelatine", "lard", "tallow", "suet", "schmaltz", "bone broth",
+  "beef broth", "chicken broth", "beef stock", "chicken stock", "meat stock",
+  "fish sauce", "oyster sauce", "worcestershire", "anchovy paste", "shrimp paste",
+  "rennet", "isinglass", "carmine", "cochineal", "collagen", "aspic", "duck fat",
+];
+// Substring stems, for forms a word boundary cannot reach: "anchov" covers
+// anchovy/anchovies/anchovies', "seafood" appears inside compounds.
+const ANIMAL_STEMS = ["anchov", "seafood"];
+
+const ANIMAL_ALL = [
+  ...A_SHELLFISH, ...A_FIN_FISH, ...A_POULTRY, ...A_RED_MEAT,
+  ...A_CURED_MEAT, ...A_PREPARED_MEAT, ...A_HIDDEN,
+];
+const KOSHER_PORK = [
+  "pork", "bacon", "pancetta", "prosciutto", "chorizo", "salami", "pepperoni",
+  "capicola", "guanciale", "soppressata", "mortadella", "speck", "lardo", "ham",
+  "hock", "lard", "spam", "scrapple", "boar",
+];
+const KOSHER_FORBIDDEN_FISH = ["catfish", "swordfish", "shark", "eel", "monkfish", "sturgeon", "surimi"];
+
+// Plant-based products that NAME an animal and are not one. These bypass
+// excludeWord for every diet that lists them, which is why the vocabulary has
+// to live in excludeWord rather than substring exclude. "Beef tomato" and
+// "beefsteak tomato" are tomatoes; "chicken of the woods" is a mushroom.
+const PLANT_BASED_PHRASES = [
+  // Plants and fungi that NAME an animal.
+  "beef tomato", "beefsteak tomato", "chicken of the woods", "lion's mane",
+  "oyster mushroom", "crab apple", "hen of the woods", "fish pepper",
+  "butter lettuce", "coconut", "hearts of palm", "banana blossom", "jackfruit",
+  "chickpea", "vegetable broth", "vegetable stock", "mushroom broth",
+  "nutritional yeast", "tofu", "tempeh", "seitan",
+  // Meat substitutes. Each phrase must CONTAIN the forbidden word, because
+  // whitelistPhrase neutralises a match by deleting the phrase from the text —
+  // a bare "vegan" deletes itself and leaves "chicken" in "Vegan Chicken
+  // Strips", which is exactly how the first draft of this list failed.
+  "vegan chicken", "vegan beef", "vegan sausage", "vegan burger", "vegan meat",
+  "vegan bacon", "vegan fish", "vegetarian chicken", "vegetarian burger",
+  "vegetarian sausage", "vegetarian meat",
+  "plant-based chicken", "plant based chicken", "plant-based beef", "plant based beef",
+  "plant-based meat", "plant based meat", "plant-based burger", "plant based burger",
+  "plant-based sausage", "plant based sausage", "plant-based fish", "plant based fish",
+  "meatless chicken", "meatless burger", "meatless meat", "meatless food",
+  "impossible chicken", "impossible beef", "impossible burger", "impossible sausage",
+  "beyond chicken", "beyond beef", "beyond burger", "beyond sausage", "beyond meat",
+  "tofu chicken", "soy chicken", "veggie burger", "garden burger",
+  "mock duck", "mock chicken", "mock meat",
+  "chik'n", "chick'n", "chicken-style", "chicken style", "f'sh",
+  // Non-meat uses of generic terms that are worth keeping. Each was found by
+  // reading every string the new vocabulary newly dropped:
+  //   wing      -> Kinder's / Buffalo Wild Wings / Hy-Vee wing SAUCE
+  //   burger    -> burger BUNS and burger SAUCE
+  //   nugget    -> Utz peanut-butter-filled pretzel nuggets
+  //   meat      -> Gardein "Frozen Meat Alternative"
+  //   boar      -> Boar's Head, a deli brand: sauerkraut, cheeses
+  "wing sauce", "wings sauce", "buffalo wild wings", "wing seasoning",
+  "burger bun", "burger sauce", "burger seasoning",
+  "pretzel nugget", "plant-based chicken nugget", "plant based chicken nugget",
+  "meatless nugget", "veggie nugget",
+  "meat alternative", "meat substitute", "meat-free", "meat free",
+  "boar's head",
+// Longest first. whitelistPhrase neutralises by deleting the phrase, so a
+// shorter phrase that fires first can destroy a longer one's match: with
+// "plant-based chicken" ahead of "plant-based chicken nugget", the first
+// deletion left a bare " nuggets" and nugget then rejected Impossible's
+// plant-based nuggets as meat.
+].sort((a, b) => b.length - a.length);
+
 // ── Profile dietary normalization ───────────────────────────────────────────
 // Profile users can set dietary preferences in their account that flow through
 // req.body.preferences.dietary in various string forms (slugs from the
@@ -972,7 +1098,9 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
     const DIET_RULES = {
       "Vegetarian": {
         rule: "VEGETARIAN: Absolutely NO meat, poultry, or fish of any kind. Eggs and dairy ARE allowed.",
-        exclude: ["chicken","beef","pork","turkey","bacon","ham","sausage","salmon","shrimp","tilapia","tuna","cod","lamb","steak","ribs","pot roast","roast beef","chuck roast","rump roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","fish","seafood","crab","lobster","clam","mussel","anchov"]
+        exclude: ANIMAL_STEMS,
+        excludeWord: ANIMAL_ALL,
+        whitelistPhrase: PLANT_BASED_PHRASES,
       },
       "Halal": {
         rule: "HALAL: No pork or pork-derived products, no alcohol or cooking wines, no gelatin or other non-halal animal products. Use halal-certified meats and plant-based ingredients only.",
@@ -1004,12 +1132,20 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       },
       "Vegan": {
         rule: "VEGAN: Absolutely NO animal products of any kind — no meat, poultry, fish, dairy, eggs, honey, or gelatin. Use only plant-based ingredients.",
-        exclude: ["fish","seafood","anchov","crab","lobster","clam","mussel","salmon","tuna","tilapia","cod","shrimp","oyster","scallop"],
-        excludeWord: ["chicken","beef","pork","turkey","bacon","ham","sausage","lamb","steak","ribs","pot roast","roast beef","chuck roast","meatball","hot dog","ground beef","ground turkey","brisket","pepperoni","salami","deli meat","milk","cheese","butter","yogurt","cream","eggs","egg","honey","gelatin","lard","tallow"],
-        // Plant-based nut/seed butters: bypass the \bbutter\b excludeWord match.
-        // Substring exclude (above) is unaffected — "peanut butter" still gets checked
-        // against fish/seafood/etc. terms, none of which appear in nut butters.
-        whitelistPhrase: ["peanut butter","almond butter","cashew butter","sunflower butter","nut butter","seed butter","almond milk","coconut milk","oat milk","soy milk","cashew milk","rice milk","hemp milk","coconut cream","butter lettuce","vegan cheese","nutritional yeast"]
+        exclude: ANIMAL_STEMS,
+        // The shared animal set plus what only Vegan forbids: dairy, eggs, honey
+        // and the other bee and insect products.
+        excludeWord: [...ANIMAL_ALL, "milk", "cheese", "butter", "yogurt", "cream",
+          "eggs", "egg", "honey", "ghee", "buttermilk", "casein", "whey", "lactose",
+          "beeswax", "royal jelly", "propolis", "albumen", "custard", "meringue"],
+        // Shared plant-based phrases plus the nut/seed butters and plant milks
+        // that must survive butter and milk.
+        whitelistPhrase: [...PLANT_BASED_PHRASES, "peanut butter", "almond butter",
+          "cashew butter", "sunflower butter", "nut butter", "seed butter",
+          "almond milk", "coconut milk", "oat milk", "soy milk", "cashew milk",
+          "rice milk", "hemp milk", "coconut cream", "vegan cheese", "cocoa butter",
+          "shea butter", "apple butter", "milk thistle", "milkweed"]
+          .sort((a, b) => b.length - a.length),
       },
       // KOSHER: the meat-dairy separation rule (no mixing meat/poultry with dairy in
       // a single recipe) is a RECIPE-LEVEL constraint that the substring/word-boundary
@@ -1020,7 +1156,13 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       "Kosher": {
         rule: "KOSHER: Follow kashrut laws. NO pork, shellfish, non-finned/scaled fish (catfish, swordfish, shark, eel, monkfish), rabbit, or non-kosher gelatin. CRITICAL: Do NOT mix meat or poultry with dairy in the same recipe. If a recipe contains meat, fish, or poultry, do NOT include any dairy products (milk, cheese, butter, yogurt, cream). Use kosher-certified versions of all animal products and gelatin.",
         exclude: ["seafood"],
-        excludeWord: ["pork","bacon","ham","lard","prosciutto","pepperoni","pancetta","chorizo","salami","gelatin","rabbit","hare","catfish","swordfish","shark","eel","monkfish","shrimp","lobster","crab","clam","mussel","oyster","scallop","prawn","crawfish","crayfish","langoustine","octopus","squid","calamari","snail","escargot","cuttlefish"]
+        // Draws only the parts of the shared set that kashrut forbids. Kosher
+        // permits chicken and beef, so it must NOT take ANIMAL_ALL — a kosher
+        // brisket is kosher. The meat-dairy separation is recipe-level and is
+        // enforced by checkMeatDairyConflict, not by this list.
+        excludeWord: [...A_SHELLFISH, ...KOSHER_PORK, ...KOSHER_FORBIDDEN_FISH,
+          "rabbit", "hare", "gelatin", "gelatine"],
+        whitelistPhrase: PLANT_BASED_PHRASES,
       },
     };
 

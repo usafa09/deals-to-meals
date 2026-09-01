@@ -1315,6 +1315,57 @@ regularPrice: the non-sale per-unit price. Derive it ONLY from an explicit refer
       console.log(JSON.stringify(row));
       return false;
     });
+    // ── Alcohol-page guard ──────────────────────────────────────────────────
+    // The name classifier cannot see a page. Meijer's 2026-09-02 flyer put wine
+    // and spirits on pages 30-31, and Vision truncated half of those tiles into
+    // fragments no brand regex can catch — "Old" ($25.99, Old Forester),
+    // "Handmade" ($19.99, Tito's), "White", "Mango", and "Fran za Sunset Blush
+    // or Crisp White Winezage", where the mangling of Franzia also broke
+    // wine. It rejected "Cabernet Sauvignon" and "Rum" off those same
+    // pages correctly; eight bottles still reached the Dayton catalogue.
+    //
+    // Once a flyer page is substantially alcohol by the classifier's own count,
+    // stop trusting the fragments it produced there. Page-level and not global:
+    // page 1 of the same flyer carried one stray alcohol tile among eleven
+    // genuine grocery rows, and those eleven must survive untouched.
+    const ALCOHOL_PAGE_SHARE = 0.3;
+    {
+      const alcoholByPage = {}, totalByPage = {};
+      for (const r of rejects) {
+        if (r.adPage == null) continue;
+        totalByPage[r.adPage] = (totalByPage[r.adPage] || 0) + 1;
+        if (/alcohol/.test(r.reason)) alcoholByPage[r.adPage] = (alcoholByPage[r.adPage] || 0) + 1;
+      }
+      for (const d of unique) {
+        if (d?.adPage == null) continue;
+        totalByPage[d.adPage] = (totalByPage[d.adPage] || 0) + 1;
+      }
+      const boozePages = new Set(Object.keys(alcoholByPage).filter(
+        pg => alcoholByPage[pg] / totalByPage[pg] >= ALCOHOL_PAGE_SHARE));
+      if (boozePages.size) {
+        const before = unique.length;
+        const dropped = unique.filter(d => d?.adPage != null && boozePages.has(String(d.adPage)));
+        unique = unique.filter(d => !(d?.adPage != null && boozePages.has(String(d.adPage))));
+        for (const d of dropped) {
+          rejectTally["alcohol page"] = (rejectTally["alcohol page"] || 0) + 1;
+          const row = {
+            evt: "DEAL_REJECT", store: storeName, storeId, reason: "alcohol page",
+            name: d?.name ?? null, salePrice: d?.salePrice ?? null,
+            regularPrice: d?.regularPrice ?? null, unit: d?.unit ?? null,
+            category: d?.category ?? null, promoText: d?.promoText ?? null,
+            adPage: d?.adPage ?? null, adImage: d?.adImage ?? null,
+          };
+          rejects.push(row);
+          console.log(JSON.stringify(row));
+        }
+        console.warn(JSON.stringify({
+          evt: "ALCOHOL_PAGE_GUARD", store: storeName, storeId,
+          pages: [...boozePages].map(pg => ({ page: Number(pg), alcoholRejects: alcoholByPage[pg], pageRows: totalByPage[pg] })),
+          droppedRows: before - unique.length,
+        }));
+      }
+    }
+
     if (rejects.length > 0) {
       console.warn(JSON.stringify({
         evt: "DEAL_REJECT_SUMMARY", store: storeName, storeId,
@@ -1812,13 +1863,13 @@ const PET_NAME = /\b(?:dog|cat|puppy|kitten|pet)\s+(?:food|treats?|chow|biscuits
 // they cost no food on the real corpus, which is also why this is not simply
 // keyed on the category field: Publix files Ice Cream under a category naming
 // itself, and a naive /cream/ would take 34 food rows with it.
-const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex|supplements?|melatonin|fish oil|omega[- ]3|biotin|acne|retinol|hair care|glucose monitor)\b/i;
+const HBA_NAME = /\b(?:shampoo|conditioner|body wash|deodorant|antiperspirant|toothpaste|toothbrush|mouthwash|floss(?:ers?)?|razors?|shave|lotion|moisturizer|micellar|toner|cleanser|sunscreen|tampons?|maxi pads|diapers?|pull[- ]ups|vitamins?(?! water)|multivitamin|ibuprofen|acetaminophen|aspirin|antacid|claritin|allegra|zyrtec|advil|tylenol|cold medicine|bandages?|band[- ]aid|first aid|cortisone|icy hot|aspercreme|nasacort|selsun|unisom|one a day|flintstones|aquaphor|cetaphil|colgate|crest|ogx|got2b|thayers|kotex|playtex|supplements?|melatonin|fish oil|omega[- ]3|biotin|acne|retinol|hair care|glucose monitor|hair spray|hairspray|styling product|cover up|body mist|pain relief|acid blocker|cartridge refill|incontinence|depend|poise|cosmetics?|skin care)(?:e?s)?\b/i;
 const CLEAN_NAME = /\b(?:paper towels?|bath tissue|toilet paper|toilet bowl|napkins?|paper plates?|plastic (?:cutlery|wrap)|trash bags?|garbage bags?|detergent|fabric softener|dryer sheets?|bleach|disinfect(?:ing|ant)|lysol|clorox|dish soap|sponges?|scrubber|charmin|bounty|quilted northern|cottonelle|\btide\b|downy|oxiclean|swiffer|air freshener|febreze|candles?)\b/i;
 
 // Alcohol and tobacco. Regulated advertising, so this group is handled by
 // segment (below) rather than by a whole-name match: it must never release an
 // actual bottle, can, or pack.
-const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|gin|aperitivo|amaro|vermouth|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly|fireball|tito'?s|jameson|bacardi|patr[oó]n|absolut|grey goose|hennessy|crown royal|jim beam|maker'?s mark|johnnie walker|bombay|tanqueray|casamigos|cazadores|malibu|kahlua|bailey'?s|jose cuervo|svedka|apothic|yellow ?tail|la marca|veuve|josh cellars)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
+const ALCOHOL_NAME = /\b(?:scotch|whisk(?:e)?y|bourbon|tequila|vodka|gin|aperitivo|amaro|vermouth|\brum\b|brandy|cognac|liqueur|schnapps|lager|\bipa\b|hard seltzer|hard cider|malt beverage|wine(?!\s+vinegar)|champagne(?!\s+grapes)|prosecco|chardonnay|cabernet|merlot|pinot|sauvignon|don julio|jack daniel|captain morgan|smirnoff|bud ?light|budweiser|michelob|heineken|modelo|\bcorona\b|stella artois|guinness|coors|miller lite|busch|pabst|yuengling|blue moon|angry orchard|mike's hard|white claw|twisted tea|happy dad|truly|fireball|tito'?s|jameson|bacardi|patr[oó]n|absolut|grey goose|hennessy|crown royal|jim beam|maker'?s mark|johnnie walker|bombay|tanqueray|casamigos|cazadores|malibu|kahlua|bailey'?s|jose cuervo|svedka|apothic|yellow ?tail|la marca|veuve|josh cellars|moscato|franzia|fran ?za|cutwater|founders|barefoot|sutter home|woodbridge|beringer|kendall[- ]jackson|liberty creek|carlo rossi|andre|cook'?s|high noon|nutrl|surfside|long drink|margarita|hard lemonade|sangria|riesling|zinfandel|shiraz|malbec|rose wine)\b|\bbeer\b|\bales?\b|\bcigarettes?\b|tobacco|\bvape\b|nicotine|\bcigars?\b/i;
 
 // An edible noun beside the match means the brand is being used as a flavour,
 // not sold as itself: Jack Daniel's Sausage Links, bourbon-glazed salmon.

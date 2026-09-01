@@ -984,10 +984,6 @@ async function handleRecipeGeneration(req, res) {
       return res.json({ recipes: cached.recipes, savings: cachedSavings, cached: true });
     }
 
-    const mustInclude = ingredients.filter(i => i.mustInclude).map(i => i.name);
-    const mustIncludeNote = mustInclude.length
-      ? `\n\nUSER-SELECTED ITEMS (MUST USE ALL OF THESE):\n${mustInclude.map(n => "- " + n).join("\n")}\n\nThese items were hand-picked by the user from the sale list. Every recipe MUST include at least one of these items. Prioritize recipes that use multiple user-selected items together. These take HIGHEST PRIORITY over auto-selected sale items.`
-      : `\n\nBUDGET MODE: The user did not select specific items. Generate the most BUDGET-FRIENDLY recipes possible using the cheapest sale items available. Prioritize recipes where the total cost per serving is under $3. Focus on items with the highest discount percentage.`;
 
     const wantNote = wantItems?.trim()
       ? `\n\nADDITIONAL ITEMS TO BUY: The customer also wants to purchase these items (not on sale): ${wantItems.trim()}. Include these in recipes where they fit naturally and mark them as type "ADDITIONAL".`
@@ -1296,6 +1292,20 @@ These are leftovers that will be WASTED if not used. Use these FIRST in as many 
       return "other";
     }
     const grouped = {};
+    // Built from filteredIngredients, NOT the raw list, and therefore only after
+    // the diet and dislikes filters have run. Built early it read from the
+    // unfiltered basket, so ticking a deal green and then choosing Vegetarian
+    // produced a prompt that removed scallops from the sale list and, three
+    // paragraphs later, told the model every recipe MUST use them. That is
+    // stronger than merely offering the item — it instructs the violation.
+    // A must-include item the active diet forbids is silently not requested;
+    // the diet wins, and dropping to BUDGET MODE when every pick is excluded
+    // is the correct read of "the user selected nothing usable".
+    const mustInclude = filteredIngredients.filter(i => i.mustInclude).map(i => i.name);
+    const mustIncludeNote = mustInclude.length
+      ? `\n\nUSER-SELECTED ITEMS (MUST USE ALL OF THESE):\n${mustInclude.map(n => "- " + n).join("\n")}\n\nThese items were hand-picked by the user from the sale list. Every recipe MUST include at least one of these items. Prioritize recipes that use multiple user-selected items together. These take HIGHEST PRIORITY over auto-selected sale items.`
+      : `\n\nBUDGET MODE: The user did not select specific items. Generate the most BUDGET-FRIENDLY recipes possible using the cheapest sale items available. Prioritize recipes where the total cost per serving is under $3. Focus on items with the highest discount percentage.`;
+
     const itemsToSend = filteredIngredients.slice(0, 100);
     for (const i of itemsToSend) {
       const cat = categorize(i.name);

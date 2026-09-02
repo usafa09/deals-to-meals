@@ -37,6 +37,74 @@ const SITE_FOOTER = `
     <p style="margin-top:12px;font-size:12px;color:#8fb89a;line-height:1.5;max-width:720px;margin-left:auto;margin-right:auto">Dishcount participates in affiliate programs. We may earn a commission from qualifying purchases at no additional cost to you. <a href="/disclosures.html" style="color:#c8d6cb;text-decoration:underline;text-underline-offset:2px">Learn more</a>.</p>
   </footer>`;
 
+// GA4 + Meta Pixel + PostHog, ported verbatim from public/index.html so the SSR
+// pages report into the same properties as the SPA. The interaction-gated loader
+// and 4000ms timeout are intentionally identical - SPA/SSR data consistency beats
+// any per-page tuning. Do not edit here in isolation; edit both or neither.
+const ANALYTICS_HEAD = `
+  <script>
+    // Google Analytics inline init — runs synchronously so gtag() calls during
+    // page load queue to dataLayer. The actual gtag.js script download is
+    // gated below (interaction-or-timeout).
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-41675D42V1', { anonymize_ip: true });
+
+    // Facebook Pixel inline stub + queue — same pattern. fbq() calls queue
+    // until fbevents.js loads and drains the queue.
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1651395862776794');
+    fbq('track', 'PageView');
+
+    // Interaction-gated tracker load. The actual third-party scripts (gtag.js
+    // and fbevents.js) load on the first user interaction (scroll, click,
+    // touch, key, mousemove) OR after 4 seconds — whichever comes first. This
+    // pushes their parse + execution out of the FCP→TTI window for users still
+    // forming a first impression. Past the moment the user interacts, TBT no
+    // longer reflects perceived performance.
+    //
+    // Trade-off: a visitor who lands and bounces within 4s without any
+    // interaction will not be tracked. Acceptable — non-converting cohort,
+    // and we're trading granularity for first-impression speed.
+    var _trackersLoaded = false;
+    function loadTrackers() {
+      if (_trackersLoaded) return;
+      _trackersLoaded = true;
+      var ga = document.createElement('script');
+      ga.async = true;
+      ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-41675D42V1';
+      document.head.appendChild(ga);
+      var fb = document.createElement('script');
+      fb.async = true;
+      fb.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(fb, s);
+    }
+    ['scroll','click','touchstart','keydown','mousemove'].forEach(function(ev) {
+      window.addEventListener(ev, loadTrackers, { once: true, passive: true });
+    });
+    setTimeout(loadTrackers, 4000);
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1651395862776794&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
+  <!-- PostHog -->
+  <script>
+      !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Mi Ri init Vi Gi Rr Wi Ji Bi capture calculateEventProperties tn register register_once register_for_session unregister unregister_for_session an getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync un identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty nn Xi createPersonProfile setInternalOrTestUser sn Hi cn opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ki debug Lr rn getPageViewId captureTraceFeedback captureTraceMetric Di".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+      posthog.init('phc_xgzVu5b8NobAzGooeWqkAySEnNnDo2D9PEMxnxCavmGT', {
+          api_host: 'https://us.i.posthog.com',
+          defaults: '2026-01-30',
+          person_profiles: 'always',
+      })
+  </script>
+`;
+
 const router = Router();
 
 // Single ceiling for any discount percentage this app is willing to assert.
@@ -3104,6 +3172,7 @@ function renderChainPage(bundle) {
     .crm-list li { margin-bottom: 6px; }
     .crm-save { width: 100%; margin-top: 18px; background: var(--orange, #d97706); color: #fff; border: none; border-radius: 999px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; }
   </style>
+${ANALYTICS_HEAD}
 </head>
 <body>
   ${SITE_HEADER}
@@ -3322,6 +3391,7 @@ router.get("/deals", async (req, res, next) => {
     .hb-cta { text-align: center; margin-top: 26px; font-size: 14px; color: var(--muted, #6b6b6b); }
     .hb-cta a { color: var(--orange, #d97706); font-weight: 700; }
   </style>
+${ANALYTICS_HEAD}
 </head>
 <body>
   ${SITE_HEADER}
@@ -3419,6 +3489,7 @@ function renderRecipePage(recipe, chain) {
     .rp-cta { display: block; text-align: center; background: var(--orange, #d97706); color: #fff; font-weight: 700; text-decoration: none; padding: 16px 20px; border-radius: 14px; margin: 28px 0 40px; font-size: 17px; }
     .rp-foot { max-width: 720px; margin: 0 auto 40px; padding: 0 20px; font-size: 13px; color: #6b7a6f; }
   </style>
+${ANALYTICS_HEAD}
 </head>
 <body>
   ${SITE_HEADER}
@@ -3517,6 +3588,7 @@ function renderRecipesIndex(rows) {
     .ri-meta { color: #6b7a6f; font-size: 13px; margin-top: 4px; }
     .ri-empty { max-width: 900px; margin: 40px auto; padding: 0 20px; font-size: 16px; color: #555; }
   </style>
+${ANALYTICS_HEAD}
 </head>
 <body>
   ${SITE_HEADER}

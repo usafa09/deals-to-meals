@@ -2823,7 +2823,25 @@ router.post("/api/cron/xcheck", async (req, res) => {
   const summaries = [];
   let totalVisionCalls = 0;
 
-  for (const [storeKey, slug] of Object.entries(TABLE_SOURCED)) {
+  // ?chain= narrows the audit to one chain. A full run walks all 19 keys at
+  // 1.1s of host throttle each plus a throttle and Vision call per sampled
+  // page, which overruns the ~100s edge timeout — the same reason
+  // /api/cron/refresh-ssr is called once per chain. Absent, behaviour is
+  // unchanged. An unrecognised value is a 400 rather than an empty run, so a
+  // typo cannot read as a clean pass.
+  const chainParam = String(req.query.chain ?? "").trim().toLowerCase();
+  let chainEntries = Object.entries(TABLE_SOURCED);
+  if (chainParam) {
+    chainEntries = chainEntries.filter(([storeKey]) => storeKey.trim().toLowerCase() === chainParam);
+    if (!chainEntries.length) {
+      return res.status(400).json({
+        error: `Unknown chain "${chainParam}"`,
+        valid: Object.keys(TABLE_SOURCED),
+      });
+    }
+  }
+
+  for (const [storeKey, slug] of chainEntries) {
     const started = Date.now();
     const result = { chain: storeKey, slug, checkedAt: new Date().toISOString() };
     try {
